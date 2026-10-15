@@ -8,11 +8,18 @@ use uuid::Uuid;
 use crate::token;
 use crate::AppState;
 
+/// story: e02s02 — transport authz decision for a git operation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum GitOp {
+    UploadPack,
+    ReceivePack,
+}
+
 /// Extensions injected by the transport auth middleware.
 #[derive(Clone, Copy)]
 pub struct TransportUser(pub Uuid);
 
-/// story: e01s02 — resolve HTTP Basic credentials (x-access-token + token value)
+/// story: e02s02 — resolve HTTP Basic credentials (x-access-token + token value)
 /// to the owning user for git transport routes.
 pub async fn require_token(
     State(state): State<AppState>,
@@ -67,20 +74,41 @@ pub async fn smart_http(
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    let repo_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2)",
+    let repo: Option<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
     .bind(&name)
-    .fetch_one(&state.pool)
+    .fetch_optional(&state.pool)
     .await
-    .unwrap_or(false);
-    if !repo_exists {
+    .ok()
+    .flatten();
+    let Some((repo_owner, visibility)) = repo else {
         return StatusCode::NOT_FOUND.into_response();
-    }
+    };
 
     let (parts, body) = request.into_parts();
     let path_info = parts.uri.path().to_string();
+
+    // story: e02s02 — authz before spawning any subprocess.
+    let op = if path_info.contains("git-receive-pack")
+        || query.as_deref().unwrap_or("").contains("git-receive-pack")
+    {
+        GitOp::ReceivePack
+    } else {
+        GitOp::UploadPack
+    };
+    let user = token_user(&parts.headers, &state).await;
+    if let Err((status, extra_headers)) = authorize(op, user, repo_owner, &visibility) {
+        let mut response = (status, "forbidden").into_response();
+        for (name, value) in extra_headers {
+            if let Ok(value) = header::HeaderValue::from_str(value) {
+                response.headers_mut().insert(name, value);
+            }
+        }
+        return response;
+    }
+
     let content_type = parts
         .headers
         .get(header::CONTENT_TYPE)
@@ -175,7 +203,54 @@ fn run_cgi(
     })
 }
 
-/// story: e02s01 — CGI response parse: optional Status header then body.
+/// story: e02s02 — push needs a token whose user owns the repo; private
+/// upload-pack needs any valid token; public upload-pack is open.
+/// story: e02s02 — 401s carry a Basic challenge so git clients retry with
+/// credentials from the remote URL.
+fn challenge() -> Vec<(header::HeaderName, &'static str)> {
+    vec![(header::WWW_AUTHENTICATE, "Basic realm=\"jjhub\"")]
+}
+
+/// story: e02s02 — authz failure the smart_http handler renders.
+type AuthzError = (StatusCode, Vec<(header::HeaderName, &'static str)>);
+
+fn authorize(
+    op: GitOp,
+    user: Option<uuid::Uuid>,
+    repo_owner: uuid::Uuid,
+    visibility: &str,
+) -> Result<(), AuthzError> {
+    match (op, user) {
+        (GitOp::ReceivePack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
+        (GitOp::ReceivePack, Some(uid)) if uid != repo_owner => {
+            Err((StatusCode::FORBIDDEN, Vec::new()))
+        }
+        (GitOp::ReceivePack, Some(_)) => Ok(()),
+        (GitOp::UploadPack, _) if visibility == "public" => Ok(()),
+        (GitOp::UploadPack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
+        (GitOp::UploadPack, Some(_)) => Ok(()),
+    }
+}
+
+/// story: e02s02 — parse Basic credentials from headers to a user id.
+async fn token_user(headers: &axum::http::HeaderMap, state: &AppState) -> Option<uuid::Uuid> {
+    let credentials = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Basic "))
+        .and_then(|v| {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD
+                .decode(v.trim())
+                .ok()
+        })
+        .and_then(|bytes| String::from_utf8(bytes).ok())?;
+    let (username, token_value) = credentials.split_once(':')?;
+    if username != "x-access-token" {
+        return None;
+    }
+    token::authenticate(&state.pool, token_value).await
+}
 fn parse_cgi_response(raw: &[u8]) -> Option<Response> {
     use axum::body::Body;
 

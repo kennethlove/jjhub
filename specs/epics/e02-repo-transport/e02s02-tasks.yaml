@@ -1,7 +1,7 @@
 story_id: e02s02
 title: "Push over HTTP + private repo enforcement"
 spec: e02s02-push-auth-private.md
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e02s02t1
@@ -9,7 +9,7 @@ tasks:
     verify: "cargo test -p server private_repo_enforcement"
     risk: P0
     security: high
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["Auth", "Security Review"]
@@ -18,7 +18,7 @@ tasks:
     verify: "cargo test -p server visibility_toggle"
     risk: P1
     security: medium
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["Security Review"]

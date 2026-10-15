@@ -44,6 +44,7 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>, storage_root: Stri
         .route("/settings", get(routes::settings))
         .route("/settings/tokens", post(routes::create_token))
         .route("/repos", post(routes::create_repo))
+        .route("/{owner}/{name}/settings", post(routes::repo_settings))
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_session,

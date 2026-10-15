@@ -279,6 +279,42 @@ pub async fn repo_page(
     }
 }
 
+#[derive(Deserialize)]
+pub struct VisibilityForm {
+    visibility: String,
+}
+
+pub async fn repo_settings(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    Form(form): Form<VisibilityForm>,
+) -> Response {
+    let visibility = match domain::Visibility::parse(&form.visibility) {
+        Some(v) => v,
+        None => return (StatusCode::UNPROCESSABLE_ENTITY, "invalid visibility").into_response(),
+    };
+    let updated: Option<i64> = match sqlx::query_scalar::<_, i64>(
+        "UPDATE repositories r SET visibility = $3 FROM users u WHERE u.id = r.owner_id AND u.handle = $1 AND r.name = $2 AND r.owner_id = $4 RETURNING 1::bigint",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .bind(visibility.as_str())
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    {
+        Ok(row) => row,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("db: {err}")).into_response(),
+    };
+
+    if updated.is_none() {
+        (StatusCode::NOT_FOUND, "repository not found").into_response()
+    } else {
+        Redirect::to(&format!("/{owner}/{name}")).into_response()
+    }
+}
+
 pub async fn git_whoami(
     axum::extract::Extension(current): axum::extract::Extension<crate::transport::TransportUser>,
 ) -> impl IntoResponse {
