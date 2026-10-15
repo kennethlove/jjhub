@@ -1,0 +1,112 @@
+// story: e01s02
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use tower::ServiceExt;
+
+mod token_crud {
+    use super::*;
+
+    async fn post(
+        pool: sqlx::PgPool,
+        path: &str,
+        body: &str,
+        cookie: Option<&str>,
+    ) -> axum::response::Response {
+        let mut request = Request::post(path)
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        if let Some(cookie) = cookie {
+            request
+                .headers_mut()
+                .insert("cookie", cookie.parse().unwrap());
+        }
+        server::app(pool).oneshot(request).await.unwrap()
+    }
+
+    async fn register(pool: &sqlx::PgPool) -> String {
+        let response = post(
+            pool.clone(),
+            "/register",
+            "email=bob%40example.com&password=correct+horse+battery",
+            None,
+        )
+        .await;
+        response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string()
+    }
+
+    async fn get(pool: sqlx::PgPool, path: &str, cookie: &str) -> axum::response::Response {
+        let mut request = Request::get(path).body(Body::empty()).unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        server::app(pool).oneshot(request).await.unwrap()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn settings_page_has_token_form(pool: sqlx::PgPool) {
+        let cookie = register(&pool).await;
+        let response = get(pool, "/settings", &cookie).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert!(
+            html.contains("token"),
+            "settings must have token UI: {html}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn token_shown_once_then_prefix_only(pool: sqlx::PgPool) {
+        let cookie = register(&pool).await;
+        let response = post(
+            pool.clone(),
+            "/settings/tokens",
+            "label=laptop",
+            Some(&cookie),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let set_cookie = response
+            .headers()
+            .get("set-cookie")
+            .expect("new token flash cookie")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            set_cookie.contains("new_token="),
+            "full token delivered once: {set_cookie}"
+        );
+
+        let response = get(pool, "/settings", &cookie).await;
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert!(html.contains("laptop"), "token label listed");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn revoked_token_stops_authenticating(pool: sqlx::PgPool) {
+        let (plaintext, token_id) = server::token::insert_test_token(&pool).await;
+        assert!(server::token::authenticate(&pool, &plaintext)
+            .await
+            .is_some());
+        server::token::revoke(&pool, token_id).await;
+        assert!(server::token::authenticate(&pool, &plaintext)
+            .await
+            .is_none());
+    }
+}

@@ -3,6 +3,7 @@ use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::Form;
+use axum_extra::extract::CookieJar;
 use serde::Deserialize;
 
 use crate::password::{hash_password, verify_password};
@@ -142,6 +143,7 @@ pub async fn logout() -> Response {
 pub async fn settings(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
 ) -> Response {
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
@@ -149,14 +151,63 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
+    let tokens: Vec<(String, String)> = sqlx::query_as(
+        "SELECT label, prefix FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
+    )
+    .bind(current.0)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let new_token_html = match jar.get("new_token") {
+        Some(cookie) => {
+            let value = cookie.value().to_string();
+            format!(
+                "<p><strong>Copy this token now, it will not be shown again:</strong> <code>{value}</code></p>"
+            )
+        }
+        None => String::new(),
+    };
+
+    let token_rows: String = tokens
+        .iter()
+        .map(|(label, prefix)| format!("<li>{label} — {prefix}…</li>"))
+        .collect();
+
     match email {
         Some(email) => Html(format!(
             r#"<!doctype html><html><body>
 <h1>Settings</h1>
 <p>Signed in as {email}</p>
+<h2>Access tokens</h2>
+{new_token_html}
+<form method="post" action="/settings/tokens">
+<label>Label <input name="label" required></label>
+<button type="submit">Generate token</button>
+</form>
+<ul>{token_rows}</ul>
 </body></html>"#
         ))
         .into_response(),
         None => Redirect::to("/login").into_response(),
     }
+}
+
+#[derive(Deserialize)]
+pub struct TokenForm {
+    label: String,
+}
+
+pub async fn create_token(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<TokenForm>,
+) -> Response {
+    let new = crate::token::create(&state.pool, current.0, &form.label).await;
+    let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+        "new_token",
+        new.plaintext,
+    ));
+    (jar, Redirect::to("/settings")).into_response()
 }

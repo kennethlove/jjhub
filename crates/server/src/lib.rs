@@ -3,6 +3,7 @@ pub mod middleware;
 pub mod password;
 pub mod routes;
 pub mod session;
+pub mod token;
 
 use axum::routing::{get, post};
 use axum::Router;
@@ -31,6 +32,7 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>) -> Router {
     };
     let protected = Router::new()
         .route("/settings", get(routes::settings))
+        .route("/settings/tokens", post(routes::create_token))
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_session,
