@@ -179,7 +179,7 @@ mod repo_create {
 
     // story: e05s01
     #[sqlx::test(migrations = "./migrations")]
-    async fn create_repo_colocates_jj_metadata(pool: sqlx::PgPool) {
+    async fn repo_create_colocated(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(&pool, &root).await;
         let response = post_form(
