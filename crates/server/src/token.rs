@@ -78,7 +78,7 @@ fn verify(plaintext: &str, token_hash: &str) -> bool {
 /// Test helper: insert a token row directly, returning its plaintext and id.
 pub async fn insert_test_token(pool: &PgPool) -> (String, Uuid) {
     let user_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ('tokentest@example.com', 'x') RETURNING id",
+        "INSERT INTO users (email, password_hash, handle) VALUES ('tokentest@example.com', 'x', 'tokentest') RETURNING id",
     )
     .fetch_one(pool)
     .await

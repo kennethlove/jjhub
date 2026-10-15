@@ -71,7 +71,10 @@ pub fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
 }
 
-pub fn validate_registration(email: &str, password: &str) -> Result<String, RegistrationError> {
+pub fn validate_registration(
+    email: &str,
+    password: &str,
+) -> Result<(String, String), RegistrationError> {
     let email = normalize_email(email);
     if !is_valid_email(&email) {
         return Err(RegistrationError::InvalidEmail);
@@ -79,7 +82,30 @@ pub fn validate_registration(email: &str, password: &str) -> Result<String, Regi
     if password.chars().count() < MIN_PASSWORD_LEN {
         return Err(RegistrationError::PasswordTooShort);
     }
-    Ok(email)
+    let handle = handle_from_email(&email);
+    Ok((email, handle))
+}
+
+/// story: e02s01 — default handle = email local part, lowercased, sanitized.
+pub fn handle_from_email(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("user");
+    let cleaned: String = local
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    if cleaned.is_empty() {
+        "u".to_string()
+    } else if cleaned.starts_with(['.', '-']) {
+        format!("u{}", cleaned.trim_matches(['.', '-']))
+    } else {
+        cleaned
+    }
 }
 
 fn is_valid_email(email: &str) -> bool {

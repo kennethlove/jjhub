@@ -11,17 +11,36 @@ mod repo_model {
 
     #[test]
     fn invalid_names_fail() {
-        for name in ["", ".hidden", "-dash", "Upper", "has space", "a/b", "../up", "a\0b", &"x".repeat(101)] {
+        for name in [
+            "",
+            ".hidden",
+            "-dash",
+            "Upper",
+            "has space",
+            "a/b",
+            "../up",
+            "a\0b",
+            &"x".repeat(101),
+        ] {
             assert!(!domain::repo_name_valid(name), "{name:?} should be invalid");
         }
     }
 
     #[test]
     fn visibility_parse() {
-        assert_eq!(domain::Visibility::parse("public"), Some(domain::Visibility::Public));
-        assert_eq!(domain::Visibility::parse("private"), Some(domain::Visibility::Private));
+        assert_eq!(
+            domain::Visibility::parse("public"),
+            Some(domain::Visibility::Public)
+        );
+        assert_eq!(
+            domain::Visibility::parse("private"),
+            Some(domain::Visibility::Private)
+        );
         assert_eq!(domain::Visibility::parse("secret"), None);
-        assert_eq!(VisibilityError::BadVisibility, VisibilityError::BadVisibility);
+        assert_eq!(
+            VisibilityError::BadVisibility,
+            VisibilityError::BadVisibility
+        );
     }
 
     #[test]
