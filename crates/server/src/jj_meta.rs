@@ -28,30 +28,34 @@ pub async fn init(meta_path: &Path, bare_path: &Path) -> Result<(), String> {
     }
     std::fs::create_dir_all(meta_path).map_err(|e| e.to_string())?;
 
-    let (workspace, repo) =
-        jj_lib::workspace::Workspace::init_external_git(&settings(), meta_path, bare_path)
-            .await
+    // The whole jj sequence runs inside one `spawn_blocking`: jj-lib's
+    // Workspace/Repo carry `!Send` trait objects (WorkingCopyFactory, backend
+    // Fn pointers) and MutableRepo holds RefCell fields, so none of it may
+    // live across an `.await` on the handler's thread. Kata does the same.
+    // `auto_local_bookmark: true` maps plain git branches (trunk) to local jj
+    // bookmarks, which is what the kata sidecar resolves. Callers re-open the
+    // result later via `Workspace::load`.
+    let meta = meta_path.to_owned();
+    let bare = bare_path.to_owned();
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let rt = tokio::runtime::Handle::current();
+        let (workspace, repo) = rt
+            .block_on(jj_lib::workspace::Workspace::init_external_git(
+                &settings(),
+                &meta,
+                &bare,
+            ))
             .map_err(|e| format!("jj workspace init: {e}"))?;
 
-    // Import existing git refs. `auto_local_bookmark: true` maps plain git
-    // branches (trunk) to local jj bookmarks, which is what the kata sidecar
-    // resolves. jj-lib's MutableRepo holds RefCell fields that are !Send, so
-    // the whole jj transaction runs inside one spawn_blocking (kata does the
-    // same). The workspace handle is dropped after import; callers re-open
-    // via `Workspace::load`.
-    tokio::task::spawn_blocking(move || -> Result<(), String> {
-        let handle = tokio::runtime::Handle::current();
         let options = jj_lib::git::GitImportOptions {
             auto_local_bookmark: true,
             abandon_unreachable_commits: false,
             remote_auto_track_bookmarks: Default::default(),
         };
         let mut tx = repo.start_transaction();
-        handle
-            .block_on(jj_lib::git::import_refs(tx.repo_mut(), &options))
+        rt.block_on(jj_lib::git::import_refs(tx.repo_mut(), &options))
             .map_err(|e| format!("import_refs: {e}"))?;
-        handle
-            .block_on(tx.commit("jjhub: import refs at repo creation"))
+        rt.block_on(tx.commit("jjhub: import refs at repo creation"))
             .map_err(|e| format!("tx commit: {e}"))?;
         drop(workspace);
         Ok(())

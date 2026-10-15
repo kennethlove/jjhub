@@ -223,11 +223,10 @@ pub async fn create_repo(
         .await
         .unwrap_or_default();
 
-    let bare = domain::storage_path(&state.storage_root, &owner, &name);
-    if let Err(err) = crate::repo::init_bare(&bare) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, err).into_response();
-    }
-
+    // story: e05s01 — claim the row FIRST so the unique constraint is the
+    // authoritative conflict check (never disk state), then create storage.
+    // A duplicate name now returns 409 without touching disk, and orphaned
+    // bare/meta dirs from a past failed run can't break a retry.
     let inserted: Result<(uuid::Uuid,), _> = sqlx::query_as(
         "INSERT INTO repositories (owner_id, name, visibility) VALUES ($1, $2, $3) RETURNING id",
     )
@@ -237,19 +236,46 @@ pub async fn create_repo(
     .fetch_one(&state.pool)
     .await;
 
-    match inserted {
-        Ok(_) => Redirect::to(&format!("/{owner}/{name}")).into_response(),
+    let repo_id = match inserted {
+        Ok((id,)) => id,
         Err(sqlx::Error::Database(db))
             if db.constraint() == Some("repositories_owner_id_name_key") =>
         {
-            (StatusCode::CONFLICT, "repository already exists").into_response()
+            return (StatusCode::CONFLICT, "repository already exists").into_response();
         }
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("db error: {err}"),
-        )
-            .into_response(),
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("db error: {err}"),
+            )
+                .into_response();
+        }
+    };
+
+    // Roll the DB row back if storage creation fails, so no repo row points
+    // at a missing store.
+    let rollback_row = || async {
+        let _ = sqlx::query("DELETE FROM repositories WHERE id = $1")
+            .bind(repo_id)
+            .execute(&state.pool)
+            .await;
+    };
+
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    if let Err(err) = crate::repo::init_bare(&bare) {
+        rollback_row().await;
+        return (StatusCode::INTERNAL_SERVER_ERROR, err).into_response();
     }
+
+    // story: e05s01 — colocate jj metadata; roll back bare repo + row on failure.
+    let meta = domain::meta_path(&state.storage_root, &owner, &name);
+    if let Err(err) = crate::jj_meta::init(&meta, &bare).await {
+        let _ = std::fs::remove_dir_all(&bare);
+        rollback_row().await;
+        return (StatusCode::INTERNAL_SERVER_ERROR, err).into_response();
+    }
+
+    Redirect::to(&format!("/{owner}/{name}")).into_response()
 }
 
 pub async fn repo_page(
