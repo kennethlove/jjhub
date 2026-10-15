@@ -9,7 +9,7 @@ tasks:
     verify: "cargo run & curl -sf http://localhost:3000/healthz"
     risk: P2
     security: low
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["infra", "unit"]
