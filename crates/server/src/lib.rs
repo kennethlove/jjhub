@@ -25,6 +25,8 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>) -> Router {
     Router::new()
         .route("/healthz", get(routes::healthz))
         .route("/register", get(routes::register_form).post(routes::register))
+        .route("/login", get(routes::login_form).post(routes::login))
+        .route("/logout", post(routes::logout))
         .route("/settings", get(routes::settings))
         .with_state(state)
 }

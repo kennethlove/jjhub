@@ -5,7 +5,7 @@ use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
-use crate::password::hash_password;
+use crate::password::{hash_password, verify_password};
 use crate::session::{self, SESSION_COOKIE};
 use crate::AppState;
 
@@ -81,6 +81,57 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
         StatusCode::SEE_OTHER,
         [(header::SET_COOKIE, cookie), (header::LOCATION, "/settings".to_string())],
         Redirect::to("/settings"),
+    )
+        .into_response()
+}
+
+pub async fn login_form() -> Html<&'static str> {
+    Html(
+        r#"<!doctype html><html><body>
+<h1>Log in</h1>
+<form method="post" action="/login">
+<label>Email <input type="email" name="email" required></label>
+<label>Password <input type="password" name="password" required></label>
+<button type="submit">Log in</button>
+</form>
+</body></html>"#,
+    )
+}
+
+#[derive(Deserialize)]
+pub struct LoginForm {
+    email: String,
+    password: String,
+}
+
+pub async fn login(
+    State(state): State<AppState>,
+    Form(form): Form<LoginForm>,
+) -> Response {
+    let email = domain::normalize_email(&form.email);
+    let row: Option<(uuid::Uuid, String)> =
+        sqlx::query_as("SELECT id, password_hash FROM users WHERE email = $1")
+            .bind(&email)
+            .fetch_optional(&state.pool)
+            .await
+            .unwrap_or(None);
+
+    match row {
+        Some((id, hash)) if verify_password(&form.password, &hash) => session_response(&state, id),
+        _ => StatusCode::UNAUTHORIZED.into_response(),
+    }
+}
+
+pub async fn logout() -> Response {
+    (
+        StatusCode::SEE_OTHER,
+        [
+            (
+                header::SET_COOKIE,
+                format!("{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"),
+            ),
+            (header::LOCATION, "/login".to_string()),
+        ],
     )
         .into_response()
 }
