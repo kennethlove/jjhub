@@ -1,0 +1,33 @@
+story_id: e05s02
+title: "kata sidecar service in compose, pointed at repo store"
+spec: e05s02-kata-sidecar.md
+status: failing
+bcps: 5
+tasks:
+  - id: e05s02t1
+    description: "pin kata (commit-pinned build stage) + sidecar service in docker-compose with healthcheck, unpublished ports"
+    verify: "verify-script: docker compose up -d && docker compose ps shows app+kata healthy"
+    risk: P1
+    security: low
+    status: failing
+    allure:
+      severity: high
+      categories: ["integration"]
+  - id: e05s02t2
+    description: "backfill command: create missing metadata dirs for existing repos, idempotent"
+    verify: "cargo test -p server backfill_meta"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["unit"]
+  - id: e05s02t3
+    description: "sidecar load proof: kata opens jjhub-created repo after push, lists the change"
+    verify: "verify-script: scripts/e2e-sidecar.sh (create, push, query sidecar, assert change listed)"
+    risk: P0
+    security: none
+    status: failing
+    allure:
+      severity: critical
+      categories: ["integration"]

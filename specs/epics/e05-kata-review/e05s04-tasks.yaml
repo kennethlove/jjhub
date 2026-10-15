@@ -1,0 +1,24 @@
+story_id: e05s04
+title: "MR pages link/embed kata review UI per change-id"
+spec: e05s04-mr-review-links.md
+status: failing
+bcps: 5
+tasks:
+  - id: e05s04t1
+    description: "Review link on MR detail page targeting /review/{owner}/{name}/ for the MR's change-id; absent when no metadata"
+    verify: "cargo test -p server mr_review_link"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["unit"]
+  - id: e05s04t2
+    description: "stack view shows per-MR review links in stack order"
+    verify: "cargo test -p server stack_review_links"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["unit"]
