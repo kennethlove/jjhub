@@ -103,23 +103,54 @@ mod git_transport_public {
         let seed = tempfile::tempdir().unwrap();
         let out = std::process::Command::new("git")
             .args(["init", "-b", "trunk"])
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
             .arg(seed.path())
             .output()
             .unwrap();
         assert!(out.status.success());
         std::fs::write(seed.path().join("hello.txt"), "hello jjhub\n").unwrap();
         for args in [
-            ["add", "."].as_slice(),
-            ["-c", "user.email=alice@example.com", "-c", "user.name=Alice", "commit", "-m", "init"]
-                .as_slice(),
+            &["add", "."][..],
+            &[
+                "-c",
+                "user.email=alice@example.com",
+                "-c",
+                "user.name=Alice",
+                "commit",
+                "-m",
+                "init",
+            ][..],
         ] {
             let out = std::process::Command::new("git")
-                .arg(args)
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_SYSTEM", "/dev/null")
                 .current_dir(seed.path())
                 .output()
                 .unwrap();
-            assert!(out.status.success(), "git {:?}: {}", args, String::from_utf8_lossy(&out.stderr));
+            assert!(
+                out.status.success(),
+                "git {:?}: {}",
+                args,
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
+
+        // story: e02s01 — push seed commit directly into the bare repo (the
+        // receive-pack HTTP path is covered by e02s02's push-auth story).
+        let out = std::process::Command::new("git")
+            .args(["push", bare.to_str().unwrap(), "trunk"])
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .current_dir(seed.path())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "seed push failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
 
         // serve via oneshot? real git needs a listener — spawn the app on an ephemeral port
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -130,11 +161,20 @@ mod git_transport_public {
         });
 
         let clone = tempfile::tempdir().unwrap();
-        let out = std::process::Command::new("git")
-            .args(["clone", &format!("http://{addr}/git/alice/demo.git")])
-            .arg(clone.path())
-            .output()
-            .unwrap();
+        // story: e02s01 — blocking git would stall the single-threaded test
+        // runtime that also drives the in-test server.
+        let clone_path = clone.path().to_path_buf();
+        let out = tokio::task::spawn_blocking(move || {
+            std::process::Command::new("git")
+                .args(["clone", &format!("http://{addr}/git/alice/demo.git")])
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_SYSTEM", "/dev/null")
+                .arg(clone_path)
+                .output()
+                .unwrap()
+        })
+        .await
+        .unwrap();
         assert!(
             out.status.success(),
             "git clone failed: {}",

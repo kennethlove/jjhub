@@ -63,10 +63,24 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>, storage_root: Stri
 }
 
 fn transport_routes(state: AppState) -> Router<AppState> {
-    Router::new()
+    let whoami = Router::new()
         .route("/git/whoami", get(routes::git_whoami))
         .route_layer(axum::middleware::from_fn_with_state(
-            state,
+            state.clone(),
             transport::require_token,
-        ))
+        ));
+    whoami
+        .route(
+            "/git/{owner}/{name}/info/refs",
+            get(transport::smart_http).post(transport::smart_http),
+        )
+        .route(
+            "/git/{owner}/{name}/git-upload-pack",
+            post(transport::smart_http),
+        )
+        .route(
+            "/git/{owner}/{name}/git-receive-pack",
+            post(transport::smart_http),
+        )
+        .with_state(state)
 }
