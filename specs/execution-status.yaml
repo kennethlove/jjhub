@@ -2,10 +2,10 @@
 
 epics:
   e01-accounts-auth:
-    status: pending
+    status: passing
     stories:
-      e01s01: pending
-      e01s02: pending
+      e01s01: passing
+      e01s02: passing
   e02-repo-transport:
     status: pending
     stories:

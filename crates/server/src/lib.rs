@@ -4,6 +4,7 @@ pub mod password;
 pub mod routes;
 pub mod session;
 pub mod token;
+pub mod transport;
 
 use axum::routing::{get, post};
 use axum::Router;
@@ -46,5 +47,15 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>) -> Router {
         .route("/login", get(routes::login_form).post(routes::login))
         .route("/logout", post(routes::logout))
         .merge(protected)
+        .merge(transport_routes(state.clone()))
         .with_state(state)
+}
+
+fn transport_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/git/whoami", get(routes::git_whoami))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state,
+            transport::require_token,
+        ))
 }

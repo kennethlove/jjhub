@@ -193,6 +193,12 @@ pub async fn settings(
     }
 }
 
+pub async fn git_whoami(
+    axum::extract::Extension(current): axum::extract::Extension<crate::transport::TransportUser>,
+) -> impl IntoResponse {
+    axum::Json(serde_json::json!({ "user_id": current.0.to_string() }))
+}
+
 #[derive(Deserialize)]
 pub struct TokenForm {
     label: String,
