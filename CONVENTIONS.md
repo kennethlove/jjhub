@@ -22,7 +22,8 @@ All changes to this repository MUST follow [Conventional Commits 1.0.0](https://
 
 This repo is a colocated jj + git repo. Remote `origin` is GitHub.
 
-- No direct work on `main`. Every task MUST start via `kickoff-branch` (jj workspace or git worktree).
+- All work happens in a jj workspace on a `feature/*` or `fix/*` bookmark. NEVER edit in the primary checkout or on `trunk` directly.
+- No direct work on `main` or `trunk`. Every task MUST start via `kickoff-branch` (jj workspace add).
 - Prefer jj commands (`jj new`, `jj describe`, `jj bookmark`) for day-to-day work. Colocated git HEAD is detached — do not interpret it as branch state.
 - Never merge a pull request on your own. The human merges.
 - Never open a PR before formatting, linting, and tests all pass.
