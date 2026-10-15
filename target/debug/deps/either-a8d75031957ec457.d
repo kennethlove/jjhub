@@ -1,0 +1,11 @@
+/Users/klove/ghq/github.com/kennethlove/jjhub-e01s01/target/debug/deps/either-a8d75031957ec457.d: /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/lib.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged_optional.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/iterator.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/into_either.rs
+
+/Users/klove/ghq/github.com/kennethlove/jjhub-e01s01/target/debug/deps/libeither-a8d75031957ec457.rlib: /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/lib.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged_optional.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/iterator.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/into_either.rs
+
+/Users/klove/ghq/github.com/kennethlove/jjhub-e01s01/target/debug/deps/libeither-a8d75031957ec457.rmeta: /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/lib.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged_optional.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/iterator.rs /Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/into_either.rs
+
+/Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/lib.rs:
+/Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged.rs:
+/Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/serde_untagged_optional.rs:
+/Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/iterator.rs:
+/Users/klove/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.19.0/src/into_either.rs:

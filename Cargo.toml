@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["crates/server", "crates/domain"]
+
+[workspace.dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
+tera = "1"
+argon2 = "0.5"
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
