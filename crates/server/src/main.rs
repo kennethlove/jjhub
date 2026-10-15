@@ -14,9 +14,10 @@ async fn main() {
         .await
         .expect("run migrations");
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    // story: e02s01 — bind all interfaces so docker port mapping works.
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
-        .expect("failed to bind 127.0.0.1:3000");
+        .expect("failed to bind 0.0.0.0:3000");
     axum::serve(listener, app(pool))
         .await
         .expect("server error");

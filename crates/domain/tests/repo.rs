@@ -1,6 +1,6 @@
 // story: e02s01
 mod repo_model {
-    use domain::{repo_name_valid, storage_path, VisibilityError};
+    use domain::{storage_path, VisibilityError};
 
     #[test]
     fn valid_names_pass() {
