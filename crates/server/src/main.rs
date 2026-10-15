@@ -15,9 +15,10 @@ async fn main() {
         .expect("run migrations");
 
     // story: e02s01 — bind all interfaces so docker port mapping works.
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+    let port = std::env::var("JJHUB_PORT").unwrap_or_else(|_| "3000".into());
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
-        .expect("failed to bind 0.0.0.0:3000");
+        .unwrap_or_else(|e| panic!("failed to bind 0.0.0.0:{port}: {e}"));
     axum::serve(listener, app(pool))
         .await
         .expect("server error");

@@ -18,7 +18,7 @@ tasks:
     verify: "cargo test -p server repo_create"
     risk: P1
     security: medium
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["Security Review", "unit"]
@@ -27,7 +27,7 @@ tasks:
     verify: "cargo test -p server git_transport_public"
     risk: P0
     security: high
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["Security Review", "integration"]
@@ -36,7 +36,7 @@ tasks:
     verify: "verify-script: run scripts/e2e-clone.sh (jj init fixture, push, clone to tmp, assert contents)"
     risk: P0
     security: none
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["integration"]
