@@ -1,0 +1,33 @@
+story_id: e05s03
+title: "Auth proxy: jjhub session/token to kata header-auth"
+spec: e05s03-auth-proxy.md
+status: failing
+bcps: 5
+tasks:
+  - id: e05s03t1
+    description: "/review/** proxy route: session/token auth first, forward with trust header, strip client-supplied trust header"
+    verify: "cargo test -p server review_proxy_auth"
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]
+  - id: e05s03t2
+    description: "repo authorization on proxy: public read for logged-in, owner-only for private (404 no-leak)"
+    verify: "cargo test -p server review_proxy_authz"
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]
+  - id: e05s03t3
+    description: "KATA_TRUST_SECRET config + kata configured to trust header; compose wiring"
+    verify: "verify-script: scripts/e2e-review-proxy.sh (spoofed header rejected, owner reaches UI)"
+    risk: P1
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]

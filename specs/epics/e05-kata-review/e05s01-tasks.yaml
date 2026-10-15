@@ -1,0 +1,33 @@
+story_id: e05s01
+title: "Colocate jj metadata beside bare repo at creation"
+spec: e05s01-colocate-jj-metadata.md
+status: failing
+bcps: 3
+tasks:
+  - id: e05s01t1
+    description: "jj-lib 0.41 dependency + metadata init module (Workspace-compatible layout beside bare repo)"
+    verify: "cargo test -p server jj_metadata_init"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["unit"]
+  - id: e05s01t2
+    description: "wire into create-repo flow transactionally (bare + metadata + row, or nothing); rollback test"
+    verify: "cargo test -p server repo_create_colocated"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["integration"]
+  - id: e05s01t3
+    description: "kata-side load proof: Workspace::load opens created pair, reads trunk tree"
+    verify: "cargo test -p server workspace_load_proof"
+    risk: P0
+    security: none
+    status: failing
+    allure:
+      severity: critical
+      categories: ["integration"]
