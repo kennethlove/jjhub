@@ -176,4 +176,62 @@ mod repo_create {
             .unwrap();
         assert_eq!(location, "/login");
     }
+
+    // story: e05s01
+    #[sqlx::test(migrations = "./migrations")]
+    async fn create_repo_colocates_jj_metadata(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, &root).await;
+        let response = post_form(
+            pool.clone(),
+            &root,
+            "/repos",
+            "name=demo&visibility=public",
+            &cookie,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+
+        let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
+        let meta = domain::meta_path(root.path().to_str().unwrap(), "alice", "demo");
+        assert!(bare.join("HEAD").exists(), "bare repo at {bare:?}");
+        assert!(
+            meta.join(".jj").exists(),
+            "jj metadata colocated at {meta:?}"
+        );
+    }
+
+    // story: e05s01 — no half-created repos: metadata failure rolls back bare + row.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn metadata_failure_rolls_back_creation(pool: sqlx::PgPool) {
+        use tower::Service;
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, &root).await;
+
+        // Make the meta dir un-creatable: a FILE occupies the `.meta` prefix
+        // path, so create_dir_all("…/.meta/alice/demo") fails.
+        std::fs::write(root.path().join(".meta"), b"not a dir").unwrap();
+
+        let mut router = app(pool.clone(), &root);
+        let mut request = Request::post("/repos")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from("name=demo&visibility=public"))
+            .unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response = router.call(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
+        assert!(
+            !bare.exists(),
+            "bare repo must be rolled back on metadata failure"
+        );
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM repositories")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "no repo row on metadata failure");
+    }
 }
