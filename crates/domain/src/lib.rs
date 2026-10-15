@@ -50,6 +50,16 @@ pub fn storage_path(root: &str, owner: &str, name: &str) -> std::path::PathBuf {
         .join(format!("{name}.git"))
 }
 
+/// story: e05s01 — jj workspace metadata path, colocated beside the bare
+/// repo. The kata sidecar loads this dir via `Workspace::load`.
+pub fn meta_path(root: &str, owner: &str, name: &str) -> std::path::PathBuf {
+    debug_assert!(repo_name_valid(name));
+    std::path::Path::new(root)
+        .join(".meta")
+        .join(owner)
+        .join(name)
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum RegistrationError {
     InvalidEmail,

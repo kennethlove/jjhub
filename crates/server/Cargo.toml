@@ -18,6 +18,7 @@ serde.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 domain = { path = "../domain" }
+jj-lib = "0.41"
 axum-extra = { version = "0.10", features = ["cookie"] }
 base64 = "0.22"
 serde_json = "1"
