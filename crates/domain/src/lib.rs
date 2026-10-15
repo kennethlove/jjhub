@@ -2,6 +2,53 @@
 use std::fmt;
 
 pub const MIN_PASSWORD_LEN: usize = 10;
+pub const MAX_REPO_NAME_LEN: usize = 100;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Visibility {
+    Public,
+    Private,
+}
+
+impl Visibility {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "public" => Some(Visibility::Public),
+            "private" => Some(Visibility::Private),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Visibility::Public => "public",
+            Visibility::Private => "private",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum VisibilityError {
+    BadVisibility,
+}
+
+/// story: e02s01 — repo names: ^[a-z0-9][a-z0-9._-]{0,99}$
+pub fn repo_name_valid(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MAX_REPO_NAME_LEN
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
+        && !name.starts_with(['.', '-'])
+}
+
+/// story: e02s01 — safe storage path: validated owner/name only, then join.
+pub fn storage_path(root: &str, owner: &str, name: &str) -> std::path::PathBuf {
+    debug_assert!(repo_name_valid(name));
+    std::path::Path::new(root)
+        .join(owner)
+        .join(format!("{name}.git"))
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RegistrationError {
