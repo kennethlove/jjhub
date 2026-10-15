@@ -8,8 +8,6 @@ use server::app;
 
 async fn get(path: &str) -> (StatusCode, String) {
     let response = app()
-        .await
-        .unwrap()
         .oneshot(Request::get(path).body(Body::empty()).unwrap())
         .await
         .unwrap();
