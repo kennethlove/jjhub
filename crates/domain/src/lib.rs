@@ -13,7 +13,9 @@ impl fmt::Display for RegistrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RegistrationError::InvalidEmail => write!(f, "invalid email address"),
-            RegistrationError::PasswordTooShort => write!(f, "password must be at least {MIN_PASSWORD_LEN} characters"),
+            RegistrationError::PasswordTooShort => {
+                write!(f, "password must be at least {MIN_PASSWORD_LEN} characters")
+            }
         }
     }
 }

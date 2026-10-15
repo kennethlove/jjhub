@@ -1,8 +1,8 @@
 // story: e01s01
-use axum::Form;
 use axum::extract::State;
-use axum::http::{StatusCode, header};
+use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::Form;
 use serde::Deserialize;
 
 use crate::password::{hash_password, verify_password};
@@ -32,10 +32,7 @@ pub async fn register_form() -> Html<&'static str> {
     )
 }
 
-pub async fn register(
-    State(state): State<AppState>,
-    Form(form): Form<RegisterForm>,
-) -> Response {
+pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
     let email = match domain::validate_registration(&form.email, &form.password) {
         Ok(email) => email,
         Err(err) => return (StatusCode::UNPROCESSABLE_ENTITY, err.to_string()).into_response(),
@@ -53,18 +50,24 @@ pub async fn register(
         return (StatusCode::CONFLICT, "email already registered").into_response();
     }
 
-    let user_id: uuid::Uuid = match sqlx::query_scalar("INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id")
-        .bind(&email)
-        .bind(&password_hash)
-        .fetch_one(&state.pool)
-        .await
+    let user_id: uuid::Uuid = match sqlx::query_scalar(
+        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
+    )
+    .bind(&email)
+    .bind(&password_hash)
+    .fetch_one(&state.pool)
+    .await
     {
         Ok(id) => id,
         Err(sqlx::Error::Database(db)) if db.constraint() == Some("users_email_key") => {
             return (StatusCode::CONFLICT, "email already registered").into_response()
         }
         Err(err) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("db error: {err}")).into_response()
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("db error: {err}"),
+            )
+                .into_response()
         }
     };
 
@@ -79,7 +82,10 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
     );
     (
         StatusCode::SEE_OTHER,
-        [(header::SET_COOKIE, cookie), (header::LOCATION, "/settings".to_string())],
+        [
+            (header::SET_COOKIE, cookie),
+            (header::LOCATION, "/settings".to_string()),
+        ],
         Redirect::to("/settings"),
     )
         .into_response()
@@ -104,10 +110,7 @@ pub struct LoginForm {
     password: String,
 }
 
-pub async fn login(
-    State(state): State<AppState>,
-    Form(form): Form<LoginForm>,
-) -> Response {
+pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -> Response {
     let email = domain::normalize_email(&form.email);
     let row: Option<(uuid::Uuid, String)> =
         sqlx::query_as("SELECT id, password_hash FROM users WHERE email = $1")
@@ -138,40 +141,22 @@ pub async fn logout() -> Response {
 
 pub async fn settings(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
 ) -> Response {
-    let cookie_value = headers
-        .get(header::COOKIE)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| {
-            v.split(';')
-                .map(str::trim)
-                .find_map(|pair| pair.strip_prefix(&format!("{SESSION_COOKIE}=")))
-                .map(str::to_string)
-        });
-
-    let user_id = cookie_value
-        .and_then(|value| session::verify(&state.session_secret, &value));
-
-    match user_id {
-        Some(id) => {
-            let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
-                .bind(id)
-                .fetch_optional(&state.pool)
-                .await
-                .ok()
-                .flatten();
-            match email {
-                Some(email) => Html(format!(
-                    r#"<!doctype html><html><body>
+    let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(current.0)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+    match email {
+        Some(email) => Html(format!(
+            r#"<!doctype html><html><body>
 <h1>Settings</h1>
 <p>Signed in as {email}</p>
 </body></html>"#
-                ))
-                .into_response(),
-                None => Redirect::to("/login").into_response(),
-            }
-        }
+        ))
+        .into_response(),
         None => Redirect::to("/login").into_response(),
     }
 }
