@@ -26,7 +26,13 @@ epics:
     delta: ADDED
   - id: e04
     slug: review-ci
-    title: "Revision-scoped review threads + CI status rendering"
+    title: "CI status rendering (comment threads moved to e05)"
     wsjf: 8
     bcp_total: 10
+    delta: ADDED
+  - id: e05
+    slug: kata-review
+    title: "kata sidecar review layer (spike-validated)"
+    wsjf: 18
+    bcp_total: 18
     delta: ADDED

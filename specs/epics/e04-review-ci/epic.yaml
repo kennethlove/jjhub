@@ -1,13 +1,14 @@
 epic: e04
 slug: review-ci
-title: "Revision-scoped review threads + CI status rendering"
+title: "CI status rendering (comment threads moved to e05 kata sidecar)"
 scope_ref: specs/product/SCOPE_LATEST.yaml
 delta: ADDED
 stories:
   - id: e04s01
     title: "Revision-scoped comment threads on MR diffs"
-    bcps: 5
-    delta: ADDED
+    bcps: 0
+    delta: REMOVED
+    note: "moved to e05 kata sidecar per SPIKE-kata-review-integration.md"
   - id: e04s02
     title: "CI status API + status rendering on MR"
     bcps: 5
