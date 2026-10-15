@@ -1,13 +1,24 @@
 story_id: e02s02
 title: "Push over HTTP + private repo enforcement"
-status: pending
+spec: e02s02-push-auth-private.md
+status: failing
 bcps: 5
 tasks:
   - id: e02s02t1
     description: "git transport requires token auth for push always; for clone when repo private (invariant 6)"
     verify: "cargo test -p server private_repo_enforcement"
-    status: pending
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]
   - id: e02s02t2
     description: "visibility toggle on repo settings page (owner only)"
     verify: "cargo test -p server visibility_toggle"
-    status: pending
+    risk: P1
+    security: medium
+    status: failing
+    allure:
+      severity: high
+      categories: ["Security Review"]

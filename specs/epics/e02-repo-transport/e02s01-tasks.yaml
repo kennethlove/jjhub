@@ -1,21 +1,42 @@
 story_id: e02s01
 title: "Create repo, bare storage, repo page, clone over HTTP (public happy path)"
-status: pending
+spec: e02s01-repo-create-clone.md
+status: failing
 bcps: 8
 tasks:
   - id: e02s01t1
     description: "repos table migration (owner, name, visibility, trunk setting default trunk, merge setting default squash) + Repo domain type"
     verify: "cargo test -p domain repo_model"
-    status: pending
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["domain", "unit"]
   - id: e02s01t2
     description: "create-repo flow; bare git repo init under configured storage root; repo landing page (Tera)"
     verify: "cargo test -p server repo_create"
-    status: pending
+    risk: P1
+    security: medium
+    status: failing
+    allure:
+      severity: high
+      categories: ["Security Review", "unit"]
   - id: e02s01t3
-    description: "git smart HTTP receive-pack + upload-pack for bare repos (gix / git2 exec layer)"
+    description: "git smart HTTP receive-pack + upload-pack via git http-backend CGI"
     verify: "cargo test -p server git_transport_public"
-    status: pending
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Security Review", "integration"]
   - id: e02s01t4
     description: "end-to-end: jj git push then jj git clone against running server"
-    verify: "verify-script: run e2e script scripts/e2e-clone.sh (jj init fixture, push, clone to tmp, assert contents)"
-    status: pending
+    verify: "verify-script: run scripts/e2e-clone.sh (jj init fixture, push, clone to tmp, assert contents)"
+    risk: P0
+    security: none
+    status: failing
+    allure:
+      severity: critical
+      categories: ["integration"]
