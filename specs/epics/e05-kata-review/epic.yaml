@@ -1,0 +1,23 @@
+epic: e05
+slug: kata-review
+title: "kata sidecar review layer (spike-validated)"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+spike_ref: specs/archive/spikes/SPIKE-kata-review-integration.md
+delta: ADDED
+stories:
+  - id: e05s01
+    title: "Colocate jj metadata beside bare repo at creation"
+    bcps: 3
+    delta: ADDED
+  - id: e05s02
+    title: "kata sidecar service in compose, pointed at repo store"
+    bcps: 5
+    delta: ADDED
+  - id: e05s03
+    title: "Auth proxy: jjhub session/token to kata header-auth"
+    bcps: 5
+    delta: ADDED
+  - id: e05s04
+    title: "MR pages link/embed kata review UI per change-id"
+    bcps: 5
+    delta: ADDED
