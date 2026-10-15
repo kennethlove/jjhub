@@ -1,0 +1,40 @@
+# specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
+feature_name: "jjhub"
+problem_statement: >
+  Git forges lose review identity on force-push, treat stacks as metadata, and cannot
+  represent jj's conflict commits or operation log. jj users rewrite history constantly;
+  existing hosting fights that workflow. jjhub is a forge-style hosting service for
+  Jujutsu repositories built around jj's model: change-id anchored reviews,
+  edit-in-place revision tracking, and stacks derived from the commit graph.
+constraints:
+  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres (day one)"
+  - "Solo self-hosters are the MVP target; commercial service path later"
+  - "Public open source codebase"
+  - "HTTP(S) smart git + token auth in MVP; SSH follows later"
+  - "Local accounts in MVP; OIDC later"
+  - "No CI runners in MVP — render externally posted statuses only"
+  - "Conventional Commits without emoji; TDD where possible; beads for task tracking"
+out_of_scope:
+  - "Issues tracker"
+  - "User profiles beyond account"
+  - "Organizations / teams"
+  - "SSH transport"
+  - "OIDC auth"
+  - "CI runners"
+  - "Conflict-tolerant hosting (post-MVP)"
+  - "Operation log audit UI (post-MVP)"
+  - "Server-side immutability policy (post-MVP)"
+  - "Revset search API (post-MVP)"
+key_decisions:
+  - decision: "Change-id header anchors MR identity, not branch tip hash"
+    rationale: "Survives rewrite/rebase/squash; the core jj-native review model"
+  - decision: "Stack parentage derived from commit parents, not PR metadata"
+    rationale: "No cascade rebase bookkeeping; merge squashes bottom, server rebases rest"
+  - decision: "Git smart HTTP backend (bare git repos)"
+    rationale: "jj git backend compatibility; git clients coexist; no migration friction"
+  - decision: "MVP cut: repos + collaborators + MRs only"
+    rationale: "Defer issues/profiles/teams to keep first release focused on review model"
+  - decision: "Postgres over SQLite from day one"
+    rationale: "User choice; teams roadmap-ready"
+  - decision: "Local accounts (email/password) over OIDC-only"
+    rationale: "Fully self-contained self-host; no external IdP requirement"

@@ -1,0 +1,21 @@
+story_id: e02s01
+title: "Create repo, bare storage, repo page, clone over HTTP (public happy path)"
+status: pending
+bcps: 8
+tasks:
+  - id: e02s01t1
+    description: "repos table migration (owner, name, visibility, trunk setting default trunk, merge setting default squash) + Repo domain type"
+    verify: "cargo test -p domain repo_model"
+    status: pending
+  - id: e02s01t2
+    description: "create-repo flow; bare git repo init under configured storage root; repo landing page (Tera)"
+    verify: "cargo test -p server repo_create"
+    status: pending
+  - id: e02s01t3
+    description: "git smart HTTP receive-pack + upload-pack for bare repos (gix / git2 exec layer)"
+    verify: "cargo test -p server git_transport_public"
+    status: pending
+  - id: e02s01t4
+    description: "end-to-end: jj git push then jj git clone against running server"
+    verify: "verify-script: run e2e script scripts/e2e-clone.sh (jj init fixture, push, clone to tmp, assert contents)"
+    status: pending

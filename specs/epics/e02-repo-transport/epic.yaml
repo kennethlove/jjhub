@@ -1,0 +1,14 @@
+epic: e02
+slug: repo-transport
+title: "Repositories + HTTP smart git transport (tracer bullet)"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e02s01
+    title: "Create repo, bare storage, repo page, clone over HTTP (public happy path)"
+    bcps: 8
+    delta: ADDED
+  - id: e02s02
+    title: "Push over HTTP + private repo enforcement"
+    bcps: 5
+    delta: ADDED

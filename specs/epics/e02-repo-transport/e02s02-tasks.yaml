@@ -1,0 +1,13 @@
+story_id: e02s02
+title: "Push over HTTP + private repo enforcement"
+status: pending
+bcps: 5
+tasks:
+  - id: e02s02t1
+    description: "git transport requires token auth for push always; for clone when repo private (invariant 6)"
+    verify: "cargo test -p server private_repo_enforcement"
+    status: pending
+  - id: e02s02t2
+    description: "visibility toggle on repo settings page (owner only)"
+    verify: "cargo test -p server visibility_toggle"
+    status: pending

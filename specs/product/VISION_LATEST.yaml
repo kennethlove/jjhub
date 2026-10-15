@@ -1,0 +1,53 @@
+# jjhub — Vision
+
+## One-liner
+
+Forge-style hosting service for Jujutsu repositories — like GitHub, GitLab, and Forgejo, but built around Jujutsu's model instead of Git's.
+
+## Problem
+
+Git forges lose review identity on force-push, bolt stacks on as metadata, cannot represent jj conflicts, and have no operation log. jj users rewrite history constantly; existing hosting fights that workflow.
+
+## Solution (differentiators)
+
+1. **Change ID as review anchor** — `change-id` commit header survives rewrite/rebase/squash. MR = change, not branch tip hash. Reviews persist across history edits.
+2. **Edit-in-place review** — every pushed revision kept; reviewer diffs last-reviewed vs current across rebase/squash. Threads pin to change+revision+context.
+3. **Stacks derived from graph** — parentage = commit parents. Merge squashes bottom change; server rebases rest of stack automatically.
+4. Conflict-tolerant hosting (post-MVP)
+5. Operation log audit (post-MVP)
+6. Server-side immutability policy (post-MVP)
+7. Revset search API (post-MVP)
+8. Divergence visible (post-MVP)
+9. Git compatibility layer — git smart HTTP coexists with jj workflow.
+
+## MVP scope (confirmed)
+
+- HTTP(S) smart git protocol + token auth (SSH follows later)
+- Repos, collaborators, merge requests (change-anchored review, stack merge)
+- Deferred: issues, profiles beyond user account, orgs/teams
+- CI: render statuses + status API surface; no runners — external CI posts
+- Postgres (sqlx) from day one
+- Local accounts (email/password + session cookies); OIDC later
+- Git backend: bare git repos server-side (jj git backend model)
+
+## Actors
+
+- Solo self-hosters (MVP target; translates to commercial service later)
+- Teams (roadmap, not MVP)
+
+## Codebase
+
+Public open source.
+
+## Happy path (MVP done)
+
+1. Self-hoster installs jjhub (service + Postgres), signs up.
+2. Creates repo, gets HTTP remote URL + token.
+3. `jj git push` change stack to it.
+4. jjhub shows MR per change, stacked, change-id anchored; comments per revision; re-push keeps MR + comments.
+5. Merge squashes bottom change; server rebases rest of stack.
+6. External CI posts statuses; rendered on MR.
+
+## Stack
+
+Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres. Cargo workspace.

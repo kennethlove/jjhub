@@ -1,0 +1,79 @@
+core_value: "Forge-style hosting for Jujutsu repositories where merge request identity survives history rewrites, stacks come from the commit graph, and git clients coexist for free."
+
+summary: >
+  jjhub is a self-hostable forge for Jujutsu repositories, aimed at solo self-hosters
+  first and a commercial hosted service later. The MVP ships the jj-native review model
+  that git forges cannot offer: MRs anchored to change-ids (stable across rebase/squash),
+  edit-in-place revision history per push, and stacks derived from commit parents with
+  server-side cascade merge. Hosting is a bare git backend served over HTTP smart git
+  protocol with token auth, so jj git backends push natively and git clients work too.
+  Around that: local accounts, repos with public/private visibility, collaborators,
+  MR pages with revision-scoped review threads, and rendering of externally posted CI
+  statuses. The codebase is public open source.
+
+in_scope:
+  - "User accounts: local email/password registration, sessions"
+  - "Repositories: create, public/private visibility, bare git backend storage"
+  - "Git transport: HTTP(S) smart git protocol (clone/push/pull) with token auth"
+  - "Push receive: parse pushed refs, extract change-id headers, create/update MRs and Revisions"
+  - "Stack awareness: derive stack parentage from commit parents; per-change MRs with parent targeting"
+  - "MR lifecycle: open/merge/abandon/reopen per state machine in tech-stack.md; invariants 1-7 enforced"
+  - "Merge: repo setting squash (default) or merge-commit; cascade rebase of descendant stack changes server-side"
+  - "Collaborators: owner adds/removes collaborators per repo; push rights"
+  - "Review threads: revision-scoped comments on MR diffs"
+  - "CI statuses: status API endpoint for external CI to post check results; status rendered on MR"
+  - "Trunk: repo setting, default bookmark name trunk"
+  - "Abandon: MR abandon button + bookmark deletion signal"
+
+out_of_scope:
+  - item: "SSH transport"
+    why: "Deferred — HTTP token auth covers MVP; SSH is additive later"
+  - item: "OIDC / external IdP auth"
+    why: "Deferred — local accounts keep self-host self-contained"
+  - item: "Issues tracker"
+    why: "Deferred — not needed to prove the review model"
+  - item: "User profiles beyond account"
+    why: "Deferred — no value to MVP happy path"
+  - item: "Organizations / teams"
+    why: "Deferred — solo self-hoster is the MVP target; teams are roadmap"
+  - item: "CI runners"
+    why: "Not valuable — self-hosters wire external CI; jjhub only renders statuses"
+  - item: "Context-anchored comment re-anchoring across revisions"
+    why: "Too risky for MVP — revision-scoped threads are honest and simple; re-anchor later"
+  - item: "Conflict-tolerant hosting (serving conflicted commits)"
+    why: "Deferred — differentiator but not needed to validate review model"
+  - item: "Operation log audit UI"
+    why: "Deferred — post-MVP differentiator"
+  - item: "Server-side immutability policy (immutable_heads enforcement)"
+    why: "Deferred — trunk protection is trivial later; not blocking merge correctness"
+  - item: "Revset search API"
+    why: "Deferred — post-MVP differentiator"
+  - item: "Divergence display (same change-id, multiple commits)"
+    why: "Deferred — collision policy (invariant 2) handles the adversarial case for now"
+
+constraints:
+  - "Stack: Rust / axum / htmx / Tera / Tailwind; sqlx + Postgres from day one"
+  - "Cargo workspace; one crate per bounded context"
+  - "Solo self-hosters are the MVP target; single-node deployment must suffice"
+  - "Public open source codebase"
+  - "TDD where possible; high test coverage; no real network in tests"
+  - "Conventional Commits without emoji; beads for task tracking"
+  - "All invariants 1-7 in specs/tech-architecture/tech-stack.md MUST be enforced by code and tests"
+
+success_criteria:
+  - "Self-hoster installs jjhub, creates account, creates repo, and jj git pushes a stack of changes over HTTP without any jj-side configuration beyond a remote URL and token"
+  - "Each change-with-diff in the push appears as an open MR; stack structure matches the author's local jj log"
+  - "Author rebases and re-pushes; MR keeps its identity, gains a new Revision, and prior review threads remain readable"
+  - "Reviewer comments on a revision; author sees the comment; comments survive subsequent pushes"
+  - "Merging the bottom MR squashes into trunk and descendant MRs are rebased server-side, in order, with no manual author action"
+  - "Pushing a commit with an open MR's change-id but a different author email is rejected"
+  - "External CI posts a status via API; status renders on the MR page"
+  - "git clone works for git-only clients against a jjhub repo"
+  - "Private repo rejects unauthenticated clone and MR page access"
+  - "cargo test, clippy -D warnings, fmt check all green (Preflight)"
+
+references:
+  - "specs/product/VISION_LATEST.yaml"
+  - "specs/planning-context.yaml"
+  - "specs/tech-architecture/tech-stack.md (glossary, invariants, MR state machine)"
+  - "specs/adr/0001-change-id-anchored-mr.md"

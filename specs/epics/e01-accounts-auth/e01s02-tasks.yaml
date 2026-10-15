@@ -1,0 +1,24 @@
+story_id: e01s02
+title: "Personal access tokens for git transport"
+spec: e01s02-tokens.md
+status: failing
+bcps: 3
+tasks:
+  - id: e01s02t1
+    description: "tokens table migration (hash at rest, prefix shown); generate/revoke UI on settings page"
+    verify: "cargo test -p server token_crud"
+    risk: P1
+    security: medium
+    status: failing
+    allure:
+      severity: high
+      categories: ["Auth", "Security Review"]
+  - id: e01s02t2
+    description: "token auth extractor for git transport routes (Authorization: basic x-access-token)"
+    verify: "cargo test -p server token_auth_transport"
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]

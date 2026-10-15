@@ -1,0 +1,22 @@
+epic: e03
+slug: merge-requests
+title: "Change-anchored MRs, stacks, cascade merge, collaborators"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e03s01
+    title: "Push receive creates/updates MRs anchored to change-id (tracer bullet for review model)"
+    bcps: 8
+    delta: ADDED
+  - id: e03s02
+    title: "Stack derivation + MR pages (list, detail, revision diffs)"
+    bcps: 8
+    delta: ADDED
+  - id: e03s03
+    title: "Merge: squash/merge-commit setting + cascade rebase of descendants"
+    bcps: 8
+    delta: ADDED
+  - id: e03s04
+    title: "Abandon/reopen + collaborators"
+    bcps: 5
+    delta: ADDED

@@ -1,0 +1,42 @@
+story_id: e01s01
+title: "Register, login, session-authenticated pages"
+spec: e01s01-register-login.md
+status: failing
+bcps: 5
+tasks:
+  - id: e01s01t1
+    description: "axum binary crate with router, Postgres pool (sqlx), migrations runner"
+    verify: "cargo run & curl -sf http://localhost:3000/healthz"
+    risk: P2
+    security: low
+    status: failing
+    allure:
+      severity: normal
+      categories: ["infra", "unit"]
+  - id: e01s01t2
+    description: "users table migration + User domain type + registration form/page (Tera)"
+    verify: "cargo test -p domain user_registration"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["domain", "unit"]
+  - id: e01s01t3
+    description: "register + login handlers with argon2 password hashing; signed httpOnly session cookie"
+    verify: "cargo test -p server session_auth"
+    risk: P0
+    security: medium
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]
+  - id: e01s01t4
+    description: "auth middleware gating /settings and later private pages"
+    verify: "cargo test -p server auth_middleware"
+    risk: P0
+    security: high
+    status: failing
+    allure:
+      severity: critical
+      categories: ["Auth", "Security Review"]

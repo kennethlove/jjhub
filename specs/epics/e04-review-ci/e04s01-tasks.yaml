@@ -1,0 +1,13 @@
+story_id: e04s01
+title: "Revision-scoped comment threads on MR diffs"
+status: pending
+bcps: 5
+tasks:
+  - id: e04s01t1
+    description: "comments table (mr, revision, author, body, file, position); threads pinned to revision — no re-anchoring"
+    verify: "cargo test -p domain comment_threads"
+    status: pending
+  - id: e04s01t2
+    description: "comment form on MR diff (htmx), thread list per revision; any logged-in user can comment on public MRs, collaborators on private"
+    verify: "cargo test -p server comment_flow"
+    status: pending

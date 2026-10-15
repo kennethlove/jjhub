@@ -1,0 +1,32 @@
+# specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.1.0 (MVP)
+
+version: "0.1.0"
+status: planning
+workflow_mode: solo-git
+
+# WSJF = user value + time criticality + risk reduction / job size (relative, coarse)
+epics:
+  - id: e01
+    slug: accounts-auth
+    title: "User accounts: registration, sessions, transport tokens"
+    wsjf: 21
+    bcp_total: 8
+    delta: ADDED
+  - id: e02
+    slug: repo-transport
+    title: "Repositories + HTTP smart git transport (tracer bullet)"
+    wsjf: 20
+    bcp_total: 14
+    delta: ADDED
+  - id: e03
+    slug: merge-requests
+    title: "Change-anchored MRs, stacks, cascade merge, collaborators"
+    wsjf: 19
+    bcp_total: 32
+    delta: ADDED
+  - id: e04
+    slug: review-ci
+    title: "Revision-scoped review threads + CI status rendering"
+    wsjf: 8
+    bcp_total: 10
+    delta: ADDED

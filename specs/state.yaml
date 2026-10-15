@@ -1,0 +1,12 @@
+workflow_mode: solo-git
+active_flow: build_epic
+vcs:
+  kind: jj
+  repo: colocated-git
+  remote: origin
+session:
+  started: "2026-07-10T00:00:00Z"
+  active_epic_id: e01
+  active_story_id: e01s01
+handoff:
+  next_skill: kickoff-branch
