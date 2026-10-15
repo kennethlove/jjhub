@@ -49,13 +49,13 @@ pub async fn create(pool: &PgPool, user_id: Uuid, label: &str) -> NewToken {
 /// Compares by argon2-verifying candidates; MVP scale (few tokens per user).
 pub async fn authenticate(pool: &PgPool, plaintext: &str) -> Option<Uuid> {
     let rows: Vec<(Uuid, String)> =
-        sqlx::query_as("SELECT id, token_hash FROM tokens WHERE revoked_at IS NULL")
+        sqlx::query_as("SELECT t.user_id, t.token_hash FROM tokens t WHERE t.revoked_at IS NULL")
             .fetch_all(pool)
             .await
             .ok()?;
     rows.into_iter()
         .find(|(_, token_hash)| verify(plaintext, token_hash))
-        .map(|(id, _)| id)
+        .map(|(user_id, _)| user_id)
 }
 
 pub async fn revoke(pool: &PgPool, token_id: Uuid) {
@@ -78,7 +78,7 @@ fn verify(plaintext: &str, token_hash: &str) -> bool {
 /// Test helper: insert a token row directly, returning its plaintext and id.
 pub async fn insert_test_token(pool: &PgPool) -> (String, Uuid) {
     let user_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ('tokentest@example.com', 'x') RETURNING id",
+        "INSERT INTO users (email, password_hash, handle) VALUES ('tokentest@example.com', 'x', 'tokentest') RETURNING id",
     )
     .fetch_one(pool)
     .await

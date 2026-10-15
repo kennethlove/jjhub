@@ -34,8 +34,8 @@ pub async fn register_form() -> Html<&'static str> {
 }
 
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
-    let email = match domain::validate_registration(&form.email, &form.password) {
-        Ok(email) => email,
+    let (email, handle) = match domain::validate_registration(&form.email, &form.password) {
+        Ok(pair) => pair,
         Err(err) => return (StatusCode::UNPROCESSABLE_ENTITY, err.to_string()).into_response(),
     };
 
@@ -52,15 +52,19 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
     }
 
     let user_id: uuid::Uuid = match sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
+        "INSERT INTO users (email, password_hash, handle) VALUES ($1, $2, $3) RETURNING id",
     )
     .bind(&email)
     .bind(&password_hash)
+    .bind(&handle)
     .fetch_one(&state.pool)
     .await
     {
         Ok(id) => id,
-        Err(sqlx::Error::Database(db)) if db.constraint() == Some("users_email_key") => {
+        Err(sqlx::Error::Database(db))
+            if db.constraint() == Some("users_email_key")
+                || db.constraint() == Some("users_handle_unique") =>
+        {
             return (StatusCode::CONFLICT, "email already registered").into_response()
         }
         Err(err) => {
@@ -190,6 +194,124 @@ pub async fn settings(
         ))
         .into_response(),
         None => Redirect::to("/login").into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CreateRepoForm {
+    name: String,
+    visibility: String,
+}
+
+pub async fn create_repo(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<CreateRepoForm>,
+) -> Response {
+    let name = form.name.trim().to_lowercase();
+    if !domain::repo_name_valid(&name) {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "invalid repository name").into_response();
+    }
+    let visibility = match domain::Visibility::parse(&form.visibility) {
+        Some(v) => v,
+        None => return (StatusCode::UNPROCESSABLE_ENTITY, "invalid visibility").into_response(),
+    };
+
+    let owner: String = sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(current.0)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or_default();
+
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    if let Err(err) = crate::repo::init_bare(&bare) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, err).into_response();
+    }
+
+    let inserted: Result<(uuid::Uuid,), _> = sqlx::query_as(
+        "INSERT INTO repositories (owner_id, name, visibility) VALUES ($1, $2, $3) RETURNING id",
+    )
+    .bind(current.0)
+    .bind(&name)
+    .bind(visibility.as_str())
+    .fetch_one(&state.pool)
+    .await;
+
+    match inserted {
+        Ok(_) => Redirect::to(&format!("/{owner}/{name}")).into_response(),
+        Err(sqlx::Error::Database(db))
+            if db.constraint() == Some("repositories_owner_id_name_key") =>
+        {
+            (StatusCode::CONFLICT, "repository already exists").into_response()
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn repo_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+) -> Response {
+    let repo: Option<(String, String)> = sqlx::query_as(
+        "SELECT r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+
+    match repo {
+        Some((visibility, trunk)) => Html(format!(
+            r#"<!doctype html><html><body>
+<h1>{owner}/{name}</h1>
+<p>{visibility} — trunk: {trunk}</p>
+<p>Clone: <code>http://localhost:3000/git/{owner}/{name}.git</code></p>
+</body></html>"#
+        ))
+        .into_response(),
+        None => (StatusCode::NOT_FOUND, "repository not found").into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct VisibilityForm {
+    visibility: String,
+}
+
+pub async fn repo_settings(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    Form(form): Form<VisibilityForm>,
+) -> Response {
+    let visibility = match domain::Visibility::parse(&form.visibility) {
+        Some(v) => v,
+        None => return (StatusCode::UNPROCESSABLE_ENTITY, "invalid visibility").into_response(),
+    };
+    let updated: Option<i64> = match sqlx::query_scalar::<_, i64>(
+        "UPDATE repositories r SET visibility = $3 FROM users u WHERE u.id = r.owner_id AND u.handle = $1 AND r.name = $2 AND r.owner_id = $4 RETURNING 1::bigint",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .bind(visibility.as_str())
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    {
+        Ok(row) => row,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("db: {err}")).into_response(),
+    };
+
+    if updated.is_none() {
+        (StatusCode::NOT_FOUND, "repository not found").into_response()
+    } else {
+        Redirect::to(&format!("/{owner}/{name}")).into_response()
     }
 }
 

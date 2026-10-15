@@ -1,5 +1,5 @@
 workflow_mode: solo-git
-active_flow: build_epic
+active_flow: review
 vcs:
   kind: jj
   repo: colocated-git
@@ -9,4 +9,4 @@ session:
   active_epic_id: e01
   active_story_id: null
 handoff:
-  next_skill: release-branch
+  next_skill: respond-review
