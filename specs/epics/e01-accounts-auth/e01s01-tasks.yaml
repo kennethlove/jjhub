@@ -9,7 +9,7 @@ tasks:
     verify: "cargo run & curl -sf http://localhost:3000/healthz"
     risk: P2
     security: low
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["infra", "unit"]
@@ -18,7 +18,7 @@ tasks:
     verify: "cargo test -p domain user_registration"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["domain", "unit"]
@@ -27,7 +27,7 @@ tasks:
     verify: "cargo test -p server session_auth"
     risk: P0
     security: medium
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["Auth", "Security Review"]
@@ -36,7 +36,7 @@ tasks:
     verify: "cargo test -p server auth_middleware"
     risk: P0
     security: high
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["Auth", "Security Review"]

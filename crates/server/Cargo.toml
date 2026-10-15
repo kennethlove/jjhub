@@ -1,0 +1,27 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { workspace = true, features = ["json"] }
+tokio.workspace = true
+tower.workspace = true
+sqlx = { workspace = true, features = ["migrate"] }
+tera.workspace = true
+argon2 = { workspace = true, features = ["std"] }
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+serde.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+domain = { path = "../domain" }
+axum-extra = { version = "0.10", features = ["cookie"] }
+base64 = "0.22"
+serde_json = "1"
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
