@@ -1,2 +1,8 @@
 /target
 .env
+
+# story: beads tracking — only the JSONL export is versioned; the
+# embedded dolt store, backups, and lock files are machine-local state.
+.beads/*
+!.beads/issues.jsonl
+.beads.gate.lock
