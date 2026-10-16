@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# story: beads tracking — versioned pre-commit hook. Install with:
+#   git config core.hooksPath scripts/git-hooks
+# Chains bd's own pre-commit logic, then refreshes the tracked JSONL
+# export so .beads/issues.jsonl never drifts from the database.
+set -e
+if command -v bd >/dev/null 2>&1; then
+  rc=0
+  bd hooks run pre-commit "$@" || rc=$?
+  # exit 3 = database not initialized (fresh clone): skip, don't block
+  if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then exit "$rc"; fi
+  bd export -o .beads/issues.jsonl >/dev/null 2>&1 || {
+    echo "beads: warning — could not refresh .beads/issues.jsonl" >&2
+  }
+fi

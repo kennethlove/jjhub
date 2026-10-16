@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# story: beads tracking — versioned post-merge hook (bd's refresh after
+# pull/merge; installed together so core.hooksPath replaces neither).
+set -e
+if command -v bd >/dev/null 2>&1; then
+  bd hooks run post-merge "$@" || exit $?
+fi
