@@ -1,0 +1,10 @@
+epic: e06
+slug: site-shell
+title: "Site shell — home page, nav, repo creation, onboarding snippets"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e06s01
+    title: "Home page, nav menu, repo create form, origin snippets"
+    bcps: 5
+    delta: ADDED
