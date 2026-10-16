@@ -1,6 +1,7 @@
 story_id: e03s01
+spec: e03s01-push-creates-mrs.md
 title: "Push receive creates/updates MRs anchored to change-id"
-status: pending
+status: passing
 bcps: 8
 tasks:
   - id: e03s01t1

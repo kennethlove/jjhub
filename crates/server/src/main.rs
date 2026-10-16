@@ -3,6 +3,14 @@ use server::app;
 
 #[tokio::main]
 async fn main() {
+    // story: e03s01 — `server pre-receive` runs as the bare repo's
+    // pre-receive hook (cwd = the git dir). stdin: `<old> <new> <ref>`
+    // lines; exit 1 with reasons refuses the push before any ref moves.
+    if std::env::args().nth(1).as_deref() == Some("pre-receive") {
+        let status = run_pre_receive().await;
+        std::process::exit(status);
+    }
+
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
@@ -22,4 +30,119 @@ async fn main() {
     axum::serve(listener, app(pool))
         .await
         .expect("server error");
+}
+
+/// story: e03s01 — hook body: parse ref updates, read each new head's
+/// identity from the (quarantined) object store, ask the guard, report.
+async fn run_pre_receive() -> i32 {
+    use std::io::Read;
+    let mut stdin_bytes = Vec::new();
+    if let Err(err) = std::io::stdin().read_to_end(&mut stdin_bytes) {
+        eprintln!("jjhub: read stdin: {err}");
+        return 1;
+    }
+    let updates = server::receive_guard::parse_ref_updates(&stdin_bytes);
+    if updates.is_empty() {
+        return 0;
+    }
+
+    let database_url = match std::env::var("DATABASE_URL") {
+        Ok(url) => url,
+        Err(_) => {
+            eprintln!("jjhub: DATABASE_URL not set in hook environment");
+            return 1;
+        }
+    };
+    let pool = match sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&database_url)
+        .await
+    {
+        Ok(pool) => pool,
+        Err(err) => {
+            eprintln!("jjhub: connect: {err}");
+            return 1;
+        }
+    };
+
+    // resolve the repo row for this bare dir (cwd of the hook)
+    let bare = match std::env::current_dir() {
+        Ok(dir) => std::fs::canonicalize(&dir).unwrap_or(dir),
+        Err(err) => {
+            eprintln!("jjhub: cwd: {err}");
+            return 1;
+        }
+    };
+    let storage_root =
+        std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
+    let repo_id: Option<uuid::Uuid> = {
+        let rows: Vec<(String, String, uuid::Uuid)> = sqlx::query_as(
+            "SELECT u.handle, r.name, r.id FROM repositories r JOIN users u ON u.id = r.owner_id",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap_or_default();
+        rows.into_iter()
+            .find(|(handle, name, _)| {
+                // canonicalize both sides: /var vs /private/var on macOS
+                // (and any symlinked storage root) would otherwise silently
+                // skip the guard
+                let candidate =
+                    std::fs::canonicalize(domain::storage_path(&storage_root, handle, name))
+                        .unwrap_or_else(|_| domain::storage_path(&storage_root, handle, name));
+                candidate == bare
+            })
+            .map(|(_, _, id)| id)
+    };
+    let Some(repo_id) = repo_id else {
+        // unknown repo path: nothing to enforce, never block the push
+        return 0;
+    };
+
+    let mut pushed = Vec::new();
+    for update in &updates {
+        // branch updates only; tags and deletes are out of scope
+        if !update.ref_name.starts_with("refs/heads/") || update.new.chars().all(|c| c == '0') {
+            continue;
+        }
+        let Ok(output) = std::process::Command::new("git")
+            .args(["cat-file", "commit", &update.new])
+            .output()
+        else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        let Some(identity) =
+            server::receive_guard::parse_commit_identity(&String::from_utf8_lossy(&output.stdout))
+        else {
+            continue;
+        };
+        pushed.push(server::receive_guard::PushedCommit {
+            ref_name: update.ref_name.clone(),
+            old: update.old.clone(),
+            new: update.new.clone(),
+            change_id: Some(identity.change_id),
+            author_email: identity.author_email,
+            committer_email: identity.committer_email,
+        });
+    }
+    if pushed.is_empty() {
+        return 0;
+    }
+
+    match server::receive_guard::check_push(&pool, repo_id, pushed).await {
+        Ok(rejections) if rejections.is_empty() => 0,
+        Ok(rejections) => {
+            for reason in &rejections {
+                eprintln!("jjhub: {reason}");
+            }
+            1
+        }
+        Err(err) => {
+            eprintln!("jjhub: guard query: {err}");
+            1
+        }
+    }
 }

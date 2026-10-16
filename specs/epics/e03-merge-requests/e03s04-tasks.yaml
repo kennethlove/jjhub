@@ -1,6 +1,7 @@
 story_id: e03s04
+spec: e03s04-abandon-collaborators.md
 title: "Abandon/reopen + collaborators"
-status: pending
+status: failing
 bcps: 5
 tasks:
   - id: e03s04t1

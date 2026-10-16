@@ -1,6 +1,7 @@
 story_id: e03s02
+spec: e03s02-stack-pages.md
 title: "Stack derivation + MR pages (list, detail, revision diffs)"
-status: pending
+status: failing
 bcps: 8
 tasks:
   - id: e03s02t1
