@@ -3,6 +3,7 @@ pub mod jj_meta;
 pub mod middleware;
 pub mod password;
 pub mod repo;
+pub mod review_proxy;
 pub mod routes;
 pub mod session;
 pub mod token;
@@ -17,6 +18,8 @@ pub struct AppState {
     pub pool: PgPool,
     pub session_secret: Vec<u8>,
     pub storage_root: String,
+    // story: e05s03 — kata sidecar upstream.
+    pub kata_upstream: String,
 }
 
 #[derive(Clone, Copy)]
@@ -29,17 +32,33 @@ pub fn app(pool: PgPool) -> Router {
 }
 
 pub fn app_with_storage(pool: PgPool, storage_root: String) -> Router {
-    let session_secret = std::env::var("SESSION_SECRET")
-        .map(|s| s.into_bytes())
-        .unwrap_or_else(|_| b"dev-only-secret-change-me".to_vec());
-    app_with_secret(pool, session_secret, storage_root)
+    let kata_upstream =
+        std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    app_with_kata(pool, storage_root, kata_upstream)
 }
 
-pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>, storage_root: String) -> Router {
+/// story: e05s03 — explicit kata wiring for tests.
+pub fn app_with_kata(pool: PgPool, storage_root: String, kata_upstream: String) -> Router {
+    app_with_secret(pool, session_secret_from_env(), storage_root, kata_upstream)
+}
+
+fn session_secret_from_env() -> Vec<u8> {
+    std::env::var("SESSION_SECRET")
+        .map(|s| s.into_bytes())
+        .unwrap_or_else(|_| b"dev-only-secret-change-me".to_vec())
+}
+
+pub fn app_with_secret(
+    pool: PgPool,
+    session_secret: Vec<u8>,
+    storage_root: String,
+    kata_upstream: String,
+) -> Router {
     let state = AppState {
         pool,
         session_secret,
         storage_root,
+        kata_upstream,
     };
     let protected = Router::new()
         .route("/settings", get(routes::settings))
@@ -59,6 +78,18 @@ pub fn app_with_secret(pool: PgPool, session_secret: Vec<u8>, storage_root: Stri
         .route("/login", get(routes::login_form).post(routes::login))
         .route("/logout", post(routes::logout))
         .route("/{owner}/{name}", get(routes::repo_page))
+        .route(
+            "/review/{owner}/{name}",
+            get(review_proxy::proxy).post(review_proxy::proxy),
+        )
+        .route(
+            "/review/{owner}/{name}/",
+            get(review_proxy::proxy).post(review_proxy::proxy),
+        )
+        .route(
+            "/review/{owner}/{name}/{*rest}",
+            get(review_proxy::proxy_rest).post(review_proxy::proxy_rest),
+        )
         .merge(protected)
         .merge(transport_routes(state.clone()))
         .with_state(state)

@@ -24,6 +24,8 @@ services:
       # generate: openssl rand -hex 32
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       JJHUB_STORAGE_ROOT: /var/lib/jjhub/repos
+      # story: e05s03 — the app proxies /review/** to the sidecar
+      KATA_UPSTREAM: http://kata:7878
     volumes:
       - repo-data:/var/lib/jjhub
     ports:
@@ -47,9 +49,14 @@ services:
     environment:
       KATA_DATA: /var/lib/kata
       KATA_WORKSPACES_DIR: /var/lib/jjhub/repos/.meta
-      # story: e05s03 — trust-client honours X-Review-Author from the app
-      # proxy; this author only labels sidecar-local writes.
-      KATA_AUTH_MODE: trust-client
+      # story: e05s03 — identity comes from the app proxy's X-Review-Author
+      # header only. Trust is network-scoped: no host port is published, so
+      # only containers on the compose network (the app) can reach kata.
+      # 0.0.0.0/0 is safe ONLY because of that isolation — never publish
+      # this service while it runs in trust-forwarded-header mode.
+      KATA_AUTH_MODE: trust-forwarded-header
+      KATA_AUTH_TRUSTED_HEADER: X-Review-Author
+      KATA_AUTH_TRUST_UPSTREAM: 0.0.0.0/0
       KATA_AUTHOR: jjhub@localhost
       KATA_BIND: 0.0.0.0:7878
     volumes:
