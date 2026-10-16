@@ -36,3 +36,9 @@ epics:
     wsjf: 18
     bcp_total: 18
     delta: ADDED
+  - id: e06
+    slug: site-shell
+    title: "Site shell — home page, nav, repo creation, onboarding snippets"
+    wsjf: 14
+    bcp_total: 5
+    delta: ADDED

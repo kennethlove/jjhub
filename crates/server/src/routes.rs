@@ -154,6 +154,13 @@ pub async fn settings(
         .get(crate::session::SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
+    let handle: Option<String> = sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(current.0)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+    let nav = nav_html(handle.as_deref());
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -187,7 +194,7 @@ pub async fn settings(
         Some(email) => Html(format!(
             r#"<!doctype html><html><body>
 <h1>Settings</h1>
-<p>Signed in as {email}</p>
+{nav}<p>Signed in as {email}</p>
 <h2>Access tokens</h2>
 {new_token_html}
 <form method="post" action="/settings/tokens">
@@ -321,7 +328,16 @@ pub async fn create_repo(
 pub async fn repo_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    jar: CookieJar,
+    headers: axum::http::HeaderMap,
 ) -> Response {
+    let viewer = viewer_handle(&state, &jar).await;
+    let nav = nav_html(viewer.as_deref());
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost:3000")
+        .to_string();
     let repo: Option<(String, String)> = sqlx::query_as(
         "SELECT r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
@@ -337,7 +353,10 @@ pub async fn repo_page(
             r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
 <p>{visibility} — trunk: {trunk}</p>
-<p>Clone: <code>http://localhost:3000/git/{owner}/{name}.git</code></p>
+{nav}<h2>Add this repository</h2>
+<p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
+<pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
+jj git push --all</pre>
 </body></html>"#
         ))
         .into_response(),
@@ -720,4 +739,88 @@ pub async fn manage_collaborators(
         .ok();
     }
     Redirect::to(&format!("/{owner}/{name}")).into_response()
+}
+
+// story: e06s01 — shared nav: brand + (when authed) Repos and Settings.
+pub fn nav_html(user_handle: Option<&str>) -> String {
+    match user_handle {
+        Some(handle) => format!(
+            "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
+             <a href=\"/settings\">Settings</a> <span>{handle}</span></nav>"
+        ),
+        None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
+    }
+}
+
+async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
+    let cookie = jar.get(crate::session::SESSION_COOKIE)?;
+    let user_id = crate::session::verify(&state.session_secret, cookie.value())?;
+    sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten()
+}
+
+// story: e06s01 — the front door: landing for visitors, dashboard for
+// users (create form + owned repos).
+pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
+    let Some(handle) = viewer_handle(&state, &jar).await else {
+        return Html(format!(
+            r#"<!doctype html><html><body>
+{}
+<h1>jjhub</h1>
+<p>Forge-style hosting for Jujutsu repositories.</p>
+<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
+</body></html>"#,
+            nav_html(None)
+        ))
+        .into_response();
+    };
+
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let repos: Vec<(String, String)> = sqlx::query_as(
+        "SELECT name, visibility FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 ORDER BY name",
+    )
+    .bind(&handle)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    let repo_items: Vec<String> = repos
+        .iter()
+        .map(|(name, visibility)| {
+            format!(
+                "<li><a href=\"/{handle}/{name}\">{handle}/{name}</a> <small>{visibility}</small></li>",
+                handle = handle,
+                name = name,
+                visibility = visibility
+            )
+        })
+        .collect();
+
+    Html(format!(
+        r#"<!doctype html><html><body>
+{}
+<h1>jjhub</h1>
+<h2>Create repository</h2>
+<form method="post" action="/repos">
+<input type="hidden" name="_csrf" value="{csrf}">
+<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
+<label><input type="radio" name="visibility" value="public" checked> public</label>
+<label><input type="radio" name="visibility" value="private"> private</label>
+<button type="submit">Create</button>
+</form>
+<h2>Your repositories</h2>
+<ul>{repos}</ul>
+</body></html>"#,
+        nav_html(Some(&handle)),
+        csrf = csrf,
+        repos = repo_items.join("\n")
+    ))
+    .into_response()
 }
