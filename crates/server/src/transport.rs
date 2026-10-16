@@ -139,14 +139,91 @@ pub async fn smart_http(
     // but leaves the colocated meta workspace's refs stale, so the kata
     // sidecar would never see the new commits. Re-import refs after a
     // successful receive-pack. A sync failure must not fail the push (the
-    // objects are already durable); backfill-meta can repair a missed sync.
+    // objects are already durable).
+    //
+    // story: e03s01 — the same hook upserts merge requests from the pushed
+    // change-ids (post-receive half of the review model; the pre-receive
+    // half already refused foreign-author rewrites).
     if op == GitOp::ReceivePack && response.status().is_success() {
         let meta = domain::meta_path(&state.storage_root, &owner, &name);
         if let Err(err) = crate::jj_meta::sync_refs(&meta).await {
             tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
         }
+        if let Some(pusher) = user {
+            upsert_mrs_after_push(&state, &owner, &name, pusher, &body_bytes).await;
+        }
     }
     response
+}
+
+/// story: e03s01 — walk the receive-pack command list, read each new head's
+/// identity from the (just-updated) bare repo, and upsert MRs. Failures log;
+/// the push itself already succeeded and the pre-receive guard covered
+/// invariant 2.
+async fn upsert_mrs_after_push(
+    state: &AppState,
+    owner: &str,
+    name: &str,
+    pusher: uuid::Uuid,
+    pkt_bytes: &[u8],
+) {
+    let Some(repo_id): Option<uuid::Uuid> = sqlx::query_scalar(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id          WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten()
+    else {
+        return;
+    };
+    let bare = domain::storage_path(&state.storage_root, owner, name);
+
+    let mut pushed = Vec::new();
+    for update in crate::receive_guard::parse_push_commands(pkt_bytes) {
+        if !update.ref_name.starts_with("refs/heads/") || update.new.chars().all(|c| c == '0') {
+            continue;
+        }
+        let Ok(output) = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&bare)
+            .args(["cat-file", "commit", &update.new])
+            .output()
+        else {
+            continue;
+        };
+        if !output.status.success() {
+            eprintln!(
+                "HOOK: cat-file failed for {}: {}",
+                update.new,
+                String::from_utf8_lossy(&output.stderr)
+            );
+            continue;
+        }
+        let Some(identity) =
+            crate::receive_guard::parse_commit_identity(&String::from_utf8_lossy(&output.stdout))
+        else {
+            continue;
+        };
+        pushed.push(crate::mr::PushedChange {
+            change_id: identity.change_id,
+            commit_id: update.new.clone(),
+            author_email: identity.author_email,
+        });
+    }
+    eprintln!(
+        "HOOK: parsed {} ref updates from pkt-line body",
+        crate::receive_guard::parse_push_commands(pkt_bytes).len()
+    );
+    if pushed.is_empty() {
+        return;
+    }
+    match crate::mr::upsert_after_push(&state.pool, repo_id, pusher, pushed).await {
+        Ok(summary) => tracing::debug!(?summary, "mr upsert after push"),
+        Err(err) => tracing::warn!(%err, "mr upsert failed"),
+    }
 }
 
 fn run_cgi(

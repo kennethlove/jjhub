@@ -108,15 +108,8 @@ mod mr_open_on_push {
     }
 }
 
-#[allow(dead_code)]
 mod upsert_behavior {
-    /// one pushed change handed to the upsert
-    #[derive(Debug, Clone)]
-    pub struct PushedChange {
-        pub change_id: String,
-        pub commit_id: String,
-        pub author_email: String,
-    }
+    use server::mr::PushedChange;
 
     async fn seed_repo(pool: &sqlx::PgPool, handle: &str) -> (uuid::Uuid, uuid::Uuid) {
         let user_id: uuid::Uuid = sqlx::query_scalar(
@@ -163,26 +156,18 @@ mod upsert_behavior {
         assert_eq!(summary.appended, 0);
 
         // rewrite of aaaa: same MR, second revision
-        let summary = server::mr::upsert_after_push(
-            &pool,
-            repo_id,
-            alice,
-            vec![change("aaaa", "c3")],
-        )
-        .await
-        .expect("upsert");
+        let summary =
+            server::mr::upsert_after_push(&pool, repo_id, alice, vec![change("aaaa", "c3")])
+                .await
+                .expect("upsert");
         assert_eq!(summary.opened, 0, "no duplicate MR on rewrite");
         assert_eq!(summary.appended, 1, "rewrite appends a revision");
 
         // re-push same commit: idempotent, no new revision
-        let summary = server::mr::upsert_after_push(
-            &pool,
-            repo_id,
-            alice,
-            vec![change("aaaa", "c3")],
-        )
-        .await
-        .expect("upsert");
+        let summary =
+            server::mr::upsert_after_push(&pool, repo_id, alice, vec![change("aaaa", "c3")])
+                .await
+                .expect("upsert");
         assert_eq!(summary.appended, 0, "same commit is a no-op");
 
         let revisions: i64 =
@@ -209,14 +194,10 @@ mod upsert_behavior {
             .await
             .unwrap();
 
-        let summary = server::mr::upsert_after_push(
-            &pool,
-            repo_id,
-            alice,
-            vec![change("aaaa", "c2")],
-        )
-        .await
-        .unwrap();
+        let summary =
+            server::mr::upsert_after_push(&pool, repo_id, alice, vec![change("aaaa", "c2")])
+                .await
+                .unwrap();
         assert_eq!(summary.reopened, 1, "abandoned flips back to open");
         let state: String =
             sqlx::query_scalar("SELECT state FROM merge_requests WHERE change_id = 'aaaa'")
@@ -237,14 +218,10 @@ mod upsert_behavior {
             .await
             .unwrap();
 
-        let summary = server::mr::upsert_after_push(
-            &pool,
-            repo_id,
-            alice,
-            vec![change("aaaa", "c2")],
-        )
-        .await
-        .unwrap();
+        let summary =
+            server::mr::upsert_after_push(&pool, repo_id, alice, vec![change("aaaa", "c2")])
+                .await
+                .unwrap();
         assert_eq!(summary.opened, 0);
         assert_eq!(summary.reopened, 0, "merged never reopens");
         assert_eq!(summary.appended, 0, "merged gains no revisions");
