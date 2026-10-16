@@ -439,9 +439,13 @@ pub async fn merge_requests_page(
     let mut position: Vec<String> = Vec::new();
     for (stack_idx, stack) in stacks.iter().enumerate() {
         for (mr_idx, change_id) in stack.iter().enumerate() {
+            let review =
+                crate::review_proxy::review_link(&state.storage_root, &owner, &name, change_id)
+                    .map(|href| format!(" — <a href=\"{href}\">review</a>"))
+                    .unwrap_or_default();
             position.push(format!(
                 "<li data-change=\"{change_id}\">#{stack_idx}:{mr_idx} \
-                 <a href=\"{pulls_root}/{change_id}\">{change_id}</a></li>"
+                 <a href=\"{pulls_root}/{change_id}\">{change_id}</a>{review}</li>"
             ));
         }
     }
@@ -514,10 +518,22 @@ pub async fn mr_detail_page(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
 {}
+{review_section}
 <form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><button type="submit">Merge</button></form>
 <form method="post" action="/{owner}/{name}/merge-requests/{change_id}/abandon"><button type="submit">Abandon</button></form>
 </body></html>"#,
-        sections.join("\n")
+        sections.join("\n"),
+        review_section = match crate::review_proxy::review_link(
+            &state.storage_root,
+            &owner,
+            &name,
+            &change_id,
+        ) {
+            Some(href) => format!(
+                "<p><a href=\"{href}\">Review in kata &rarr;</a></p>"
+            ),
+            None => String::new(),
+        },
     ))
     .into_response()
 }
