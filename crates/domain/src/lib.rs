@@ -52,12 +52,17 @@ pub fn storage_path(root: &str, owner: &str, name: &str) -> std::path::PathBuf {
 
 /// story: e05s01 — jj workspace metadata path, colocated beside the bare
 /// repo. The kata sidecar loads this dir via `Workspace::load`.
+///
+/// story: e05s02 — flattened to a single level (`{owner}__{name}`) under a
+/// shared `.meta/` base. kata's `scan_dir` is depth-1, so a nested
+/// `.meta/{owner}/{name}` layout would be invisible to the sidecar. The
+/// `__` separator keeps owner and name recoverable and can't collide with
+/// a valid repo name (repo names allow only a single `_`).
 pub fn meta_path(root: &str, owner: &str, name: &str) -> std::path::PathBuf {
     debug_assert!(repo_name_valid(name));
     std::path::Path::new(root)
         .join(".meta")
-        .join(owner)
-        .join(name)
+        .join(format!("{owner}__{name}"))
 }
 
 #[derive(Debug, PartialEq, Eq)]
