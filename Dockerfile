@@ -1,5 +1,5 @@
 # story: e02s01
-FROM rust:1.89-bookworm AS builder
+FROM rust:1.99-bookworm AS builder
 WORKDIR /app
 COPY Cargo.toml ./
 COPY crates ./crates
