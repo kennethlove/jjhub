@@ -515,6 +515,7 @@ pub async fn mr_detail_page(
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
 {}
 <form method="post" action="/{owner}/{name}/pulls/{change_id}/merge"><button type="submit">Merge</button></form>
+<form method="post" action="/{owner}/{name}/pulls/{change_id}/abandon"><button type="submit">Abandon</button></form>
 </body></html>"#,
         sections.join("\n")
     ))
@@ -567,6 +568,55 @@ pub async fn merge_mr(
         Err(MergeError::Internal(err)) => {
             tracing::error!(%err, "merge failed");
             (StatusCode::INTERNAL_SERVER_ERROR, "merge failed").into_response()
+        }
+    }
+}
+
+// story: e03s04 — abandon: owner-only; merged is terminal (state machine).
+pub async fn abandon_mr(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+) -> Response {
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id,)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid, String, String)> = sqlx::query_as(
+        "SELECT id, owner_id::text, state FROM merge_requests \
+         WHERE repo_id = $1 AND change_id = $2",
+    )
+    .bind(repo_id)
+    .bind(&change_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((mr_id, owner_id, mr_state)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+    if owner_id != current.0.to_string() {
+        return (StatusCode::FORBIDDEN, "only the owner can abandon").into_response();
+    }
+    match mr_state.as_str() {
+        "merged" => (StatusCode::CONFLICT, "merged is terminal").into_response(),
+        "abandoned" => Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response(),
+        _ => {
+            sqlx::query("UPDATE merge_requests SET state = 'abandoned' WHERE id = $1")
+                .bind(mr_id)
+                .execute(&state.pool)
+                .await
+                .ok();
+            Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response()
         }
     }
 }

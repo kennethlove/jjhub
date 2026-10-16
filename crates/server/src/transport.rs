@@ -150,6 +150,22 @@ pub async fn smart_http(
             tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
         }
         if let Some(pusher) = user {
+            // story: e03s04 — deleted refs abandon their open MRs
+            for update in crate::receive_guard::parse_push_commands(&body_bytes) {
+                if update.new.chars().all(|c| c == '0')
+                    && update.ref_name.starts_with("refs/heads/")
+                {
+                    if let Err(err) = crate::mr::abandon_for_deleted_ref(
+                        &state.pool,
+                        repo_owner_id(&state, &owner, &name).await,
+                        &update.old,
+                    )
+                    .await
+                    {
+                        tracing::warn!(%err, "abandon-on-delete failed");
+                    }
+                }
+            }
             upsert_mrs_after_push(&state, &owner, &name, pusher, &body_bytes).await;
         }
     }
@@ -320,6 +336,21 @@ fn authorize(
         (GitOp::UploadPack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
         (GitOp::UploadPack, Some(_)) => Ok(()),
     }
+}
+
+/// story: e03s04 — repository id for an owner/name pair.
+async fn repo_owner_id(state: &AppState, owner: &str, name: &str) -> uuid::Uuid {
+    sqlx::query_scalar(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or(uuid::Uuid::nil())
 }
 
 /// story: e02s02 — parse Basic credentials from headers to a user id.

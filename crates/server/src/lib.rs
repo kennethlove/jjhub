@@ -73,6 +73,10 @@ pub fn app_with_secret(
             "/{owner}/{name}/pulls/{change_id}/merge",
             post(routes::merge_mr),
         )
+        .route(
+            "/{owner}/{name}/pulls/{change_id}/abandon",
+            post(routes::abandon_mr),
+        )
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_session,

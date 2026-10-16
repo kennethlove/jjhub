@@ -4,13 +4,12 @@ mod mr_abandon_reopen {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
+    /// reuse the session()-registered alice (email is unique)
     async fn seed(pool: &sqlx::PgPool) -> (uuid::Uuid, uuid::Uuid) {
-        let user_id: uuid::Uuid = sqlx::query_scalar(
-            "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
-        )
-        .fetch_one(pool)
-        .await
-        .unwrap();
+        let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(pool)
+            .await
+            .unwrap();
         let repo_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO repositories (owner_id, name) VALUES ($1, 'demo') RETURNING id",
         )
@@ -121,17 +120,13 @@ mod mr_abandon_reopen {
     #[sqlx::test(migrations = "./migrations")]
     async fn non_owner_cannot_abandon(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
+        let _alice_cookie = session(&pool, root.path(), "alice@example.com").await;
         let cookie = session(&pool, root.path(), "bob@example.com").await;
         let (repo_id, alice) = seed(&pool).await;
         open_mr(&pool, repo_id, alice).await;
 
-        let response = abandon_post(
-            pool,
-            root.path(),
-            &cookie,
-            "/alice/demo/pulls/aaaa/abandon",
-        )
-        .await;
+        let response =
+            abandon_post(pool, root.path(), &cookie, "/alice/demo/pulls/aaaa/abandon").await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
@@ -147,13 +142,8 @@ mod mr_abandon_reopen {
             .await
             .unwrap();
 
-        let response = abandon_post(
-            pool,
-            root.path(),
-            &cookie,
-            "/alice/demo/pulls/aaaa/abandon",
-        )
-        .await;
+        let response =
+            abandon_post(pool, root.path(), &cookie, "/alice/demo/pulls/aaaa/abandon").await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
     }
 
@@ -161,6 +151,8 @@ mod mr_abandon_reopen {
     // (latest revision commit was the deleted ref's target).
     #[sqlx::test(migrations = "./migrations")]
     async fn deleted_ref_abandons_matching_open_mr(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let _cookie = session(&pool, root.path(), "alice@example.com").await;
         let (repo_id, alice) = seed(&pool).await;
         open_mr(&pool, repo_id, alice).await;
 

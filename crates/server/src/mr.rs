@@ -107,3 +107,22 @@ async fn append_revision(pool: &PgPool, mr_id: Uuid, commit_id: &str) -> Result<
     .await?;
     Ok(result.rows_affected() > 0)
 }
+
+/// story: e03s04 — a deleted bookmark abandons the open MR whose latest
+/// revision was that ref's commit. Returns how many MRs flipped.
+pub async fn abandon_for_deleted_ref(
+    pool: &PgPool,
+    repo_id: Uuid,
+    old_commit: &str,
+) -> Result<i64, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE merge_requests SET state = 'abandoned' \
+         WHERE repo_id = $1 AND state = 'open' AND id IN ( \
+             SELECT mr_id FROM revisions WHERE commit_id = $2)",
+    )
+    .bind(repo_id)
+    .bind(old_commit)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() as i64)
+}
