@@ -1,0 +1,74 @@
+// story: e06s01
+mod home_page {
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    fn csrf(cookie: &str) -> String {
+        let secret =
+            std::env::var("SESSION_SECRET").unwrap_or_else(|_| "home-suite-secret".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
+    async fn get(pool: sqlx::PgPool, path: &str, cookie: Option<&str>) -> String {
+        let mut request = Request::get(path).body(Body::empty()).unwrap();
+        if let Some(cookie) = cookie {
+            request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        }
+        let response = server::app(pool).oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
+            .into_owned()
+    }
+
+    async fn register(pool: sqlx::PgPool) -> String {
+        std::env::set_var("SESSION_SECRET", "home-suite-secret");
+        let request = Request::post("/register")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(
+                "email=alice%40example.com&password=correct+horse+battery",
+            ))
+            .unwrap();
+        let response = server::app(pool).oneshot(request).await.unwrap();
+        response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn logged_out_landing_offers_register_and_login(pool: sqlx::PgPool) {
+        let html = get(pool.clone(), "/", None).await;
+        assert!(html.contains("/register"), "register link: {html}");
+        assert!(html.contains("/login"), "login link: {html}");
+        // no create form for visitors
+        assert!(!html.contains("action=\"/repos\""), "no create form logged out");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn logged_in_home_shows_form_and_repos(pool: sqlx::PgPool) {
+        let cookie = register(pool.clone()).await;
+        // create a repo so the list is non-empty
+        let mut request = Request::post("/repos")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={}",
+                csrf(&cookie)
+            )))
+            .unwrap();
+        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        server::app(pool.clone()).oneshot(request).await.unwrap();
+
+        let html = get(pool, "/", Some(&cookie)).await;
+        assert!(html.contains("action=\"/repos\""), "create form: {html}");
+        assert!(html.contains("/alice/demo"), "owned repo listed: {html}");
+    }
+}
