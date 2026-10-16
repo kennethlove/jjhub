@@ -28,9 +28,6 @@ kata runs as a sidecar container: its workspace root points at jjhub's storage l
 #### ADDED: Kata pinned
 Kata is pinned to an exact commit (vendored build stage or digest-pinned image). No floating tags.
 
-#### ADDED: Backfill command
-`jjhub backfill-meta` (or script) creates missing metadata dirs for existing repos, idempotent.
-
 #### ADDED: Sidecar opens jjhub repos
 Integration test: create repo via jjhub, push a commit, sidecar (in-process or container) loads the workspace and lists the change.
 
@@ -73,7 +70,7 @@ Sidecar cold start <10s. Pinned dependency must build reproducibly (lockfile com
 
 ## 16. Out of scope
 
-Auth proxy (e05s03), MR page integration (e05s04), exposing sidecar publicly.
+Auth proxy (e05s03), MR page integration (e05s04), exposing sidecar publicly. Backfill for pre-e05 repos: dropped as YAGNI — no repos exist before the MVP ships.
 
 ## 17. Acceptance criteria
 

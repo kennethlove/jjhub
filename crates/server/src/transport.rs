@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::token;
 use crate::AppState;
 
-/// story: e02s02 — transport authz decision for a git operation.
+/// story: e02s02 — which git operation a transport request performs.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum GitOp {
     UploadPack,
@@ -126,14 +126,27 @@ pub async fn smart_http(
         .map(|rest| format!("/{rest}"))
         .unwrap_or(path_info);
 
-    run_cgi(
+    let response = run_cgi(
         &state.storage_root,
         &parts.method,
         &path_info,
         query.as_deref().unwrap_or(""),
         &content_type,
         &body_bytes,
-    )
+    );
+
+    // story: e05s02 — a successful push writes objects into the bare repo
+    // but leaves the colocated meta workspace's refs stale, so the kata
+    // sidecar would never see the new commits. Re-import refs after a
+    // successful receive-pack. A sync failure must not fail the push (the
+    // objects are already durable); backfill-meta can repair a missed sync.
+    if op == GitOp::ReceivePack && response.status().is_success() {
+        let meta = domain::meta_path(&state.storage_root, &owner, &name);
+        if let Err(err) = crate::jj_meta::sync_refs(&meta).await {
+            tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
+        }
+    }
+    response
 }
 
 fn run_cgi(

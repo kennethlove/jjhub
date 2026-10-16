@@ -28,24 +28,52 @@ pub async fn init(meta_path: &Path, bare_path: &Path) -> Result<(), String> {
     }
     std::fs::create_dir_all(meta_path).map_err(|e| e.to_string())?;
 
-    // The whole jj sequence runs inside one `spawn_blocking`: jj-lib's
-    // Workspace/Repo carry `!Send` trait objects (WorkingCopyFactory, backend
-    // Fn pointers) and MutableRepo holds RefCell fields, so none of it may
-    // live across an `.await` on the handler's thread. Kata does the same.
-    // `auto_local_bookmark: true` maps plain git branches (trunk) to local jj
-    // bookmarks, which is what the kata sidecar resolves. Callers re-open the
-    // result later via `Workspace::load`.
+    // `Workspace::init_external_git` creates the `.jj` workspace rooted at
+    // `meta_path`, sharing the bare repo's object DB. Already-initialized
+    // (a retried create, or a duplicate name) just re-syncs refs.
+    if !meta_path.join(".jj").exists() {
+        let meta = meta_path.to_owned();
+        let bare = bare_path.to_owned();
+        tokio::task::spawn_blocking(move || -> Result<(), String> {
+            let rt = tokio::runtime::Handle::current();
+            let (workspace, _repo) = rt
+                .block_on(jj_lib::workspace::Workspace::init_external_git(
+                    &settings(),
+                    &meta,
+                    &bare,
+                ))
+                .map_err(|e| format!("jj workspace init: {e}"))?;
+            drop(workspace);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("spawn_blocking: {e}"))??;
+    }
+
+    sync_refs(meta_path).await
+}
+
+/// story: e05s02 — import git refs from the backing store into the meta
+/// workspace's jj view. `init_external_git` shares the bare repo's object
+/// DB, so objects are always present — only refs lag. Re-running this after
+/// a push is what makes newly-pushed commits visible to the kata sidecar.
+pub async fn sync_refs(meta_path: &Path) -> Result<(), String> {
+    use jj_lib::repo::StoreFactories;
+    use jj_lib::workspace::default_working_copy_factories;
+
     let meta = meta_path.to_owned();
-    let bare = bare_path.to_owned();
     tokio::task::spawn_blocking(move || -> Result<(), String> {
         let rt = tokio::runtime::Handle::current();
-        let (workspace, repo) = rt
-            .block_on(jj_lib::workspace::Workspace::init_external_git(
-                &settings(),
-                &meta,
-                &bare,
-            ))
-            .map_err(|e| format!("jj workspace init: {e}"))?;
+        let workspace = jj_lib::workspace::Workspace::load(
+            &settings(),
+            &meta,
+            &StoreFactories::default(),
+            &default_working_copy_factories(),
+        )
+        .map_err(|e| format!("workspace load: {e}"))?;
+        let repo = rt
+            .block_on(workspace.repo_loader().load_at_head())
+            .map_err(|e| format!("load_at_head: {e}"))?;
 
         let options = jj_lib::git::GitImportOptions {
             auto_local_bookmark: true,
@@ -55,7 +83,7 @@ pub async fn init(meta_path: &Path, bare_path: &Path) -> Result<(), String> {
         let mut tx = repo.start_transaction();
         rt.block_on(jj_lib::git::import_refs(tx.repo_mut(), &options))
             .map_err(|e| format!("import_refs: {e}"))?;
-        rt.block_on(tx.commit("jjhub: import refs at repo creation"))
+        rt.block_on(tx.commit("jjhub: import refs after push"))
             .map_err(|e| format!("tx commit: {e}"))?;
         drop(workspace);
         Ok(())

@@ -1,0 +1,38 @@
+# story: e05s02
+#
+# Builds the kata review sidecar at a pinned commit. The published
+# ghcr.io/martint/kata image rejects anonymous and authenticated pulls
+# from here, so we build from upstream source instead — more reproducible
+# anyway (the commit hash pins the exact code). Build context is this repo;
+# the kata source is fetched at build time via build-arg.
+#
+# `serve` never shells out to jj, so no jj binary is needed at runtime.
+# kata's workspace requires rust-version 1.95; pin a toolchain at or above it.
+FROM rust:1.99-bookworm AS backend
+ARG KATA_REPO=https://github.com/martint/kata.git
+ARG KATA_COMMIT
+RUN test -n "${KATA_COMMIT}" || { echo "KATA_COMMIT build-arg is required" >&2; exit 1; }
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+RUN git clone --quiet "${KATA_REPO}" /src \
+ && git -C /src checkout --quiet "${KATA_COMMIT}" \
+ && git -C /src submodule update --init --recursive --quiet
+WORKDIR /src
+RUN cargo build --release -p kata-server \
+ && cp target/release/kata /kata
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=backend /kata /usr/local/bin/kata
+# Bind inside the container; compose decides host reachability.
+ENV KATA_BIND=0.0.0.0:7878
+ENV KATA_DATA=/data
+ENV HOME=/home/kata
+RUN mkdir -p /data /home/kata && chmod 0777 /data /home/kata
+VOLUME ["/data"]
+EXPOSE 7878
+ENTRYPOINT ["kata"]
+CMD ["--help"]

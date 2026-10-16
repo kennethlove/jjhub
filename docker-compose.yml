@@ -29,6 +29,40 @@ services:
     ports:
       - "3000:3000"
 
+  # story: e05s02 — kata review sidecar. Built from upstream source at a
+  # pinned commit (the published image rejects anonymous pulls). Serves the
+  # review UI/API on 7878; the app proxies to it via /review (e05s03). The
+  # sidecar scans /workspaces for jj workspaces, so it mounts the same
+  # storage the app writes meta dirs into. No published host port — the app
+  # is the only intended caller (e05s03 adds auth in front).
+  kata:
+    build:
+      context: .
+      dockerfile: Dockerfile.kata
+      args:
+        KATA_COMMIT: ${KATA_COMMIT:-9c7903dd458160a7b91eb1e43d2a35e11731ccf8}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KATA_DATA: /var/lib/kata
+      KATA_WORKSPACES_DIR: /var/lib/jjhub/repos/.meta
+      # story: e05s03 — trust-client honours X-Review-Author from the app
+      # proxy; this author only labels sidecar-local writes.
+      KATA_AUTH_MODE: trust-client
+      KATA_AUTHOR: jjhub@localhost
+      KATA_BIND: 0.0.0.0:7878
+    volumes:
+      - repo-data:/var/lib/jjhub
+      - kata-data:/var/lib/kata
+    command: ["serve", "--author", "jjhub@localhost"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:7878/api/whoami >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   db-data:
   repo-data:
+  kata-data:
