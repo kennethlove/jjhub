@@ -13,7 +13,11 @@ mod mr_review_links {
             .current_dir(cwd)
             .output()
             .unwrap();
-        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     }
 
     /// alice/demo with one open MR whose revision is a real commit.
@@ -29,7 +33,18 @@ mod mr_review_links {
         git_in(&seed, &["init", "-b", "trunk"]);
         std::fs::write(seed.join("f.txt"), "x\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "one"]);
+        git_in(
+            &seed,
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "one",
+            ],
+        );
         let commit = String::from_utf8_lossy(
             &std::process::Command::new("git")
                 .args(["rev-parse", "HEAD"])
@@ -71,11 +86,7 @@ mod mr_review_links {
             .unwrap();
     }
 
-    async fn get(
-        pool: sqlx::PgPool,
-        root: &std::path::Path,
-        path: &str,
-    ) -> String {
+    async fn get(pool: sqlx::PgPool, root: &std::path::Path, path: &str) -> String {
         let response = server::app_with_storage(pool, root.to_str().unwrap().to_string())
             .oneshot(Request::get(path).body(Body::empty()).unwrap())
             .await

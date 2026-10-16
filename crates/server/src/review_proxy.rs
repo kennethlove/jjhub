@@ -210,3 +210,18 @@ async fn run_proxy(
     }
     response
 }
+
+/// story: e05s04 — kata review link for a change, through the auth proxy.
+/// None when the repo has no colocated jj metadata (pre-backfill repos
+/// must never show a dead link). The kata SPA deep-link is
+/// `/r/{repo}/browse?change=<change-id>`; the sidecar names the repo by
+/// its flattened `{owner}__{name}` workspace dir.
+pub fn review_link(storage_root: &str, owner: &str, name: &str, change_id: &str) -> Option<String> {
+    let meta = domain::meta_path(storage_root, owner, name);
+    if !meta.join(".jj").exists() {
+        return None;
+    }
+    Some(format!(
+        "/review/{owner}/{name}/r/{owner}__{name}/browse?change={change_id}"
+    ))
+}
