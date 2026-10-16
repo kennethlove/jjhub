@@ -1,6 +1,6 @@
 // story: e03s03
 mod merge_execute {
-    use server::merge::{MergeError, merge_bottom};
+    use server::merge::{merge_bottom, MergeError};
 
     fn git_in(cwd: &std::path::Path, args: &[&str]) -> String {
         let out = std::process::Command::new("git")
@@ -28,7 +28,15 @@ mod merge_execute {
         git_in(&seed, &["add", "."]);
         git_in(
             &seed,
-            &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "base"],
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "base",
+            ],
         );
         let trunk_commit = git_in(&seed, &["rev-parse", "HEAD"]);
         std::fs::write(seed.join("feature.txt"), "feature\n").unwrap();
@@ -46,7 +54,21 @@ mod merge_execute {
             ],
         );
         let change_commit = git_in(&seed, &["rev-parse", "HEAD"]);
+        // trunk stays at T; the change object arrives via a scratch ref
         git_in(&seed, &["push", bare.to_str().unwrap(), "trunk"]);
+        git_in(
+            &seed,
+            &["push", bare.to_str().unwrap(), "HEAD:refs/heads/work"],
+        );
+        git_in(
+            &bare,
+            &[
+                "update-ref",
+                "refs/heads/trunk",
+                &trunk_commit,
+                &change_commit,
+            ],
+        );
         (trunk_commit, change_commit)
     }
 
@@ -122,15 +144,9 @@ mod merge_execute {
         open_mr(&pool, repo_id, alice, "aaaa", &change).await;
 
         let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
-        let summary = merge_bottom(
-            &pool,
-            root.path().to_str().unwrap(),
-            repo_id,
-            "aaaa",
-            alice,
-        )
-        .await
-        .expect("merge");
+        let summary = merge_bottom(&pool, root.path().to_str().unwrap(), repo_id, "aaaa", alice)
+            .await
+            .expect("merge");
 
         let raw = git_cat(&bare, &summary.new_trunk_commit);
         assert!(
@@ -138,15 +154,25 @@ mod merge_execute {
             "squash has one parent: {raw}"
         );
         assert!(raw.contains("feat: the change"), "message preserved: {raw}");
-        assert!(raw.contains("user.name=A"), "author preserved: {raw}");
-        let tree = git_in(&bare, &["rev-parse", &format!("{}^{{tree}}", summary.new_trunk_commit)]);
+        assert!(
+            raw.contains("author A <a@e.com>"),
+            "author preserved: {raw}"
+        );
+        let tree = git_in(
+            &bare,
+            &[
+                "rev-parse",
+                &format!("{}^{{tree}}", summary.new_trunk_commit),
+            ],
+        );
         let change_tree = git_in(&bare, &["rev-parse", &format!("{change}^{{tree}}")]);
         assert_eq!(tree, change_tree, "squash tree equals the change tree");
 
-        let state: String = sqlx::query_scalar("SELECT state FROM merge_requests WHERE change_id = 'aaaa'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let state: String =
+            sqlx::query_scalar("SELECT state FROM merge_requests WHERE change_id = 'aaaa'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(state, "merged");
     }
 
@@ -156,15 +182,9 @@ mod merge_execute {
         let (repo_id, alice, _trunk, change) = setup(&pool, root.path(), "merge_commit").await;
         open_mr(&pool, repo_id, alice, "aaaa", &change).await;
 
-        let summary = merge_bottom(
-            &pool,
-            root.path().to_str().unwrap(),
-            repo_id,
-            "aaaa",
-            alice,
-        )
-        .await
-        .expect("merge");
+        let summary = merge_bottom(&pool, root.path().to_str().unwrap(), repo_id, "aaaa", alice)
+            .await
+            .expect("merge");
         let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
         let raw = git_cat(&bare, &summary.new_trunk_commit);
         assert_eq!(
@@ -177,7 +197,7 @@ mod merge_execute {
     #[sqlx::test(migrations = "./migrations")]
     async fn non_owner_cannot_merge(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        let (repo_id, _alice, _trunk, change) = setup(&pool, root.path(), "squash").await;
+        let (repo_id, alice, _trunk, change) = setup(&pool, root.path(), "squash").await;
         // MR owned by a different user
         let bob: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO users (email, password_hash, handle) VALUES ('bob@example.com', 'x', 'bob') RETURNING id",
@@ -187,7 +207,8 @@ mod merge_execute {
         .unwrap();
         open_mr(&pool, repo_id, bob, "aaaa", &change).await;
 
-        let err = merge_bottom(&pool, root.path().to_str().unwrap(), repo_id, "aaaa", bob)
+        // alice (not the MR owner) tries to merge bob's change
+        let err = merge_bottom(&pool, root.path().to_str().unwrap(), repo_id, "aaaa", alice)
             .await
             .unwrap_err();
         assert!(matches!(err, MergeError::NotOwner), "got {err:?}");
@@ -202,25 +223,18 @@ mod merge_execute {
 
         // invariant 4: the ref update carries the expected old value; feed a
         // stale one the way a concurrent trunk move would
-        let new_commit = git_in(
-            &bare,
-            &["hash-object", "-t", "commit", "-w", "--stdin"],
-        );
+        let new_commit = change.clone();
         let err = server::merge::apply_ref_update(
             &bare,
             "refs/heads/trunk",
             "0000000000000000000000000000000000000001",
-            &format!("{new_commit}\n"),
+            &new_commit,
         );
         assert!(err.is_err(), "stale expected-old must be refused");
 
         // sanity: correct old value works
-        let ok = server::merge::apply_ref_update(
-            &bare,
-            "refs/heads/trunk",
-            &trunk_commit,
-            &format!("{new_commit}\n"),
-        );
+        let ok =
+            server::merge::apply_ref_update(&bare, "refs/heads/trunk", &trunk_commit, &new_commit);
         assert!(ok.is_ok(), "current expected-old applies: {ok:?}");
     }
 }

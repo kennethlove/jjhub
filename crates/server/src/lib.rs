@@ -1,5 +1,6 @@
 // story: e01s01
 pub mod jj_meta;
+pub mod merge;
 pub mod middleware;
 pub mod mr;
 pub mod password;
