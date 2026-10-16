@@ -91,6 +91,7 @@ pub fn app_with_secret(
         ));
     Router::new()
         .route("/healthz", get(routes::healthz))
+        .route("/", get(routes::home))
         .route(
             "/register",
             get(routes::register_form).post(routes::register),

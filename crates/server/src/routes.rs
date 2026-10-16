@@ -721,3 +721,87 @@ pub async fn manage_collaborators(
     }
     Redirect::to(&format!("/{owner}/{name}")).into_response()
 }
+
+// story: e06s01 — shared nav: brand + (when authed) Repos and Settings.
+pub fn nav_html(user_handle: Option<&str>) -> String {
+    match user_handle {
+        Some(handle) => format!(
+            "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
+             <a href=\"/settings\">Settings</a> <span>{handle}</span></nav>"
+        ),
+        None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
+    }
+}
+
+async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
+    let cookie = jar.get(crate::session::SESSION_COOKIE)?;
+    let user_id = crate::session::verify(&state.session_secret, cookie.value())?;
+    sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten()
+}
+
+// story: e06s01 — the front door: landing for visitors, dashboard for
+// users (create form + owned repos).
+pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
+    let Some(handle) = viewer_handle(&state, &jar).await else {
+        return Html(format!(
+            r#"<!doctype html><html><body>
+{}
+<h1>jjhub</h1>
+<p>Forge-style hosting for Jujutsu repositories.</p>
+<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
+</body></html>"#,
+            nav_html(None)
+        ))
+        .into_response();
+    };
+
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let repos: Vec<(String, String)> = sqlx::query_as(
+        "SELECT name, visibility FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 ORDER BY name",
+    )
+    .bind(&handle)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    let repo_items: Vec<String> = repos
+        .iter()
+        .map(|(name, visibility)| {
+            format!(
+                "<li><a href=\"/{handle}/{name}\">{handle}/{name}</a> <small>{visibility}</small></li>",
+                handle = handle,
+                name = name,
+                visibility = visibility
+            )
+        })
+        .collect();
+
+    Html(format!(
+        r#"<!doctype html><html><body>
+{}
+<h1>jjhub</h1>
+<h2>Create repository</h2>
+<form method="post" action="/repos">
+<input type="hidden" name="_csrf" value="{csrf}">
+<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
+<label><input type="radio" name="visibility" value="public" checked> public</label>
+<label><input type="radio" name="visibility" value="private"> private</label>
+<button type="submit">Create</button>
+</form>
+<h2>Your repositories</h2>
+<ul>{repos}</ul>
+</body></html>"#,
+        nav_html(Some(&handle)),
+        csrf = csrf,
+        repos = repo_items.join("\n")
+    ))
+    .into_response()
+}
