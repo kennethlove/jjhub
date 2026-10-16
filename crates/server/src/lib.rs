@@ -84,6 +84,10 @@ pub fn app_with_secret(
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_session,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            middleware::require_csrf,
         ));
     Router::new()
         .route("/healthz", get(routes::healthz))
@@ -92,7 +96,13 @@ pub fn app_with_secret(
             get(routes::register_form).post(routes::register),
         )
         .route("/login", get(routes::login_form).post(routes::login))
-        .route("/logout", post(routes::logout))
+        .route(
+            "/logout",
+            post(routes::logout).layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                middleware::require_csrf,
+            )),
+        )
         .route("/{owner}/{name}", get(routes::repo_page))
         .route(
             "/{owner}/{name}/merge-requests",

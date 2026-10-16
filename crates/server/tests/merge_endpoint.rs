@@ -118,7 +118,15 @@ mod merge_endpoint {
         "alice".to_string()
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret =
+            std::env::var("SESSION_SECRET").unwrap_or_else(|_| "merge-endpoint-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn session(pool: &sqlx::PgPool, root: &std::path::Path) -> String {
+        std::env::set_var("SESSION_SECRET", "merge-endpoint-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
@@ -147,9 +155,13 @@ mod merge_endpoint {
         cookie: Option<&str>,
         path: &str,
     ) -> axum::response::Response {
+        let body = match cookie {
+            Some(cookie) => format!("_csrf={}", csrf(cookie)),
+            None => String::new(),
+        };
         let mut request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(""))
+            .body(Body::from(body))
             .unwrap();
         if let Some(cookie) = cookie {
             request

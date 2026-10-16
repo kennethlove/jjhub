@@ -19,7 +19,7 @@ mod repo_create {
     ) -> axum::response::Response {
         let mut request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(body.to_string()))
+            .body(Body::from(format!("{body}&_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()
@@ -38,7 +38,14 @@ mod repo_create {
             .unwrap()
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "repo-create-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> String {
+        std::env::set_var("SESSION_SECRET", "repo-create-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
@@ -215,7 +222,10 @@ mod repo_create {
         let mut router = app(pool.clone(), &root);
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("name=demo&visibility=public"))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={}",
+                csrf(&cookie)
+            )))
             .unwrap();
         request
             .headers_mut()

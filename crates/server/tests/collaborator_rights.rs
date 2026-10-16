@@ -16,7 +16,14 @@ mod collaborator_rights {
         )
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "csrf-suite-secret".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir, email: &str) -> String {
+        std::env::set_var("SESSION_SECRET", "csrf-suite-secret");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -39,7 +46,7 @@ mod collaborator_rights {
     async fn token(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) -> String {
         let mut request = Request::post("/settings/tokens")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("label=e2e"))
+            .body(Body::from(format!("label=e2e&_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()
@@ -115,8 +122,13 @@ mod collaborator_rights {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
         // owner adds bob
-        let response =
-            manage_collaborators(pool.clone(), &root, &alice, "email=bob%40example.com").await;
+        let response = manage_collaborators(
+            pool.clone(),
+            &root,
+            &alice,
+            &format!("email=bob%40example.com&_csrf={}", csrf(&alice)),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
         // collaborator push passes the authz gate
@@ -134,7 +146,7 @@ mod collaborator_rights {
             pool.clone(),
             &root,
             &alice,
-            "email=bob%40example.com&remove=1",
+            &format!("email=bob%40example.com&remove=1&_csrf={}", csrf(&alice)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -149,7 +161,13 @@ mod collaborator_rights {
         let bob = register(&pool, &root, "bob@example.com").await;
         post_form_repo(pool.clone(), &root, &alice).await;
 
-        let response = manage_collaborators(pool, &root, &bob, "email=carol%40example.com").await;
+        let response = manage_collaborators(
+            pool,
+            &root,
+            &bob,
+            &format!("email=carol%40example.com&_csrf={}", csrf(&bob)),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
@@ -163,13 +181,22 @@ mod collaborator_rights {
         // make it private
         let mut request = Request::post("/alice/demo/settings")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("visibility=private"))
+            .body(Body::from(format!(
+                "visibility=private&_csrf={}",
+                csrf(&alice)
+            )))
             .unwrap();
         request
             .headers_mut()
             .insert("cookie", alice.parse().unwrap());
         app(pool.clone(), &root).oneshot(request).await.unwrap();
-        manage_collaborators(pool.clone(), &root, &alice, "email=bob%40example.com").await;
+        manage_collaborators(
+            pool.clone(),
+            &root,
+            &alice,
+            &format!("email=bob%40example.com&_csrf={}", csrf(&alice)),
+        )
+        .await;
 
         let bob_token = token(&pool, &root, &bob).await;
         let response =
@@ -194,7 +221,10 @@ mod collaborator_rights {
     ) -> axum::response::Response {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("name=demo&visibility=public"))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={}",
+                csrf(cookie)
+            )))
             .unwrap();
         request
             .headers_mut()

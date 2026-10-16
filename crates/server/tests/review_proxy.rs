@@ -44,12 +44,20 @@ mod review_proxy_auth {
         (format!("http://{addr}"), seen)
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret =
+            std::env::var("SESSION_SECRET").unwrap_or_else(|_| "review-proxy-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn register(
         pool: &sqlx::PgPool,
         root: &tempfile::TempDir,
         upstream: &str,
         email: &str,
     ) -> String {
+        std::env::set_var("SESSION_SECRET", "review-proxy-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -81,7 +89,7 @@ mod review_proxy_auth {
     ) {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(body.to_string()))
+            .body(Body::from(format!("{body}&_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()

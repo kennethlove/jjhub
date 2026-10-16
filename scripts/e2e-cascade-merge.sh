@@ -16,6 +16,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 export JJHUB_STORAGE_ROOT="$TMP/repos" JJHUB_PORT="$PORT" DATABASE_URL="$DB_URL"
 ./target/debug/server >"$TMP/server.log" 2>&1 &
@@ -29,11 +30,15 @@ echo "== register + create repo =="
 curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
   --data-urlencode "password=correct horse battery" >/dev/null
+
+# session-authed POSTs carry the synchronizer token
+SESSION=$(awk '$6 == "session" {print $7}' "$CJ")
+CSRF=$(python3 -c "import hmac,hashlib,sys; print(hmac.new(b'e2e-shared-secret', sys.argv[1].encode(), hashlib.sha256).hexdigest())" "$SESSION")
 LOC=$(curl -sf -b "$CJ" -o /dev/null -w '%{redirect_url}' -X POST "$BASE/repos" \
-  -d 'name=cascade-demo&visibility=public')
+  -d "name=cascade-demo&visibility=public&_csrf=$CSRF")
 OWNER_NAME="${LOC#"$BASE"/}"
 TOKEN=$(curl -sf -b "$CJ" -c "$CJ" -X POST "$BASE/settings/tokens" \
-  -d 'label=e2e' -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
+  -d "label=e2e&_csrf=$CSRF" -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
 AUTH_URL="http://x-access-token:$TOKEN@127.0.0.1:$PORT/git/${OWNER_NAME}.git"
 BARE="$TMP/repos/${OWNER_NAME}.git"
 
@@ -85,7 +90,7 @@ for COMMIT in $(git -C "$BARE" rev-list --all | head -5); do
 done
 test -n "$BOTTOM_CHANGE" || { echo "no bottom MR found" >&2; exit 1; }
 CODE=$(curl -s -b "$CJ" -o /dev/null -w '%{http_code}' -X POST \
-  "$BASE/${OWNER_NAME}/merge-requests/${BOTTOM_CHANGE}/merge")
+  -d "_csrf=$CSRF" "$BASE/${OWNER_NAME}/merge-requests/${BOTTOM_CHANGE}/merge")
 test "$CODE" = "303" || { echo "merge returned $CODE" >&2; exit 1; }
 
 echo "== trunk advanced, descendant rebased =="

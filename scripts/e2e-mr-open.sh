@@ -13,6 +13,7 @@ SVPID=""
 cleanup() { [ -n "$SVPID" ] && kill "$SVPID" 2>/dev/null || true; rm -rf "$TMP"; }
 trap cleanup EXIT
 
+export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 export JJHUB_STORAGE_ROOT="$TMP/repos"
 export JJHUB_PORT="$PORT"
@@ -28,11 +29,15 @@ echo "== register + create repo =="
 curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
   --data-urlencode "password=correct horse battery" >/dev/null
+
+# session-authed POSTs carry the synchronizer token
+SESSION=$(awk '$6 == "session" {print $7}' "$CJ")
+CSRF=$(python3 -c "import hmac,hashlib,sys; print(hmac.new(b'e2e-shared-secret', sys.argv[1].encode(), hashlib.sha256).hexdigest())" "$SESSION")
 LOC=$(curl -sf -b "$CJ" -o /dev/null -w '%{redirect_url}' -X POST "$BASE/repos" \
-  -d 'name=mr-demo&visibility=public')
+  -d "name=mr-demo&visibility=public&_csrf=$CSRF")
 OWNER_NAME="${LOC#"$BASE"/}"
 TOKEN=$(curl -sf -b "$CJ" -c "$CJ" -X POST "$BASE/settings/tokens" \
-  -d 'label=e2e' -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
+  -d "label=e2e&_csrf=$CSRF" -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
 AUTH_URL="http://x-access-token:$TOKEN@127.0.0.1:$PORT/git/${OWNER_NAME}.git"
 BARE="$TMP/repos/${OWNER_NAME}.git"
 

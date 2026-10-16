@@ -37,7 +37,14 @@ mod mr_abandon_reopen {
         mr_id
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "mr-abandon-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn session(pool: &sqlx::PgPool, root: &std::path::Path, email: &str) -> String {
+        std::env::set_var("SESSION_SECRET", "mr-abandon-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -68,7 +75,7 @@ mod mr_abandon_reopen {
     ) -> axum::response::Response {
         let mut request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(""))
+            .body(Body::from(format!("_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()

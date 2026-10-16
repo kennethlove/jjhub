@@ -6,6 +6,12 @@ use tower::ServiceExt;
 mod token_crud {
     use super::*;
 
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "tokens-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn post(
         pool: sqlx::PgPool,
         path: &str,
@@ -14,7 +20,10 @@ mod token_crud {
     ) -> axum::response::Response {
         let mut request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(body.to_string()))
+            .body(Body::from(format!(
+                "{body}&_csrf={}",
+                csrf(cookie.unwrap_or(""))
+            )))
             .unwrap();
         if let Some(cookie) = cookie {
             request
@@ -25,6 +34,7 @@ mod token_crud {
     }
 
     async fn register(pool: &sqlx::PgPool) -> String {
+        std::env::set_var("SESSION_SECRET", "tokens-suite");
         let response = post(
             pool.clone(),
             "/register",

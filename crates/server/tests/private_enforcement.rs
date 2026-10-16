@@ -18,7 +18,14 @@ mod private_repo_enforcement {
         )
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "private-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir, email: &str) -> String {
+        std::env::set_var("SESSION_SECRET", "private-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -46,7 +53,7 @@ mod private_repo_enforcement {
     ) -> axum::response::Response {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(body.to_string()))
+            .body(Body::from(format!("{body}&_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()
@@ -95,7 +102,7 @@ mod private_repo_enforcement {
         // bob generates his own token via settings
         let mut request = Request::post("/settings/tokens")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("label=bob"))
+            .body(Body::from(format!("label=bob&_csrf={}", csrf(&bob))))
             .unwrap();
         request.headers_mut().insert("cookie", bob.parse().unwrap());
         let response = app(pool.clone(), &root).oneshot(request).await.unwrap();
@@ -124,7 +131,10 @@ mod private_repo_enforcement {
         // flip to private
         let mut request = Request::post("/alice/demo/settings")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("visibility=private"))
+            .body(Body::from(format!(
+                "visibility=private&_csrf={}",
+                csrf(&cookie)
+            )))
             .unwrap();
         request
             .headers_mut()
@@ -150,7 +160,7 @@ mod private_repo_enforcement {
         let cookie = setup(&pool, &root).await;
         let mut request = Request::post("/settings/tokens")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("label=owner"))
+            .body(Body::from(format!("label=owner&_csrf={}", csrf(&cookie))))
             .unwrap();
         request
             .headers_mut()
