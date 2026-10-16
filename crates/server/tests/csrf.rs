@@ -1,4 +1,3 @@
-// story: jjhub-8bq
 mod csrf_protection {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -11,10 +10,11 @@ mod csrf_protection {
                 "email=alice%40example.com&password=correct+horse+battery",
             ))
             .unwrap();
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         response
             .headers()
             .get("set-cookie")
@@ -50,7 +50,9 @@ mod csrf_protection {
     }
 
     fn token_for(secret: &[u8], cookie: &str) -> String {
-        server::session::csrf_token(secret, cookie)
+        // cookie is the "session=<value>" pair; the token hashes the value
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret, value)
     }
 
     const SECRET: &[u8] = b"test-session-secret";
@@ -59,14 +61,7 @@ mod csrf_protection {
     async fn post_without_token_is_forbidden(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(&pool, &root).await;
-        let response = post(
-            pool,
-            &root,
-            "/settings/tokens",
-            "label=evil",
-            Some(&cookie),
-        )
-        .await;
+        let response = post(pool, &root, "/settings/tokens", "label=evil", Some(&cookie)).await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
@@ -168,7 +163,14 @@ mod csrf_protection {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         // with token: succeeds
         let token = token_for(SECRET, &cookie);
-        let response = post(pool, &root, "/logout", &format!("_csrf={token}"), Some(&cookie)).await;
+        let response = post(
+            pool,
+            &root,
+            "/logout",
+            &format!("_csrf={token}"),
+            Some(&cookie),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 }

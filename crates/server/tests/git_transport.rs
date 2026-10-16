@@ -11,6 +11,7 @@ mod git_transport_public {
     }
 
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> String {
+        std::env::set_var("SESSION_SECRET", "git-transport-suite");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
@@ -30,10 +31,20 @@ mod git_transport_public {
             .to_string()
     }
 
+    fn csrf(cookie: &str) -> String {
+        let secret =
+            std::env::var("SESSION_SECRET").unwrap_or_else(|_| "git-transport-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
+    }
+
     async fn create_repo(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from("name=demo&visibility=public"))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={}",
+                csrf(cookie)
+            )))
             .unwrap();
         request
             .headers_mut()

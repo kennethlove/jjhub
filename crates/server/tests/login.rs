@@ -17,6 +17,7 @@ mod session_auth_login {
     }
 
     async fn register(pool: &sqlx::PgPool) -> String {
+        std::env::set_var("SESSION_SECRET", "login-suite-secret");
         let response = post(
             pool.clone(),
             "/register",
@@ -81,7 +82,14 @@ mod session_auth_login {
     #[sqlx::test(migrations = "./migrations")]
     async fn logout_clears_session(pool: sqlx::PgPool) {
         let cookie = register(&pool).await;
-        let mut request = Request::post("/logout").body(Body::empty()).unwrap();
+        // logout is session-authed, so it carries the token
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_default();
+        let value = cookie.strip_prefix("session=").unwrap_or(&cookie);
+        let token = server::session::csrf_token(secret.as_bytes(), value);
+        let mut request = Request::post("/logout")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(format!("_csrf={token}")))
+            .unwrap();
         request
             .headers_mut()
             .insert("cookie", cookie.parse().unwrap());

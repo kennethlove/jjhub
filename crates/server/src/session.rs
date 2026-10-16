@@ -41,3 +41,14 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
             .fold(0u8, |acc, (x, y)| acc | (x ^ y))
             == 0
 }
+
+/// stateless synchronizer token: HMAC over the session
+/// cookie itself. Only a party that can read the victim's cookie (same-
+/// origin JS) can compute it, so a cross-site form post cannot. Forms echo
+/// it in a hidden `_csrf` field; the middleware recomputes and compares.
+pub fn csrf_token(secret: &[u8], session_cookie_value: &str) -> String {
+    use hmac::{Hmac, Mac};
+    let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret).expect("hmac key");
+    mac.update(session_cookie_value.as_bytes());
+    hex::encode(mac.finalize().into_bytes())
+}

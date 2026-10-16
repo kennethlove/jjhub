@@ -149,6 +149,11 @@ pub async fn settings(
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
     jar: CookieJar,
 ) -> Response {
+    // forms echo the session-derived synchronizer token
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -186,6 +191,7 @@ pub async fn settings(
 <h2>Access tokens</h2>
 {new_token_html}
 <form method="post" action="/settings/tokens">
+<input type="hidden" name="_csrf" value="{csrf}">
 <label>Label <input name="label" required></label>
 <button type="submit">Generate token</button>
 </form>
@@ -467,7 +473,15 @@ pub async fn merge_requests_page(
 pub async fn mr_detail_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+    jar: CookieJar,
 ) -> Response {
+    // the public detail page renders action forms; they
+    // echo the session token when the viewer has one (anonymous submits are
+    // refused by the auth middleware anyway)
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
     if !change_id.chars().all(|c| c.is_ascii_alphabetic()) {
         return (StatusCode::NOT_FOUND, "merge request not found").into_response();
     }
@@ -519,8 +533,8 @@ pub async fn mr_detail_page(
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
 {}
 {review_section}
-<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><button type="submit">Merge</button></form>
-<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/abandon"><button type="submit">Abandon</button></form>
+<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Merge</button></form>
+<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/abandon"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Abandon</button></form>
 </body></html>"#,
         sections.join("\n"),
         review_section = match crate::review_proxy::review_link(

@@ -29,6 +29,7 @@ command -v kata >/dev/null 2>&1 || {
   exit 1
 }
 
+export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 JJHUB_STORAGE_ROOT="$TMP/repos" JJHUB_PORT="$PORT" DATABASE_URL="$DB_URL" \
   ./target/debug/server &
@@ -46,15 +47,19 @@ curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
   --data-urlencode "password=correct horse battery" >/dev/null
 
+# session-authed POSTs carry the synchronizer token
+SESSION=$(awk '$6 == "session" {print $7}' "$CJ")
+CSRF=$(python3 -c "import hmac,hashlib,sys; print(hmac.new(b'e2e-shared-secret', sys.argv[1].encode(), hashlib.sha256).hexdigest())" "$SESSION")
+
 echo "== create repo =="
 LOC=$(curl -sf -b "$CJ" -o /dev/null -w '%{redirect_url}' -X POST "$BASE/repos" \
-  -d 'name=sidecar-demo&visibility=public')
+  -d "name=sidecar-demo&visibility=public&_csrf=$CSRF")
 OWNER_NAME="${LOC#"$BASE"/}"
 echo "repo at $OWNER_NAME"
 
 echo "== generate token =="
 NEW_TOKEN=$(curl -sf -b "$CJ" -c "$CJ" -X POST "$BASE/settings/tokens" \
-  -d 'label=e2e' -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
+  -d "label=e2e&_csrf=$CSRF" -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
 test -n "$NEW_TOKEN" || { echo "no token issued"; exit 1; }
 AUTH_URL="http://x-access-token:$NEW_TOKEN@127.0.0.1:$PORT/git/${OWNER_NAME}.git"
 
