@@ -6,43 +6,38 @@ use tower::ServiceExt;
 
 mod review_proxy_auth {
     use super::*;
+    use axum::response::IntoResponse;
     use std::sync::{Arc, Mutex};
 
-    const SECRET: &str = "test-trust-secret";
+    /// (captured request headers, path) from the mock sidecar.
+    type Seen = Arc<Mutex<Option<(Vec<(String, String)>, String)>>>;
 
-    fn app(
-        pool: sqlx::PgPool,
-        root: &tempfile::TempDir,
-        upstream: &str,
-    ) -> axum::Router {
+    fn app(pool: sqlx::PgPool, root: &tempfile::TempDir, upstream: &str) -> axum::Router {
         server::app_with_kata(
             pool,
             root.path().to_str().unwrap().to_string(),
             upstream.to_string(),
-            SECRET.to_string(),
         )
     }
 
     /// Mock kata: records the last request's headers+path, returns 200.
-    async fn spawn_mock_kata() -> (String, Arc<Mutex<Option<(Vec<(String, String)>, String)>>>) {
+    async fn spawn_mock_kata() -> (String, Seen) {
         let seen = Arc::new(Mutex::new(None));
         let seen2 = seen.clone();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        let router = axum::Router::new().fallback(
-            move |req: axum::extract::Request| {
-                let seen = seen2.clone();
-                async move {
-                    let headers: Vec<(String, String)> = req
-                        .headers()
-                        .iter()
-                        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-                        .collect();
-                    *seen.lock().unwrap() = Some((headers, req.uri().path().to_string()));
-                    (StatusCode::OK, "kata-ok").into_response()
-                }
-            },
-        );
+        let router = axum::Router::new().fallback(move |req: axum::extract::Request| {
+            let seen = seen2.clone();
+            async move {
+                let headers: Vec<(String, String)> = req
+                    .headers()
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                    .collect();
+                *seen.lock().unwrap() = Some((headers, req.uri().path().to_string()));
+                (StatusCode::OK, "kata-ok").into_response()
+            }
+        });
         tokio::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
@@ -120,11 +115,11 @@ mod review_proxy_auth {
         app(pool, root, upstream).oneshot(request).await.unwrap()
     }
 
-    fn upstream_saw_trust(seen: &Arc<Mutex<Option<(Vec<(String, String)>, String)>>>) -> Option<String> {
+    fn upstream_header(seen: &Seen, name: &str) -> Option<String> {
         seen.lock().unwrap().as_ref().and_then(|(headers, _)| {
             headers
                 .iter()
-                .find(|(k, _)| k == "x-kata-trust")
+                .find(|(k, _)| k == name)
                 .map(|(_, v)| v.clone())
         })
     }
@@ -142,7 +137,10 @@ mod review_proxy_auth {
             .to_str()
             .unwrap()
             .to_string();
-        assert!(location.starts_with("/login"), "redirect to login: {location}");
+        assert!(
+            location.starts_with("/login"),
+            "redirect to login: {location}"
+        );
     }
 
     // story: e05s03 — spoofed trust header from unauthenticated client is
@@ -157,7 +155,7 @@ mod review_proxy_auth {
             &upstream,
             "/review/alice/demo/",
             None,
-            Some(SECRET),
+            Some("evil@example.com"),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -181,29 +179,31 @@ mod review_proxy_auth {
         )
         .await;
 
-        // client forges the trust header; the proxy must replace it
+        // client forges the identity header; the proxy must replace it
         let response = review_get(
             pool,
             &root,
             &upstream,
             "/review/alice/demo/files",
             Some(&cookie),
-            Some("evil"),
+            Some("evil@example.com"),
         )
         .await;
         assert_eq!(response.status(), StatusCode::OK);
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(&body[..], b"kata-ok");
         assert_eq!(
-            upstream_saw_trust(&seen).as_deref(),
-            Some(SECRET),
-            "proxy sets its own trust header"
+            upstream_header(&seen, "x-review-author").as_deref(),
+            Some("alice@example.com"),
+            "proxy sets the authenticated user's identity"
         );
         let (headers, path) = seen.lock().unwrap().clone().unwrap();
         assert_eq!(path, "/files", "rest path forwarded");
         assert!(
-            !headers.iter().any(|(k, v)| k == "x-kata-trust" && v == "evil"),
-            "client trust header stripped"
+            !headers
+                .iter()
+                .any(|(k, v)| k == "x-review-author" && v == "evil@example.com"),
+            "client identity header stripped"
         );
     }
 

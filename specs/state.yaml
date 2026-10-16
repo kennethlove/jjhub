@@ -7,6 +7,6 @@ vcs:
 session:
   started: "2026-07-10T00:00:00Z"
   active_epic_id: e05
-  active_story_id: e05s02
+  active_story_id: e05s03
 handoff:
   next_skill: respond-review
