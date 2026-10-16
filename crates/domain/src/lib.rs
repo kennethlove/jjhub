@@ -151,7 +151,6 @@ pub struct StackInput {
 pub fn derive_stacks(
     mrs: &[StackInput],
     parents: std::collections::HashMap<String, Vec<String>>,
-    trunk: std::collections::HashSet<String>,
 ) -> Vec<Vec<String>> {
     use std::collections::HashMap;
 
@@ -177,19 +176,13 @@ pub fn derive_stacks(
     let mut bottoms: Vec<&StackInput> = Vec::new();
     let mut children: HashMap<String, Vec<&StackInput>> = HashMap::new();
     for mr in mrs {
-        let on_trunk = parents
-            .get(&mr.latest_commit)
-            .and_then(|p| p.first())
-            .is_some_and(|first| trunk.contains(first));
+        // an MR whose first parent is another MR's latest commit joins that
+        // stack; everything else (trunk parent, unknown parent, no parent)
+        // is a bottom — render, never drop
         match linked_parent(&mr.latest_commit, &parents, &by_commit) {
             Some(parent_commit) => {
                 children.entry(parent_commit).or_default().push(mr);
             }
-            None if on_trunk || parents.get(&mr.latest_commit).is_none() => {
-                bottoms.push(mr);
-            }
-            // parent exists but is not another MR and not trunk: still a
-            // bottom (orphan case) — render, never drop
             None => bottoms.push(mr),
         }
     }

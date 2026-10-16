@@ -1,7 +1,7 @@
 // story: e03s02
 mod stack_derivation {
     use domain::{derive_stacks, StackInput};
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     fn parents(pairs: &[(&str, &[&str])]) -> HashMap<String, Vec<String>> {
         pairs
@@ -21,11 +21,7 @@ mod stack_derivation {
             change_id: "aaaa".into(),
             latest_commit: "c1".into(),
         }];
-        let stacks = derive_stacks(
-            &inputs,
-            parents(&[("c1", &["trunk1"])]),
-            HashSet::from(["trunk1".to_string()]),
-        );
+        let stacks = derive_stacks(&inputs, parents(&[("c1", &["trunk1"])]));
         assert_eq!(stacks, vec![vec!["aaaa".to_string()]]);
     }
 
@@ -49,7 +45,6 @@ mod stack_derivation {
         let stacks = derive_stacks(
             &inputs,
             parents(&[("c1", &["trunk1"]), ("c2", &["c1"]), ("c3", &["c2"])]),
-            HashSet::from(["trunk1".to_string()]),
         );
         assert_eq!(
             stacks,
@@ -76,7 +71,6 @@ mod stack_derivation {
         let stacks = derive_stacks(
             &inputs,
             parents(&[("c1", &["trunk1"]), ("z1", &["trunk2"])]),
-            HashSet::from(["trunk1".to_string(), "trunk2".to_string()]),
         );
         assert_eq!(stacks.len(), 2);
         assert_eq!(stacks[0], vec!["aaa".to_string()]);
@@ -97,11 +91,7 @@ mod stack_derivation {
                 latest_commit: "c2b".into(),
             },
         ];
-        let stacks = derive_stacks(
-            &inputs,
-            parents(&[("c1", &["trunk1"]), ("c2b", &["c1"])]),
-            HashSet::from(["trunk1".to_string()]),
-        );
+        let stacks = derive_stacks(&inputs, parents(&[("c1", &["trunk1"]), ("c2b", &["c1"])]));
         assert_eq!(stacks, vec![vec!["aaa".to_string(), "bbb".to_string()]]);
     }
 
@@ -113,11 +103,7 @@ mod stack_derivation {
             change_id: "ooo".into(),
             latest_commit: "o1".into(),
         }];
-        let stacks = derive_stacks(
-            &inputs,
-            parents(&[("o1", &["unknown-parent"])]),
-            HashSet::from(["trunk1".to_string()]),
-        );
+        let stacks = derive_stacks(&inputs, parents(&[("o1", &["unknown-parent"])]));
         assert_eq!(stacks, vec![vec!["ooo".to_string()]]);
     }
 }

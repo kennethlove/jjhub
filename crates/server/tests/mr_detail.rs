@@ -28,12 +28,38 @@ mod mr_detail {
         git_in(&seed, &["init", "-b", "trunk"]);
         std::fs::write(seed.join("hello.txt"), "first line\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "one"]);
+        git_in(
+            &seed,
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "one",
+            ],
+        );
         let trunk_commit = rev_parse(&seed);
         // second commit: add a file whose NAME and content carry html
-        std::fs::write(seed.join("evil.txt"), "<script>alert(1)</script>\nkept line\n").unwrap();
+        std::fs::write(
+            seed.join("evil.txt"),
+            "<script>alert(1)</script>\nkept line\n",
+        )
+        .unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "two"]);
+        git_in(
+            &seed,
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "two",
+            ],
+        );
         let head_commit = rev_parse(&seed);
         git_in(&seed, &["push", bare.to_str().unwrap(), "trunk"]);
         (trunk_commit, head_commit)
@@ -106,9 +132,14 @@ mod mr_detail {
         server::repo::init_bare(&bare).unwrap();
         let (trunk_commit, head_commit) = seed(&bare).await;
         let (owner, name, change) =
-            seed_repo_with_revisions(&pool, &[trunk_commit, head_commit]).await;
+            seed_repo_with_revisions(&pool, &[trunk_commit.clone(), head_commit.clone()]).await;
 
-        let response = get(pool, root.path(), &format!("/{owner}/{name}/pulls/{change}")).await;
+        let response = get(
+            pool,
+            root.path(),
+            &format!("/{owner}/{name}/pulls/{change}"),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::OK);
         let html =
             String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
@@ -121,14 +152,20 @@ mod mr_detail {
 
         // diff of the head revision is rendered
         assert!(html.contains("kept line"), "added line in diff: {html}");
-        assert!(html.contains("first line"), "context/other file content visible");
+        assert!(
+            html.contains("first line"),
+            "context/other file content visible"
+        );
 
         // XSS guard: repo content never renders as live html
         assert!(
             !html.contains("<script>"),
             "file content must be escaped, got: {html}"
         );
-        assert!(html.contains("&lt;script&gt;"), "escaped payload shown as text");
+        assert!(
+            html.contains("&lt;script&gt;"),
+            "escaped payload shown as text"
+        );
     }
 
     #[sqlx::test(migrations = "./migrations")]

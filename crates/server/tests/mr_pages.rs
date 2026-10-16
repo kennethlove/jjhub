@@ -36,7 +36,7 @@ mod mr_pages {
 
     /// Seed trunk + three stacked commits directly in the bare repo and
     /// return their ids (bottom first).
-    async fn seed_stack(pool: &sqlx::PgPool, bare: &std::path::Path) -> Vec<String> {
+    async fn seed_stack(bare: &std::path::Path) -> Vec<String> {
         let seed = bare.join("../seed");
         std::fs::create_dir_all(&seed).unwrap();
         git(&["init", "-b", "trunk", seed.to_str().unwrap()]);
@@ -73,11 +73,7 @@ mod mr_pages {
         ids
     }
 
-    async fn seed_repo_with_mrs(
-        pool: &sqlx::PgPool,
-        root: &std::path::Path,
-        commits: &[String],
-    ) -> (String, String) {
+    async fn seed_repo_with_mrs(pool: &sqlx::PgPool, commits: &[String]) -> (String, String) {
         let handle = "alice";
         let user_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
@@ -129,8 +125,8 @@ mod mr_pages {
         let root = tempfile::tempdir().unwrap();
         let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
         server::repo::init_bare(&bare).unwrap();
-        let commits = seed_stack(&pool, &bare).await;
-        let (owner, name) = seed_repo_with_mrs(&pool, root.path(), &commits).await;
+        let commits = seed_stack(&bare).await;
+        let (owner, name) = seed_repo_with_mrs(&pool, &commits).await;
 
         let response = get(pool, root.path(), &format!("/{owner}/{name}/pulls")).await;
         assert_eq!(response.status(), StatusCode::OK);

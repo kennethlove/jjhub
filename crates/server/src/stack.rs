@@ -3,7 +3,7 @@
 //! bottom-first stack model the pulls page renders (invariant 3: derived,
 //! never stored).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 
 use domain::StackInput;
@@ -59,19 +59,8 @@ pub fn parents_of(bare: &Path, commit: &str) -> Vec<String> {
         .collect()
 }
 
-/// story: e03s02 — is `commit` reachable from the trunk ref?
-pub fn on_trunk(bare: &Path, commit: &str, trunk: &str) -> bool {
-    std::process::Command::new("git")
-        .arg("-C")
-        .arg(bare)
-        .args(["merge-base", "--is-ancestor", commit, trunk])
-        .output()
-        .map(|out| out.status.success())
-        .unwrap_or(false)
-}
-
 /// story: e03s02 — full stack model for the pulls page.
-pub fn derive_page_model(bare: &Path, trunk: &str, mrs: &[OpenMr]) -> Vec<Vec<String>> {
+pub fn derive_page_model(bare: &Path, mrs: &[OpenMr]) -> Vec<Vec<String>> {
     let parents: HashMap<String, Vec<String>> = mrs
         .iter()
         .map(|mr| {
@@ -82,15 +71,6 @@ pub fn derive_page_model(bare: &Path, trunk: &str, mrs: &[OpenMr]) -> Vec<Vec<St
         })
         .collect();
 
-    // only commits whose first parent is trunk-ancestor count as trunk for
-    // the derivation; check once per distinct first parent
-    let mut trunk_commits: HashSet<String> = HashSet::new();
-    for first_parent in parents.values().filter_map(|p| p.first()) {
-        if trunk_commits.contains(first_parent) || on_trunk(bare, first_parent, trunk) {
-            trunk_commits.insert(first_parent.clone());
-        }
-    }
-
     let inputs: Vec<StackInput> = mrs
         .iter()
         .map(|mr| StackInput {
@@ -98,5 +78,32 @@ pub fn derive_page_model(bare: &Path, trunk: &str, mrs: &[OpenMr]) -> Vec<Vec<St
             latest_commit: mr.latest_commit.clone(),
         })
         .collect();
-    domain::derive_stacks(&inputs, parents, trunk_commits)
+    domain::derive_stacks(&inputs, parents)
+}
+
+/// story: e03s02 — unified diff of a commit against its first parent (or
+/// the empty tree for a root commit). Raw text; callers escape for HTML.
+pub fn unified_diff(bare: &Path, commit: &str) -> String {
+    const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+    let parent = parents_of(bare, commit)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| EMPTY_TREE.to_string());
+    let Ok(output) = std::process::Command::new("git")
+        .arg("-C")
+        .arg(bare)
+        .args(["diff", &parent, commit, "--"])
+        .output()
+    else {
+        return String::new();
+    };
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+/// story: e03s02 — minimal HTML escaping for repo-controlled content.
+pub fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }

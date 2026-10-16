@@ -83,6 +83,10 @@ pub fn app_with_secret(
         .route("/{owner}/{name}", get(routes::repo_page))
         .route("/{owner}/{name}/pulls", get(routes::pulls_page))
         .route(
+            "/{owner}/{name}/pulls/{change_id}",
+            get(routes::mr_detail_page),
+        )
+        .route(
             "/review/{owner}/{name}",
             get(review_proxy::proxy).post(review_proxy::proxy),
         )

@@ -407,8 +407,8 @@ pub async fn pulls_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
 ) -> Response {
-    let repo: Option<(uuid::Uuid, String)> = sqlx::query_as(
-        "SELECT r.id, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id \
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
          WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
@@ -417,7 +417,7 @@ pub async fn pulls_page(
     .await
     .ok()
     .flatten();
-    let Some((repo_id, trunk)) = repo else {
+    let Some((repo_id,)) = repo else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
 
@@ -432,7 +432,7 @@ pub async fn pulls_page(
         }
     };
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
-    let stacks = crate::stack::derive_page_model(&bare, &trunk, &mrs);
+    let stacks = crate::stack::derive_page_model(&bare, &mrs);
 
     // change_id -> stack position labels for rendering
     let pulls_root = format!("/{owner}/{name}/pulls");
@@ -454,6 +454,68 @@ pub async fn pulls_page(
 </ol>
 </body></html>"#,
         position.join("\n")
+    ))
+    .into_response()
+}
+
+// story: e03s02 — MR detail: revisions newest-first, each with its
+// unified diff. Repo-controlled content is escaped (no HTML from files).
+pub async fn mr_detail_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+) -> Response {
+    if !change_id.chars().all(|c| c.is_ascii_alphabetic()) {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    }
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id,)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT id, state FROM merge_requests WHERE repo_id = $1 AND change_id = $2",
+    )
+    .bind(repo_id)
+    .bind(&change_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((mr_id, mr_state)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+    let revisions: Vec<String> = sqlx::query_scalar(
+        "SELECT commit_id FROM revisions WHERE mr_id = $1 ORDER BY pushed_at DESC",
+    )
+    .bind(mr_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    let mut sections = Vec::new();
+    for commit in &revisions {
+        let diff = crate::stack::unified_diff(&bare, commit);
+        sections.push(format!(
+            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre></section>",
+            crate::stack::html_escape(&diff)
+        ));
+    }
+
+    Html(format!(
+        r#"<!doctype html><html><body>
+<h1>{owner}/{name} — {change_id} ({mr_state})</h1>
+{}
+</body></html>"#,
+        sections.join("\n")
     ))
     .into_response()
 }
