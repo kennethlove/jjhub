@@ -1,6 +1,6 @@
 // story: e03s02
 mod stack_derivation {
-    use domain::{StackInput, derive_stacks};
+    use domain::{derive_stacks, StackInput};
     use std::collections::{HashMap, HashSet};
 
     fn parents(pairs: &[(&str, &[&str])]) -> HashMap<String, Vec<String>> {
@@ -53,7 +53,11 @@ mod stack_derivation {
         );
         assert_eq!(
             stacks,
-            vec![vec!["aaa".to_string(), "bbb".to_string(), "ccc".to_string()]]
+            vec![vec![
+                "aaa".to_string(),
+                "bbb".to_string(),
+                "ccc".to_string()
+            ]]
         );
     }
 

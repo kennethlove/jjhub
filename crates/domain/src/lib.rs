@@ -135,3 +135,84 @@ fn is_valid_email(email: &str) -> bool {
         && !domain.ends_with('.')
         && !email.contains(char::is_whitespace)
 }
+
+// story: e03s02 — one open MR's identity for stack derivation.
+#[derive(Debug, Clone)]
+pub struct StackInput {
+    pub change_id: String,
+    pub latest_commit: String,
+}
+
+/// story: e03s02 — invariant 3: stack structure comes from commit parents,
+/// never stored. Returns stacks bottom-first; each stack is change-ids in
+/// bottom-to-top order. A commit whose ancestry reaches `trunk` without
+/// passing another MR is a stack bottom; an unexplainable MR is still
+/// rendered (its own stack) — data is never dropped.
+pub fn derive_stacks(
+    mrs: &[StackInput],
+    parents: std::collections::HashMap<String, Vec<String>>,
+    trunk: std::collections::HashSet<String>,
+) -> Vec<Vec<String>> {
+    use std::collections::HashMap;
+
+    let by_commit: HashMap<&str, &str> = mrs
+        .iter()
+        .map(|mr| (mr.latest_commit.as_str(), mr.change_id.as_str()))
+        .collect();
+
+    // parent of a commit's first parent chain that is itself an MR commit
+    fn linked_parent(
+        commit: &str,
+        parents: &HashMap<String, Vec<String>>,
+        by_commit: &HashMap<&str, &str>,
+    ) -> Option<String> {
+        let first = parents.get(commit)?.first()?;
+        if by_commit.contains_key(first.as_str()) {
+            Some(first.clone())
+        } else {
+            None
+        }
+    }
+
+    let mut bottoms: Vec<&StackInput> = Vec::new();
+    let mut children: HashMap<String, Vec<&StackInput>> = HashMap::new();
+    for mr in mrs {
+        let on_trunk = parents
+            .get(&mr.latest_commit)
+            .and_then(|p| p.first())
+            .is_some_and(|first| trunk.contains(first));
+        match linked_parent(&mr.latest_commit, &parents, &by_commit) {
+            Some(parent_commit) => {
+                children.entry(parent_commit).or_default().push(mr);
+            }
+            None if on_trunk || parents.get(&mr.latest_commit).is_none() => {
+                bottoms.push(mr);
+            }
+            // parent exists but is not another MR and not trunk: still a
+            // bottom (orphan case) — render, never drop
+            None => bottoms.push(mr),
+        }
+    }
+
+    // deterministic order: sort bottoms by change_id; children by change_id
+    bottoms.sort_by(|a, b| a.change_id.cmp(&b.change_id));
+    let mut stacks = Vec::new();
+    for bottom in bottoms {
+        let mut stack = vec![bottom.change_id.clone()];
+        let mut frontier = vec![bottom.latest_commit.clone()];
+        while let Some(commit) = frontier.pop() {
+            let mut kids: Vec<&StackInput> = children
+                .get(&commit)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[])
+                .to_vec();
+            kids.sort_by(|a, b| a.change_id.cmp(&b.change_id));
+            for kid in kids {
+                stack.push(kid.change_id.clone());
+                frontier.push(kid.latest_commit.clone());
+            }
+        }
+        stacks.push(stack);
+    }
+    stacks
+}
