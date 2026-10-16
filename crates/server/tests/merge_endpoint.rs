@@ -12,7 +12,11 @@ mod merge_endpoint {
             .current_dir(cwd)
             .output()
             .unwrap();
-        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     }
 
@@ -36,9 +40,18 @@ mod merge_endpoint {
             .stdout(std::process::Stdio::piped())
             .spawn()
             .unwrap();
-        child.stdin.as_mut().unwrap().write_all(object.as_bytes()).unwrap();
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(object.as_bytes())
+            .unwrap();
         let out = child.wait_with_output().unwrap();
-        assert!(out.status.success(), "mkcommit: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "mkcommit: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     }
 
@@ -63,15 +76,21 @@ mod merge_endpoint {
         std::fs::write(seed.join("two.txt"), "two\n").unwrap();
         git_in(&seed, &["add", "."]);
         let c2 = mkcommit(&seed, &c1, "mmmmmtttttt", "change two");
-        git_in(&seed, &["push", bare.to_str().unwrap(), &format!("{c2}:refs/heads/work")]);
+        git_in(
+            &seed,
+            &[
+                "push",
+                bare.to_str().unwrap(),
+                &format!("{c2}:refs/heads/work"),
+            ],
+        );
         git_in(&bare, &["update-ref", "refs/heads/trunk", &trunk]);
 
-        let user_id: uuid::Uuid = sqlx::query_scalar(
-            "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
-        )
-        .fetch_one(pool)
-        .await
-        .unwrap();
+        let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_optional(pool)
+            .await
+            .unwrap()
+            .expect("call session() before setup()");
         let repo_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO repositories (owner_id, name) VALUES ($1, 'demo') RETURNING id",
         )
@@ -106,7 +125,7 @@ mod merge_endpoint {
                 "email=alice%40example.com&password=correct+horse+battery",
             ))
             .unwrap();
-        let response = server::app_with_storage(pool, root.to_str().unwrap().to_string())
+        let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
             .oneshot(request)
             .await
             .unwrap();
@@ -133,7 +152,9 @@ mod merge_endpoint {
             .body(Body::from(""))
             .unwrap();
         if let Some(cookie) = cookie {
-            request.headers_mut().insert("cookie", cookie.parse().unwrap());
+            request
+                .headers_mut()
+                .insert("cookie", cookie.parse().unwrap());
         }
         server::app_with_storage(pool, root.to_str().unwrap().to_string())
             .oneshot(request)
@@ -144,8 +165,8 @@ mod merge_endpoint {
     #[sqlx::test(migrations = "./migrations")]
     async fn owner_merges_bottom_and_redirects(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        setup(&pool, root.path()).await;
         let cookie = session(&pool, root.path()).await;
+        setup(&pool, root.path()).await;
 
         let response = merge_post(
             pool.clone(),
@@ -173,8 +194,8 @@ mod merge_endpoint {
     #[sqlx::test(migrations = "./migrations")]
     async fn merging_a_descendant_first_is_conflict(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        setup(&pool, root.path()).await;
         let cookie = session(&pool, root.path()).await;
+        setup(&pool, root.path()).await;
         let response = merge_post(
             pool,
             root.path(),
@@ -188,6 +209,8 @@ mod merge_endpoint {
     #[sqlx::test(migrations = "./migrations")]
     async fn unauthenticated_is_login_redirect(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
+        let cookie = session(&pool, root.path()).await;
+        let _ = cookie;
         setup(&pool, root.path()).await;
         let response = merge_post(pool, root.path(), None, "/alice/demo/pulls/aaaa/merge").await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -196,18 +219,21 @@ mod merge_endpoint {
     #[sqlx::test(migrations = "./migrations")]
     async fn non_owner_is_forbidden(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
+        let alice_cookie = session(&pool, root.path()).await;
+        let _ = alice_cookie;
         setup(&pool, root.path()).await;
-        // register a different account (bob) and take over the alice MR row
+        // register a different account (bob) to attempt the merge
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
                 "email=bob%40example.com&password=correct+horse+battery",
             ))
             .unwrap();
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         let cookie = response
             .headers()
             .get("set-cookie")

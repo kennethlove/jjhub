@@ -514,8 +514,59 @@ pub async fn mr_detail_page(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
 {}
+<form method="post" action="/{owner}/{name}/pulls/{change_id}/merge"><button type="submit">Merge</button></form>
 </body></html>"#,
         sections.join("\n")
     ))
     .into_response()
+}
+
+// story: e03s03 — merge button target: owner-only, bottom MR, one click.
+pub async fn merge_mr(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+) -> Response {
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id,)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+
+    use crate::merge::MergeError;
+    match crate::merge::merge_bottom(
+        &state.pool,
+        &state.storage_root,
+        repo_id,
+        &change_id,
+        current.0,
+    )
+    .await
+    {
+        Ok(_) => Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response(),
+        Err(MergeError::NotFound) => {
+            (StatusCode::NOT_FOUND, "merge request not found").into_response()
+        }
+        Err(MergeError::NotOwner) => {
+            (StatusCode::FORBIDDEN, "only the owner can merge").into_response()
+        }
+        // invariant 7: descendants wait for the bottom
+        Err(MergeError::NotBottom) => (
+            StatusCode::CONFLICT,
+            "only the bottom of a stack can merge first",
+        )
+            .into_response(),
+        Err(MergeError::Internal(err)) => {
+            tracing::error!(%err, "merge failed");
+            (StatusCode::INTERNAL_SERVER_ERROR, "merge failed").into_response()
+        }
+    }
 }

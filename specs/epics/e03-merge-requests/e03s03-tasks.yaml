@@ -1,7 +1,7 @@
 story_id: e03s03
 spec: e03s03-cascade-merge.md
 title: "Merge: squash/merge-commit setting + cascade rebase of descendants"
-status: failing
+status: passing
 bcps: 8
 tasks:
   - id: e03s03t1

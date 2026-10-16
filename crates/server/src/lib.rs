@@ -69,6 +69,10 @@ pub fn app_with_secret(
         .route("/settings/tokens", post(routes::create_token))
         .route("/repos", post(routes::create_repo))
         .route("/{owner}/{name}/settings", post(routes::repo_settings))
+        .route(
+            "/{owner}/{name}/pulls/{change_id}/merge",
+            post(routes::merge_mr),
+        )
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_session,

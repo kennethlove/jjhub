@@ -61,7 +61,7 @@ mod merge_execute {
             &["push", bare.to_str().unwrap(), "HEAD:refs/heads/work"],
         );
         git_in(
-            &bare,
+            bare,
             &[
                 "update-ref",
                 "refs/heads/trunk",
@@ -243,7 +243,6 @@ mod merge_execute {
 }
 
 // story: e03s03 — t2: cascade rebase of descendants.
-#[allow(dead_code)]
 mod cascade {
     use super::merge_execute::*;
     use server::merge::merge_bottom;
