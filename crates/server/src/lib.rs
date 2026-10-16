@@ -151,3 +151,12 @@ fn transport_routes(state: AppState) -> Router<AppState> {
         )
         .with_state(state)
 }
+
+/// story: kata scan — the sidecar's workspace scanner watches the meta
+/// root; create it (and the storage root) eagerly at boot so the watch
+/// attaches on a fresh volume instead of kata falling back to polling
+/// and warn-scanning a missing path every cycle.
+pub fn ensure_storage_layout(storage_root: &str) -> Result<(), String> {
+    let root = std::path::Path::new(storage_root);
+    std::fs::create_dir_all(root.join(".meta")).map_err(|e| e.to_string())
+}

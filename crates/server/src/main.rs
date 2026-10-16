@@ -22,6 +22,12 @@ async fn main() {
         .await
         .expect("run migrations");
 
+    // story: kata scan — the sidecar watches {storage}/.meta; create it
+    // before serving so its inotify watch attaches on a fresh volume
+    let storage_root =
+        std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
+    server::ensure_storage_layout(&storage_root).expect("create storage layout");
+
     // story: e02s01 — bind all interfaces so docker port mapping works.
     let port = std::env::var("JJHUB_PORT").unwrap_or_else(|_| "3000".into());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
