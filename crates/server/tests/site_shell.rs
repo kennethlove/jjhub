@@ -38,7 +38,9 @@ mod site_nav {
     ) -> String {
         let mut request = Request::get(path).body(Body::empty()).unwrap();
         if let Some(cookie) = cookie {
-            request.headers_mut().insert("cookie", cookie.parse().unwrap());
+            request
+                .headers_mut()
+                .insert("cookie", cookie.parse().unwrap());
         }
         let response =
             server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
@@ -60,9 +62,13 @@ mod site_nav {
         let token = server::session::csrf_token(secret.as_bytes(), value);
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(format!("name=demo&visibility=public&_csrf={token}")))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={token}"
+            )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -86,9 +92,13 @@ mod site_nav {
         let token = server::session::csrf_token(secret.as_bytes(), value);
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(format!("name=demo&visibility=public&_csrf={token}")))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={token}"
+            )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -100,7 +110,7 @@ mod site_nav {
             "remote add snippet: {html}"
         );
         assert!(
-            html.contains("x-access-token:<TOKEN>"),
+            html.contains("x-access-token:&lt;TOKEN&gt;"),
             "token placeholder, never a real token: {html}"
         );
         assert!(

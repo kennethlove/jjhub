@@ -1,6 +1,6 @@
 story_id: e06s01
 spec: e06s01-site-shell.md
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e06s01t1
@@ -8,7 +8,7 @@ tasks:
     verify: "cargo test -p server home_page"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["unit"]
@@ -17,7 +17,7 @@ tasks:
     verify: "cargo test -p server site_nav"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["unit"]
@@ -26,7 +26,7 @@ tasks:
     verify: "cargo test -p server origin_snippets"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["unit"]

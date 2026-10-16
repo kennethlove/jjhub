@@ -154,6 +154,13 @@ pub async fn settings(
         .get(crate::session::SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
+    let handle: Option<String> = sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(current.0)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+    let nav = nav_html(handle.as_deref());
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -187,7 +194,7 @@ pub async fn settings(
         Some(email) => Html(format!(
             r#"<!doctype html><html><body>
 <h1>Settings</h1>
-<p>Signed in as {email}</p>
+{nav}<p>Signed in as {email}</p>
 <h2>Access tokens</h2>
 {new_token_html}
 <form method="post" action="/settings/tokens">
@@ -321,7 +328,16 @@ pub async fn create_repo(
 pub async fn repo_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    jar: CookieJar,
+    headers: axum::http::HeaderMap,
 ) -> Response {
+    let viewer = viewer_handle(&state, &jar).await;
+    let nav = nav_html(viewer.as_deref());
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost:3000")
+        .to_string();
     let repo: Option<(String, String)> = sqlx::query_as(
         "SELECT r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
@@ -337,7 +353,10 @@ pub async fn repo_page(
             r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
 <p>{visibility} — trunk: {trunk}</p>
-<p>Clone: <code>http://localhost:3000/git/{owner}/{name}.git</code></p>
+{nav}<h2>Add this repository</h2>
+<p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
+<pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
+jj git push --all</pre>
 </body></html>"#
         ))
         .into_response(),
