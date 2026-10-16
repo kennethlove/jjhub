@@ -72,7 +72,7 @@ mod merge_execute {
         (trunk_commit, change_commit)
     }
 
-    async fn seed_repo(pool: &sqlx::PgPool, merge_setting: &str) -> (uuid::Uuid, uuid::Uuid) {
+    pub(crate) async fn seed_repo(pool: &sqlx::PgPool, merge_setting: &str) -> (uuid::Uuid, uuid::Uuid) {
         let user_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
         )
@@ -90,7 +90,7 @@ mod merge_execute {
         (repo_id, user_id)
     }
 
-    async fn open_mr(
+    pub(crate) async fn open_mr(
         pool: &sqlx::PgPool,
         repo_id: uuid::Uuid,
         owner: uuid::Uuid,
@@ -127,7 +127,7 @@ mod merge_execute {
         (repo_id, alice, trunk_commit, change_commit)
     }
 
-    fn git_cat(bare: &std::path::Path, rev: &str) -> String {
+    pub(crate) fn git_cat(bare: &std::path::Path, rev: &str) -> String {
         let out = std::process::Command::new("git")
             .arg("-C")
             .arg(bare)
@@ -236,5 +236,109 @@ mod merge_execute {
         let ok =
             server::merge::apply_ref_update(&bare, "refs/heads/trunk", &trunk_commit, &new_commit);
         assert!(ok.is_ok(), "current expected-old applies: {ok:?}");
+    }
+}
+
+// story: e03s03 — t2: cascade rebase of descendants.
+#[allow(dead_code)]
+mod cascade {
+    use super::merge_execute::*;
+    use server::merge::merge_bottom;
+
+    fn git_in(cwd: &std::path::Path, args: &[&str]) -> String {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .current_dir(cwd)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    /// Seed trunk at T with a two-change stack C1(aaa) -> C2(bbb).
+    async fn seed_stack(bare: &std::path::Path) -> (String, String, String) {
+        let seed = bare.join("../seed-stack");
+        std::fs::create_dir_all(&seed).unwrap();
+        git_in(&seed, &["init", "-b", "trunk"]);
+        std::fs::write(seed.join("base.txt"), "base\n").unwrap();
+        git_in(&seed, &["add", "."]);
+        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "base"]);
+        let trunk_commit = git_in(&seed, &["rev-parse", "HEAD"]);
+        std::fs::write(seed.join("one.txt"), "one\n").unwrap();
+        git_in(&seed, &["add", "."]);
+        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "change one"]);
+        let c1 = git_in(&seed, &["rev-parse", "HEAD"]);
+        std::fs::write(seed.join("two.txt"), "two\n").unwrap();
+        git_in(&seed, &["add", "."]);
+        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "change two"]);
+        let c2 = git_in(&seed, &["rev-parse", "HEAD"]);
+        git_in(&seed, &["push", bare.to_str().unwrap(), "HEAD:refs/heads/work"]);
+        git_in(bare, &["update-ref", "refs/heads/trunk", &trunk_commit]);
+        (trunk_commit, c1, c2)
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn merging_bottom_rebases_descendants(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
+        server::repo::init_bare(&bare).unwrap();
+        let (_trunk, c1, c2) = seed_stack(&bare).await;
+
+        let (repo_id, alice) = seed_repo(&pool, "squash").await;
+        open_mr(&pool, repo_id, alice, "aaaa", &c1).await;
+        open_mr(&pool, repo_id, alice, "bbbb", &c2).await;
+
+        let summary = merge_bottom(
+            &pool,
+            root.path().to_str().unwrap(),
+            repo_id,
+            "aaaa",
+            alice,
+        )
+        .await
+        .expect("merge");
+
+        // bbb stayed open and gained a rebased revision on new trunk
+        let bbb: (String,) = sqlx::query_as("SELECT state FROM merge_requests WHERE change_id = 'bbbb'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(bbb.0, "open", "descendant stays open");
+
+        let new_rev: Option<String> = sqlx::query_scalar(
+            "SELECT rev.commit_id FROM revisions rev \
+             JOIN merge_requests mr ON mr.id = rev.mr_id \
+             WHERE mr.change_id = 'bbbb' ORDER BY rev.pushed_at DESC LIMIT 1",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap()
+        .flatten();
+        let new_rev = new_rev.expect("descendant has a revision");
+
+        let raw = git_cat(&bare, &new_rev);
+        assert!(
+            raw.contains(&format!("parent {}", summary.new_trunk_commit)),
+            "rebased commit sits on new trunk: {raw}"
+        );
+        assert!(raw.contains("change-id"), "change-id header preserved: {raw}");
+        let tree = git_in(&bare, &["rev-parse", &format!("{new_rev}^{{tree}}")]);
+        let c2_tree = git_in(&bare, &["rev-parse", &format!("{c2}^{{tree}}")]);
+        assert_eq!(tree, c2_tree, "descendant tree preserved");
+
+        // two revisions recorded for bbb (original + rebased)
+        let revs: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM revisions rev JOIN merge_requests mr ON mr.id = rev.mr_id WHERE mr.change_id = 'bbbb'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(revs, 2, "original + rebased revision");
     }
 }
