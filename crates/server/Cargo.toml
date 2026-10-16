@@ -8,6 +8,7 @@ axum = { workspace = true, features = ["json"] }
 tokio.workspace = true
 tower.workspace = true
 tracing = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 sqlx = { workspace = true, features = ["migrate"] }
 tera.workspace = true
 argon2 = { workspace = true, features = ["std"] }
