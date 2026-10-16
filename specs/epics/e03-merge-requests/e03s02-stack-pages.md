@@ -26,10 +26,10 @@ Repo page gains an MR list grouped into stacks: bottom MR targets the repo's tru
 Parentage derived from commit parents of latest revisions; trunk-targeting bottom = MR whose parent commit is reachable from trunk. Never persisted.
 
 #### ADDED: MR list page
-`GET /{owner}/{name}/pulls` shows open MRs grouped in stack order (bottom first).
+`GET /{owner}/{name}/merge-requests` shows open MRs grouped in stack order (bottom first).
 
 #### ADDED: MR detail + revisions
-`GET /{owner}/{name}/pulls/{change_id}` shows state, stack position, revision list.
+`GET /{owner}/{name}/merge-requests/{change_id}` shows state, stack position, revision list.
 
 #### ADDED: Revision diffs
 Detail page renders per-revision file diffs (unified text diff, binary marked) computed from repo objects.
@@ -88,13 +88,13 @@ Merge buttons (e03s03), abandon UI (e03s04), kata links (e05s04), side-by-side d
 ```gherkin
 Scenario: stack renders in order
   Given pushed stack A -> B -> C (A targets trunk)
-  When I open /{owner}/{repo}/pulls
+  When I open /{owner}/{repo}/merge-requests
   Then MRs show in order A, B, C with parent links
 ```
 
 ## 19. Verification script (manual)
 
-1. Push 3-change stack; open /{owner}/{repo}/pulls — three cards, ordered.
+1. Push 3-change stack; open /{owner}/{repo}/merge-requests — three cards, ordered.
 2. Open bottom MR — revision list, diff of pushed file visible.
 
 ## 20. Traceability

@@ -23,7 +23,7 @@ Merge button on MR detail (owner only). Executor: (1) squash or merge-commit the
 ## 6. Requirements
 
 #### ADDED: Merge execution
-Owner-only POST /{owner}/{name}/pulls/{change_id}/merge. Bottom MR only (parent reachable from trunk); descendant MRs may not merge first (invariant 7 — test).
+Owner-only POST /{owner}/{name}/merge-requests/{change_id}/merge. Bottom MR only (parent reachable from trunk); descendant MRs may not merge first (invariant 7 — test).
 
 #### ADDED: Repo merge setting honored
 squash (default) → single parent on trunk, change description as message; merge_commit → `Merge <description>` with two parents.

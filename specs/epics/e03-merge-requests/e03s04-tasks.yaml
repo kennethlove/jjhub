@@ -1,14 +1,14 @@
 story_id: e03s04
 spec: e03s04-abandon-collaborators.md
 title: "Abandon/reopen + collaborators"
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e03s04t1
     description: "abandon button + bookmark-deletion signal; reopen on re-push (state machine)"
     verify: "cargo test -p server mr_abandon_reopen"
-    status: pending
+    status: passing
   - id: e03s04t2
     description: "collaborators table + add/remove UI (owner only); push rights for collaborators"
     verify: "cargo test -p server collaborator_rights"
-    status: pending
+    status: passing

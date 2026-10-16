@@ -74,8 +74,8 @@ pub async fn smart_http(
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    let repo: Option<(uuid::Uuid, String)> = sqlx::query_as(
-        "SELECT r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
     .bind(&name)
@@ -83,7 +83,7 @@ pub async fn smart_http(
     .await
     .ok()
     .flatten();
-    let Some((repo_owner, visibility)) = repo else {
+    let Some((repo_id, repo_owner, visibility)) = repo else {
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -99,7 +99,9 @@ pub async fn smart_http(
         GitOp::UploadPack
     };
     let user = token_user(&parts.headers, &state).await;
-    if let Err((status, extra_headers)) = authorize(op, user, repo_owner, &visibility) {
+    if let Err((status, extra_headers)) =
+        authorize(op, user, repo_owner, &visibility, &state.pool, repo_id).await
+    {
         let mut response = (status, "forbidden").into_response();
         for (name, value) in extra_headers {
             if let Ok(value) = header::HeaderValue::from_str(value) {
@@ -150,6 +152,22 @@ pub async fn smart_http(
             tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
         }
         if let Some(pusher) = user {
+            // story: e03s04 — deleted refs abandon their open MRs
+            for update in crate::receive_guard::parse_push_commands(&body_bytes) {
+                if update.new.chars().all(|c| c == '0')
+                    && update.ref_name.starts_with("refs/heads/")
+                {
+                    if let Err(err) = crate::mr::abandon_for_deleted_ref(
+                        &state.pool,
+                        repo_owner_id(&state, &owner, &name).await,
+                        &update.old,
+                    )
+                    .await
+                    {
+                        tracing::warn!(%err, "abandon-on-delete failed");
+                    }
+                }
+            }
             upsert_mrs_after_push(&state, &owner, &name, pusher, &body_bytes).await;
         }
     }
@@ -293,33 +311,81 @@ fn run_cgi(
     })
 }
 
-/// story: e02s02 — push needs a token whose user owns the repo; private
-/// upload-pack needs any valid token; public upload-pack is open.
+/// story: e02s02 — push needs a token whose user owns the repo OR is a
+/// collaborator (story e03s04); private clone likewise needs owner OR
+/// collaborator, and public clone stays open.
 /// story: e02s02 — 401s carry a Basic challenge so git clients retry with
 /// credentials from the remote URL.
 fn challenge() -> Vec<(header::HeaderName, &'static str)> {
     vec![(header::WWW_AUTHENTICATE, "Basic realm=\"jjhub\"")]
 }
 
+/// story: e03s04 — owner OR collaborator for push/private reads.
+async fn push_or_read_allowed(
+    pool: &sqlx::PgPool,
+    repo_id: uuid::Uuid,
+    user: uuid::Uuid,
+    repo_owner: uuid::Uuid,
+) -> bool {
+    if user == repo_owner {
+        return true;
+    }
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM collaborators WHERE repo_id = $1 AND user_id = $2",
+    )
+    .bind(repo_id)
+    .bind(user)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(0);
+    count > 0
+}
+
 /// story: e02s02 — authz failure the smart_http handler renders.
 type AuthzError = (StatusCode, Vec<(header::HeaderName, &'static str)>);
 
-fn authorize(
+async fn authorize(
     op: GitOp,
     user: Option<uuid::Uuid>,
     repo_owner: uuid::Uuid,
     visibility: &str,
+    pool: &sqlx::PgPool,
+    repo_id: uuid::Uuid,
 ) -> Result<(), AuthzError> {
     match (op, user) {
         (GitOp::ReceivePack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
-        (GitOp::ReceivePack, Some(uid)) if uid != repo_owner => {
-            Err((StatusCode::FORBIDDEN, Vec::new()))
+        (GitOp::ReceivePack, Some(uid)) => {
+            if push_or_read_allowed(pool, repo_id, uid, repo_owner).await {
+                Ok(())
+            } else {
+                Err((StatusCode::FORBIDDEN, Vec::new()))
+            }
         }
-        (GitOp::ReceivePack, Some(_)) => Ok(()),
         (GitOp::UploadPack, _) if visibility == "public" => Ok(()),
         (GitOp::UploadPack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
-        (GitOp::UploadPack, Some(_)) => Ok(()),
+        (GitOp::UploadPack, Some(uid)) => {
+            if push_or_read_allowed(pool, repo_id, uid, repo_owner).await {
+                Ok(())
+            } else {
+                Err((StatusCode::FORBIDDEN, Vec::new()))
+            }
+        }
     }
+}
+
+/// story: e03s04 — repository id for an owner/name pair.
+async fn repo_owner_id(state: &AppState, owner: &str, name: &str) -> uuid::Uuid {
+    sqlx::query_scalar(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or(uuid::Uuid::nil())
 }
 
 /// story: e02s02 — parse Basic credentials from headers to a user id.

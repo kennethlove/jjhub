@@ -137,7 +137,7 @@ mod mr_detail {
         let response = get(
             pool,
             root.path(),
-            &format!("/{owner}/{name}/pulls/{change}"),
+            &format!("/{owner}/{name}/merge-requests/{change}"),
         )
         .await;
         assert_eq!(response.status(), StatusCode::OK);
@@ -171,7 +171,7 @@ mod mr_detail {
     #[sqlx::test(migrations = "./migrations")]
     async fn detail_unknown_change_is_404(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        let response = get(pool, root.path(), "/alice/demo/pulls/zzzz").await;
+        let response = get(pool, root.path(), "/alice/demo/merge-requests/zzzz").await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

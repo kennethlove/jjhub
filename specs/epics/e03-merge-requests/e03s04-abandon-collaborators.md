@@ -62,7 +62,7 @@ Abandon button (danger styling, confirm); collaborator form + list on repo setti
 
 ## 13. API contracts
 
-POST /{owner}/{name}/pulls/{change_id}/abandon; POST/DELETE /{owner}/{name}/settings/collaborators.
+POST /{owner}/{name}/merge-requests/{change_id}/abandon; POST/DELETE /{owner}/{name}/settings/collaborators.
 
 ## 14. Data model
 
