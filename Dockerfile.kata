@@ -1,24 +1,37 @@
 # story: e05s02
 #
 # Builds the kata review sidecar at a pinned commit. The published
-# ghcr.io/martint/kata image rejects anonymous and authenticated pulls
-# from here, so we build from upstream source instead — more reproducible
-# anyway (the commit hash pins the exact code). Build context is this repo;
-# the kata source is fetched at build time via build-arg.
+# ghcr.io/martint/kata image rejects anonymous pulls from here, so we build
+# from upstream source — the commit hash pins the exact code.
 #
-# `serve` never shells out to jj, so no jj binary is needed at runtime.
-# kata's workspace requires rust-version 1.95; pin a toolchain at or above it.
-FROM rust:1.99-bookworm AS backend
+# Mirrors kata's own Dockerfile: a bun stage builds the real web bundle,
+# the rust stage embeds it (KATA_SKIP_WEB_BUILD skips a SECOND bun run in
+# build.rs; the prebuilt dist is what ships). `serve` never needs the jj
+# CLI, so the runtime stage stays slim.
+FROM debian:bookworm-slim AS source
 ARG KATA_REPO=https://github.com/martint/kata.git
 ARG KATA_COMMIT
 RUN test -n "${KATA_COMMIT}" || { echo "KATA_COMMIT build-arg is required" >&2; exit 1; }
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git \
+ && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 RUN git clone --quiet "${KATA_REPO}" /src \
- && git -C /src checkout --quiet "${KATA_COMMIT}" \
- && git -C /src submodule update --init --recursive --quiet
+ && git -C /src checkout --quiet "${KATA_COMMIT}"
+
+# ---- web bundle (the review UI the /review links point at) ----
+FROM oven/bun:1.3 AS frontend
+WORKDIR /web
+COPY --from=source /src/web/package.json /src/web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY --from=source /src/web ./
+RUN bun run build
+
+# ---- server binary, real web/dist embedded ----
+FROM rust:1.99-bookworm AS backend
+COPY --from=source /src /src
+COPY --from=frontend /web/dist /src/web/dist
 WORKDIR /src
+ENV KATA_SKIP_WEB_BUILD=1
 RUN cargo build --release -p kata-server \
  && cp target/release/kata /kata
 

@@ -48,7 +48,9 @@ services:
         condition: service_healthy
     environment:
       KATA_DATA: /var/lib/kata
-      KATA_WORKSPACES_DIR: /var/lib/jjhub/repos/.meta
+      # story: e05s02 — kata's flag env is KATA_WORKSPACE (singular), value
+      # form is "name=path"; the wildcard scans the flattened meta root.
+      KATA_WORKSPACE: "*=/var/lib/jjhub/repos/.meta"
       # story: e05s03 — identity comes from the app proxy's X-Review-Author
       # header only. Trust is network-scoped: no host port is published, so
       # only containers on the compose network (the app) can reach kata.
