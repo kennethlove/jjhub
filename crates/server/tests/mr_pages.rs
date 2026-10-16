@@ -134,10 +134,9 @@ mod mr_pages {
 
         let response = get(pool, root.path(), &format!("/{owner}/{name}/pulls")).await;
         assert_eq!(response.status(), StatusCode::OK);
-        let html = String::from_utf8_lossy(
-            &response.into_body().collect().await.unwrap().to_bytes(),
-        )
-        .into_owned();
+        let html =
+            String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
+                .into_owned();
 
         let pos_aaa = html.find("aaa").expect("bottom MR rendered");
         let pos_bbb = html.find("bbb").expect("middle MR rendered");

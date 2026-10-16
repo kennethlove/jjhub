@@ -399,3 +399,61 @@ pub async fn create_token(
     ));
     (jar, Redirect::to("/settings")).into_response()
 }
+
+// story: e03s02 — MR list: open merge requests grouped into stacks, each
+// stack bottom-first (invariant 3: derived from commit parents at render
+// time, never stored).
+pub async fn pulls_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+) -> Response {
+    let repo: Option<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.id, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, trunk)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+
+    let mrs = match crate::stack::open_mrs(&state.pool, repo_id).await {
+        Ok(mrs) => mrs,
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("db error: {err}"),
+            )
+                .into_response();
+        }
+    };
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    let stacks = crate::stack::derive_page_model(&bare, &trunk, &mrs);
+
+    // change_id -> stack position labels for rendering
+    let pulls_root = format!("/{owner}/{name}/pulls");
+    let mut position: Vec<String> = Vec::new();
+    for (stack_idx, stack) in stacks.iter().enumerate() {
+        for (mr_idx, change_id) in stack.iter().enumerate() {
+            position.push(format!(
+                "<li data-change=\"{change_id}\">#{stack_idx}:{mr_idx} \
+                 <a href=\"{pulls_root}/{change_id}\">{change_id}</a></li>"
+            ));
+        }
+    }
+
+    Html(format!(
+        r#"<!doctype html><html><body>
+<h1>{owner}/{name} — merge requests</h1>
+<ol>
+{}
+</ol>
+</body></html>"#,
+        position.join("\n")
+    ))
+    .into_response()
+}
