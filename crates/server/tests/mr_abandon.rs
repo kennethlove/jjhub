@@ -90,7 +90,7 @@ mod mr_abandon_reopen {
             pool.clone(),
             root.path(),
             &cookie,
-            "/alice/demo/pulls/aaaa/abandon",
+            "/alice/demo/merge-requests/aaaa/abandon",
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -125,8 +125,13 @@ mod mr_abandon_reopen {
         let (repo_id, alice) = seed(&pool).await;
         open_mr(&pool, repo_id, alice).await;
 
-        let response =
-            abandon_post(pool, root.path(), &cookie, "/alice/demo/pulls/aaaa/abandon").await;
+        let response = abandon_post(
+            pool,
+            root.path(),
+            &cookie,
+            "/alice/demo/merge-requests/aaaa/abandon",
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
@@ -142,8 +147,13 @@ mod mr_abandon_reopen {
             .await
             .unwrap();
 
-        let response =
-            abandon_post(pool, root.path(), &cookie, "/alice/demo/pulls/aaaa/abandon").await;
+        let response = abandon_post(
+            pool,
+            root.path(),
+            &cookie,
+            "/alice/demo/merge-requests/aaaa/abandon",
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
     }
 

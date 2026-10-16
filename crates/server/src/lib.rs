@@ -70,11 +70,15 @@ pub fn app_with_secret(
         .route("/repos", post(routes::create_repo))
         .route("/{owner}/{name}/settings", post(routes::repo_settings))
         .route(
-            "/{owner}/{name}/pulls/{change_id}/merge",
+            "/{owner}/{name}/settings/collaborators",
+            post(routes::manage_collaborators),
+        )
+        .route(
+            "/{owner}/{name}/merge-requests/{change_id}/merge",
             post(routes::merge_mr),
         )
         .route(
-            "/{owner}/{name}/pulls/{change_id}/abandon",
+            "/{owner}/{name}/merge-requests/{change_id}/abandon",
             post(routes::abandon_mr),
         )
         .route_layer(axum::middleware::from_fn_with_state(
@@ -90,9 +94,12 @@ pub fn app_with_secret(
         .route("/login", get(routes::login_form).post(routes::login))
         .route("/logout", post(routes::logout))
         .route("/{owner}/{name}", get(routes::repo_page))
-        .route("/{owner}/{name}/pulls", get(routes::pulls_page))
         .route(
-            "/{owner}/{name}/pulls/{change_id}",
+            "/{owner}/{name}/merge-requests",
+            get(routes::merge_requests_page),
+        )
+        .route(
+            "/{owner}/{name}/merge-requests/{change_id}",
             get(routes::mr_detail_page),
         )
         .route(

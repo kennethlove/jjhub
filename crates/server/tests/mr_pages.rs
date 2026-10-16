@@ -121,14 +121,19 @@ mod mr_pages {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn pulls_page_lists_stack_bottom_first(pool: sqlx::PgPool) {
+    async fn merge_requests_page_lists_stack_bottom_first(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
         server::repo::init_bare(&bare).unwrap();
         let commits = seed_stack(&bare).await;
         let (owner, name) = seed_repo_with_mrs(&pool, &commits).await;
 
-        let response = get(pool, root.path(), &format!("/{owner}/{name}/pulls")).await;
+        let response = get(
+            pool,
+            root.path(),
+            &format!("/{owner}/{name}/merge-requests"),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::OK);
         let html =
             String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
@@ -144,9 +149,9 @@ mod mr_pages {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn pulls_page_unknown_repo_404(pool: sqlx::PgPool) {
+    async fn merge_requests_page_unknown_repo_404(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        let response = get(pool, root.path(), "/nobody/nope/pulls").await;
+        let response = get(pool, root.path(), "/nobody/nope/merge-requests").await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

@@ -172,7 +172,7 @@ mod merge_endpoint {
             pool.clone(),
             root.path(),
             Some(&cookie),
-            "/alice/demo/pulls/aaaa/merge",
+            "/alice/demo/merge-requests/aaaa/merge",
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -200,7 +200,7 @@ mod merge_endpoint {
             pool,
             root.path(),
             Some(&cookie),
-            "/alice/demo/pulls/bbbb/merge",
+            "/alice/demo/merge-requests/bbbb/merge",
         )
         .await;
         assert_eq!(response.status(), StatusCode::CONFLICT);
@@ -212,7 +212,13 @@ mod merge_endpoint {
         let cookie = session(&pool, root.path()).await;
         let _ = cookie;
         setup(&pool, root.path()).await;
-        let response = merge_post(pool, root.path(), None, "/alice/demo/pulls/aaaa/merge").await;
+        let response = merge_post(
+            pool,
+            root.path(),
+            None,
+            "/alice/demo/merge-requests/aaaa/merge",
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
@@ -249,7 +255,7 @@ mod merge_endpoint {
             pool,
             root.path(),
             Some(&cookie),
-            "/alice/demo/pulls/aaaa/merge",
+            "/alice/demo/merge-requests/aaaa/merge",
         )
         .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);

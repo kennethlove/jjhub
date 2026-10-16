@@ -403,7 +403,7 @@ pub async fn create_token(
 // story: e03s02 — MR list: open merge requests grouped into stacks, each
 // stack bottom-first (invariant 3: derived from commit parents at render
 // time, never stored).
-pub async fn pulls_page(
+pub async fn merge_requests_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
 ) -> Response {
@@ -435,7 +435,7 @@ pub async fn pulls_page(
     let stacks = crate::stack::derive_page_model(&bare, &mrs);
 
     // change_id -> stack position labels for rendering
-    let pulls_root = format!("/{owner}/{name}/pulls");
+    let pulls_root = format!("/{owner}/{name}/merge-requests");
     let mut position: Vec<String> = Vec::new();
     for (stack_idx, stack) in stacks.iter().enumerate() {
         for (mr_idx, change_id) in stack.iter().enumerate() {
@@ -514,8 +514,8 @@ pub async fn mr_detail_page(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
 {}
-<form method="post" action="/{owner}/{name}/pulls/{change_id}/merge"><button type="submit">Merge</button></form>
-<form method="post" action="/{owner}/{name}/pulls/{change_id}/abandon"><button type="submit">Abandon</button></form>
+<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><button type="submit">Merge</button></form>
+<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/abandon"><button type="submit">Abandon</button></form>
 </body></html>"#,
         sections.join("\n")
     ))
@@ -552,7 +552,9 @@ pub async fn merge_mr(
     )
     .await
     {
-        Ok(_) => Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response(),
+        Ok(_) => {
+            Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
+        }
         Err(MergeError::NotFound) => {
             (StatusCode::NOT_FOUND, "merge request not found").into_response()
         }
@@ -609,14 +611,83 @@ pub async fn abandon_mr(
     }
     match mr_state.as_str() {
         "merged" => (StatusCode::CONFLICT, "merged is terminal").into_response(),
-        "abandoned" => Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response(),
+        "abandoned" => {
+            Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
+        }
         _ => {
             sqlx::query("UPDATE merge_requests SET state = 'abandoned' WHERE id = $1")
                 .bind(mr_id)
                 .execute(&state.pool)
                 .await
                 .ok();
-            Redirect::to(&format!("/{owner}/{name}/pulls/{change_id}")).into_response()
+            Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
         }
     }
+}
+
+// story: e03s04 — collaborator management: owner-only; removal revokes
+// rights immediately (authorize() checks per request).
+#[derive(Deserialize)]
+pub struct CollaboratorForm {
+    email: String,
+    #[serde(default)]
+    remove: Option<String>,
+}
+
+pub async fn manage_collaborators(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    Form(form): Form<CollaboratorForm>,
+) -> Response {
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2 AND r.owner_id = $3",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id,)) = repo else {
+        // owner-only: non-owners get the no-leak 404
+        return (
+            StatusCode::FORBIDDEN,
+            "only the owner manages collaborators",
+        )
+            .into_response();
+    };
+
+    let collaborator: Option<uuid::Uuid> =
+        sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
+            .bind(&form.email)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some(collaborator_id) = collaborator else {
+        return (StatusCode::NOT_FOUND, "no such user").into_response();
+    };
+
+    if form.remove.is_some() {
+        sqlx::query("DELETE FROM collaborators WHERE repo_id = $1 AND user_id = $2")
+            .bind(repo_id)
+            .bind(collaborator_id)
+            .execute(&state.pool)
+            .await
+            .ok();
+    } else {
+        sqlx::query(
+            "INSERT INTO collaborators (repo_id, user_id) VALUES ($1, $2) \
+             ON CONFLICT (repo_id, user_id) DO NOTHING",
+        )
+        .bind(repo_id)
+        .bind(collaborator_id)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    Redirect::to(&format!("/{owner}/{name}")).into_response()
 }

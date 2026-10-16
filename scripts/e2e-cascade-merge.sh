@@ -85,7 +85,7 @@ for COMMIT in $(git -C "$BARE" rev-list --all | head -5); do
 done
 test -n "$BOTTOM_CHANGE" || { echo "no bottom MR found" >&2; exit 1; }
 CODE=$(curl -s -b "$CJ" -o /dev/null -w '%{http_code}' -X POST \
-  "$BASE/${OWNER_NAME}/pulls/${BOTTOM_CHANGE}/merge")
+  "$BASE/${OWNER_NAME}/merge-requests/${BOTTOM_CHANGE}/merge")
 test "$CODE" = "303" || { echo "merge returned $CODE" >&2; exit 1; }
 
 echo "== trunk advanced, descendant rebased =="

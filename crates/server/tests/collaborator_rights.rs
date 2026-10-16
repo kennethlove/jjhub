@@ -16,11 +16,7 @@ mod collaborator_rights {
         )
     }
 
-    async fn register(
-        pool: &sqlx::PgPool,
-        root: &tempfile::TempDir,
-        email: &str,
-    ) -> String {
+    async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir, email: &str) -> String {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -109,21 +105,28 @@ mod collaborator_rights {
         let bob_token = token(&pool, &root, &bob).await;
 
         // stranger: rejected
-        let response = info_refs(pool.clone(), &root, "receive-pack", Some(&basic(&bob_token))).await;
+        let response = info_refs(
+            pool.clone(),
+            &root,
+            "receive-pack",
+            Some(&basic(&bob_token)),
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
         // owner adds bob
-        let response = manage_collaborators(
-            pool.clone(),
-            &root,
-            &alice,
-            "email=bob%40example.com",
-        )
-        .await;
+        let response =
+            manage_collaborators(pool.clone(), &root, &alice, "email=bob%40example.com").await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
         // collaborator push passes the authz gate
-        let response = info_refs(pool.clone(), &root, "receive-pack", Some(&basic(&bob_token))).await;
+        let response = info_refs(
+            pool.clone(),
+            &root,
+            "receive-pack",
+            Some(&basic(&bob_token)),
+        )
+        .await;
         assert_ne!(response.status(), StatusCode::FORBIDDEN);
 
         // removal revokes immediately
@@ -155,12 +158,7 @@ mod collaborator_rights {
         let root = tempfile::tempdir().unwrap();
         let alice = register(&pool, &root, "alice@example.com").await;
         let bob = register(&pool, &root, "bob@example.com").await;
-        let response = post_form_repo(
-            pool.clone(),
-            &root,
-            &alice,
-        )
-        .await;
+        let response = post_form_repo(pool.clone(), &root, &alice).await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         // make it private
         let mut request = Request::post("/alice/demo/settings")
@@ -171,17 +169,16 @@ mod collaborator_rights {
             .headers_mut()
             .insert("cookie", alice.parse().unwrap());
         app(pool.clone(), &root).oneshot(request).await.unwrap();
-        manage_collaborators(
-            pool.clone(),
-            &root,
-            &alice,
-            "email=bob%40example.com",
-        )
-        .await;
+        manage_collaborators(pool.clone(), &root, &alice, "email=bob%40example.com").await;
 
         let bob_token = token(&pool, &root, &bob).await;
-        let response = info_refs(pool.clone(), &root, "upload-pack", Some(&basic(&bob_token))).await;
-        assert_eq!(response.status(), StatusCode::OK, "collaborator reads private");
+        let response =
+            info_refs(pool.clone(), &root, "upload-pack", Some(&basic(&bob_token))).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "collaborator reads private"
+        );
 
         // a third user with a valid token is still refused
         let carol = register(&pool, &root, "carol@example.com").await;
