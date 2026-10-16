@@ -32,6 +32,9 @@ impl std::fmt::Display for MergeError {
 #[derive(Debug)]
 pub struct MergeSummary {
     pub new_trunk_commit: String,
+    /// story: e03s03 — trunk after the cascade (equals new_trunk_commit
+    /// when there were no descendants).
+    pub final_trunk_commit: String,
 }
 
 fn git_output(bare: &Path, args: &[&str], stdin: Option<&str>) -> Result<String, MergeError> {
@@ -216,5 +219,147 @@ pub async fn merge_bottom(
         .await
         .map_err(|e| MergeError::Internal(format!("mark merged: {e}")))?;
 
-    Ok(MergeSummary { new_trunk_commit })
+    // invariant 7: rebase descendants in stack order, each on the head the
+    // previous one produced. A failure stops the cascade; what already
+    // rebased stands (trunk is append-only history, never partially written).
+    let final_head = cascade_descendants(
+        pool,
+        &bare,
+        &trunk_ref,
+        repo_id,
+        &change_commit,
+        new_trunk_commit.clone(),
+    )
+    .await;
+
+    Ok(MergeSummary {
+        new_trunk_commit,
+        final_trunk_commit: final_head,
+    })
+}
+
+/// story: e03s03 — rebase every open descendant MR onto `head`, one CAS per
+/// step, appending a rebased revision. Change-id header preserved.
+async fn cascade_descendants(
+    pool: &PgPool,
+    bare: &Path,
+    trunk_ref: &str,
+    repo_id: uuid::Uuid,
+    merged_commit: &str,
+    head: String,
+) -> String {
+    let mrs = match crate::stack::open_mrs(pool, repo_id).await {
+        Ok(mrs) => mrs,
+        Err(err) => {
+            tracing::warn!(%err, "cascade: open MRs query failed");
+            return head;
+        }
+    };
+    let parents: std::collections::HashMap<String, Vec<String>> = mrs
+        .iter()
+        .map(|mr| {
+            (
+                mr.latest_commit.clone(),
+                crate::stack::parents_of(bare, &mr.latest_commit),
+            )
+        })
+        .collect();
+
+    // descendants of the merged commit, in stack order (BFS)
+    let mut ordered = Vec::new();
+    let mut frontier = vec![merged_commit.to_string()];
+    while let Some(commit) = frontier.pop() {
+        let mut kids: Vec<&crate::stack::OpenMr> = mrs
+            .iter()
+            .filter(|mr| {
+                parents
+                    .get(&mr.latest_commit)
+                    .and_then(|p| p.first())
+                    .is_some_and(|first| *first == commit)
+            })
+            .collect();
+        kids.sort_by(|a, b| a.change_id.cmp(&b.change_id));
+        for kid in kids {
+            ordered.push(kid.clone());
+            frontier.push(kid.latest_commit.clone());
+        }
+    }
+
+    let mut current_head = head;
+    for descendant in ordered {
+        match rebase_one(pool, bare, trunk_ref, repo_id, &descendant, &current_head).await {
+            Ok(new_commit) => current_head = new_commit,
+            Err(err) => {
+                tracing::warn!(
+                    change_id = %descendant.change_id,
+                    %err,
+                    "cascade stopped: descendant not rebased"
+                );
+                break;
+            }
+        }
+    }
+    current_head
+}
+
+async fn rebase_one(
+    pool: &PgPool,
+    bare: &Path,
+    trunk_ref: &str,
+    repo_id: uuid::Uuid,
+    descendant: &crate::stack::OpenMr,
+    new_parent: &str,
+) -> Result<String, MergeError> {
+    let raw = git_output(
+        bare,
+        &["cat-file", "commit", &descendant.latest_commit],
+        None,
+    )?;
+    let headers_end = raw
+        .find("\n\n")
+        .ok_or_else(|| MergeError::Internal("malformed commit".into()))?;
+    let headers = &raw[..headers_end];
+    let message = &raw[headers_end + 2..];
+
+    let header = |name: &str| -> Result<String, MergeError> {
+        headers
+            .lines()
+            .find(|l| l.starts_with(&format!("{name} ")))
+            .map(|l| l.to_string())
+            .ok_or_else(|| MergeError::Internal(format!("no {name} header")))
+    };
+    let tree = header("tree")?;
+    let author = header("author")?;
+    let committer = header("committer")?;
+    // preserve jj's change-id header; plain-git commits have none and are
+    // not MR material — skip them
+    let change_id = header("change-id")?;
+
+    let object =
+        format!("{tree}\nparent {new_parent}\n{author}\n{committer}\n{change_id}\n\n{message}");
+    let rebased = git_output(
+        bare,
+        &["hash-object", "-t", "commit", "-w", "--stdin"],
+        Some(&object),
+    )?;
+    apply_ref_update(bare, trunk_ref, new_parent, &rebased)?;
+
+    let mr_id: Option<uuid::Uuid> = sqlx::query_scalar(
+        "SELECT id FROM merge_requests WHERE repo_id = $1 AND change_id = $2 AND state = 'open'",
+    )
+    .bind(repo_id)
+    .bind(&descendant.change_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+    if let Some(mr_id) = mr_id {
+        sqlx::query("INSERT INTO revisions (mr_id, commit_id) VALUES ($1, $2)")
+            .bind(mr_id)
+            .bind(&rebased)
+            .execute(pool)
+            .await
+            .map_err(|e| MergeError::Internal(format!("append revision: {e}")))?;
+    }
+    Ok(rebased)
 }

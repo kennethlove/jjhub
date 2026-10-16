@@ -72,7 +72,10 @@ mod merge_execute {
         (trunk_commit, change_commit)
     }
 
-    pub(crate) async fn seed_repo(pool: &sqlx::PgPool, merge_setting: &str) -> (uuid::Uuid, uuid::Uuid) {
+    pub(crate) async fn seed_repo(
+        pool: &sqlx::PgPool,
+        merge_setting: &str,
+    ) -> (uuid::Uuid, uuid::Uuid) {
         let user_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
         )
@@ -261,6 +264,43 @@ mod cascade {
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     }
 
+    /// Build a jj-style commit object (with a `change-id` header, like jj
+    /// writes) on top of `parent` with the staged tree of `dir`.
+    fn mkcommit(dir: &std::path::Path, parent: &str, change_id: &str, msg: &str) -> String {
+        use std::io::Write;
+        let tree = git_in(dir, &["write-tree"]);
+        let parent_line = if parent.chars().all(|c| c == '0') {
+            String::new()
+        } else {
+            format!("parent {parent}\n")
+        };
+        let object = format!(
+            "tree {tree}\n{parent_line}author A <a@e.com> 1700000000 +0000\ncommitter A <a@e.com> 1700000000 +0000\nchange-id {change_id}\n\n{msg}\n"
+        );
+        let mut child = std::process::Command::new("git")
+            .args(["hash-object", "-t", "commit", "-w", "--stdin"])
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .current_dir(dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(object.as_bytes())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(
+            out.status.success(),
+            "mkcommit: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
     /// Seed trunk at T with a two-change stack C1(aaa) -> C2(bbb).
     async fn seed_stack(bare: &std::path::Path) -> (String, String, String) {
         let seed = bare.join("../seed-stack");
@@ -268,17 +308,26 @@ mod cascade {
         git_in(&seed, &["init", "-b", "trunk"]);
         std::fs::write(seed.join("base.txt"), "base\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "base"]);
-        let trunk_commit = git_in(&seed, &["rev-parse", "HEAD"]);
+        let trunk_commit = mkcommit(
+            &seed,
+            "0000000000000000000000000000000000000000",
+            "0000trunk0000",
+            "base",
+        );
         std::fs::write(seed.join("one.txt"), "one\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "change one"]);
-        let c1 = git_in(&seed, &["rev-parse", "HEAD"]);
+        let c1 = mkcommit(&seed, &trunk_commit, "kkkkktaaaaa", "change one");
         std::fs::write(seed.join("two.txt"), "two\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "change two"]);
-        let c2 = git_in(&seed, &["rev-parse", "HEAD"]);
-        git_in(&seed, &["push", bare.to_str().unwrap(), "HEAD:refs/heads/work"]);
+        let c2 = mkcommit(&seed, &c1, "mmmmmtttttt", "change two");
+        git_in(
+            &seed,
+            &[
+                "push",
+                bare.to_str().unwrap(),
+                &format!("{c2}:refs/heads/work"),
+            ],
+        );
         git_in(bare, &["update-ref", "refs/heads/trunk", &trunk_commit]);
         (trunk_commit, c1, c2)
     }
@@ -294,21 +343,16 @@ mod cascade {
         open_mr(&pool, repo_id, alice, "aaaa", &c1).await;
         open_mr(&pool, repo_id, alice, "bbbb", &c2).await;
 
-        let summary = merge_bottom(
-            &pool,
-            root.path().to_str().unwrap(),
-            repo_id,
-            "aaaa",
-            alice,
-        )
-        .await
-        .expect("merge");
+        let summary = merge_bottom(&pool, root.path().to_str().unwrap(), repo_id, "aaaa", alice)
+            .await
+            .expect("merge");
 
         // bbb stayed open and gained a rebased revision on new trunk
-        let bbb: (String,) = sqlx::query_as("SELECT state FROM merge_requests WHERE change_id = 'bbbb'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let bbb: (String,) =
+            sqlx::query_as("SELECT state FROM merge_requests WHERE change_id = 'bbbb'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(bbb.0, "open", "descendant stays open");
 
         let new_rev: Option<String> = sqlx::query_scalar(
@@ -327,7 +371,10 @@ mod cascade {
             raw.contains(&format!("parent {}", summary.new_trunk_commit)),
             "rebased commit sits on new trunk: {raw}"
         );
-        assert!(raw.contains("change-id"), "change-id header preserved: {raw}");
+        assert!(
+            raw.contains("change-id"),
+            "change-id header preserved: {raw}"
+        );
         let tree = git_in(&bare, &["rev-parse", &format!("{new_rev}^{{tree}}")]);
         let c2_tree = git_in(&bare, &["rev-parse", &format!("{c2}^{{tree}}")]);
         assert_eq!(tree, c2_tree, "descendant tree preserved");
