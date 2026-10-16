@@ -8,6 +8,7 @@ pub mod repo;
 pub mod review_proxy;
 pub mod routes;
 pub mod session;
+pub mod stack;
 pub mod token;
 pub mod transport;
 
@@ -80,6 +81,11 @@ pub fn app_with_secret(
         .route("/login", get(routes::login_form).post(routes::login))
         .route("/logout", post(routes::logout))
         .route("/{owner}/{name}", get(routes::repo_page))
+        .route("/{owner}/{name}/pulls", get(routes::pulls_page))
+        .route(
+            "/{owner}/{name}/pulls/{change_id}",
+            get(routes::mr_detail_page),
+        )
         .route(
             "/review/{owner}/{name}",
             get(review_proxy::proxy).post(review_proxy::proxy),
