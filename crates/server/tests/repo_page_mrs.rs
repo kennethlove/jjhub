@@ -37,9 +37,13 @@ mod repo_page_mrs {
         let token = server::session::csrf_token(secret.as_bytes(), value);
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(format!("name=demo&visibility=public&_csrf={token}")))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={token}"
+            )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         let response =
             server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
                 .oneshot(request)
@@ -48,7 +52,12 @@ mod repo_page_mrs {
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
-    async fn get(pool: &sqlx::PgPool, root: &tempfile::TempDir, path: &str, cookie: &str) -> String {
+    async fn get(
+        pool: &sqlx::PgPool,
+        root: &tempfile::TempDir,
+        path: &str,
+        cookie: &str,
+    ) -> String {
         let mut request = Request::get(path).body(Body::empty()).unwrap();
         request
             .headers_mut()
