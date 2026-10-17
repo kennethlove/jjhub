@@ -26,6 +26,8 @@ services:
       JJHUB_STORAGE_ROOT: /var/lib/jjhub/repos
       # story: e05s03 — the app proxies /review/** to the sidecar
       KATA_UPSTREAM: http://kata:7878
+      # story: kata links — browser-facing loopback URL
+      KATA_PUBLIC_BASE: http://127.0.0.1:7878
     volumes:
       - repo-data:/var/lib/jjhub
     ports:
@@ -65,6 +67,13 @@ services:
       - repo-data:/var/lib/jjhub
       - kata-data:/var/lib/kata
     command: ["serve", "--author", "jjhub@localhost"]
+    ports:
+      # story: kata links — the SPA routes on absolute paths, so browsers
+      # must reach kata at its own origin. Loopback-only: never exposed
+      # off this machine (the trust-forwarded-header model assumes the
+      # app proxy is the only remote caller). Remote hosting waits on
+      # martint/kata#9 (base-path support).
+      - "127.0.0.1:7878:7878"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:7878/api/whoami >/dev/null || exit 1"]
       interval: 10s

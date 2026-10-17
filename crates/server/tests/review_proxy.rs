@@ -17,6 +17,7 @@ mod review_proxy_auth {
             pool,
             root.path().to_str().unwrap().to_string(),
             upstream.to_string(),
+            "http://127.0.0.1:7878".to_string(),
         )
     }
 

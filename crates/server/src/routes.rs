@@ -376,14 +376,20 @@ pub async fn repo_page(
 
     // story: Browse files — kata's browse view through the auth proxy;
     // same metadata guard as review links (no dead links, ever)
-    let browse = crate::review_proxy::review_link(&state.storage_root, &owner, &name, "")
-        .map(|link| {
-            format!(
-                " · <a href=\"{}\">Browse files</a>",
-                link.replace("browse?change=", "browse")
-            )
-        })
-        .unwrap_or_default();
+    let browse = crate::review_proxy::review_link(
+        &state.kata_public_base,
+        &state.storage_root,
+        &owner,
+        &name,
+        "",
+    )
+    .map(|link| {
+        format!(
+            " · <a href=\"{}\">Browse files</a>",
+            link.replace("browse?change=", "browse")
+        )
+    })
+    .unwrap_or_default();
 
     Html(format!(
         r#"<!doctype html><html><body>
@@ -501,10 +507,15 @@ pub async fn merge_requests_page(
     let mut position: Vec<String> = Vec::new();
     for (stack_idx, stack) in stacks.iter().enumerate() {
         for (mr_idx, change_id) in stack.iter().enumerate() {
-            let review =
-                crate::review_proxy::review_link(&state.storage_root, &owner, &name, change_id)
-                    .map(|href| format!(" — <a href=\"{href}\">review</a>"))
-                    .unwrap_or_default();
+            let review = crate::review_proxy::review_link(
+                &state.kata_public_base,
+                &state.storage_root,
+                &owner,
+                &name,
+                change_id,
+            )
+            .map(|href| format!(" — <a href=\"{href}\">review</a>"))
+            .unwrap_or_default();
             position.push(format!(
                 "<li data-change=\"{change_id}\">#{stack_idx}:{mr_idx} \
                  <a href=\"{pulls_root}/{change_id}\">{change_id}</a>{review}</li>"
@@ -594,6 +605,7 @@ pub async fn mr_detail_page(
 </body></html>"#,
         sections.join("\n"),
         review_section = match crate::review_proxy::review_link(
+            &state.kata_public_base,
             &state.storage_root,
             &owner,
             &name,
