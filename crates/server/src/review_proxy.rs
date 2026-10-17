@@ -227,13 +227,216 @@ pub fn review_link(
     if !meta.join(".jj").exists() {
         return None;
     }
-    // story: kata links — the SPA routes on absolute paths and fetches
-    // /api/* absolutely, so it must be opened at its own origin (the
-    // loopback-published sidecar). Proxy-prefix embedding waits on
-    // upstream base-path support (martint/kata#9).
+    // story: kata links — the SPA is served at jjhub's origin (/r/…) with
+    // identity injected per request; same origin, so routing, assets, and
+    // API all resolve (the loopback shortcut dead-ended in kata's
+    // unauthenticated /auth/login redirect loop).
     Some(if change_id.is_empty() {
         format!("{public_base}/r/{owner}__{name}/browse")
     } else {
         format!("{public_base}/r/{owner}__{name}/browse?change={change_id}")
     })
+}
+
+/// story: kata at jjhub origin — shared repo authz for SPA/API routes:
+/// invariant 6 semantics, 404 no-leak.
+async fn authorize_repo(state: &AppState, owner: &str, name: &str, user: uuid::Uuid) -> bool {
+    let repo: Option<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    match repo {
+        Some((repo_owner, visibility)) => visibility != "private" || repo_owner == user,
+        None => false,
+    }
+}
+
+/// story: kata at jjhub origin — forward the request to the sidecar with the
+/// client's identity header stripped and the authenticated user injected.
+async fn forward_to_kata(state: &AppState, user: uuid::Uuid, request: Request) -> Response {
+    let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(user)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+    let Some(email) = email else {
+        return (StatusCode::UNAUTHORIZED, "authentication required").into_response();
+    };
+
+    let (parts, body) = request.into_parts();
+    let mut upstream_headers = HeaderMap::new();
+    for (name, value) in parts.headers.iter() {
+        if name == "x-review-author" {
+            continue;
+        }
+        upstream_headers.insert(name.clone(), value.clone());
+    }
+    upstream_headers.insert(
+        HeaderName::from_static("x-review-author"),
+        HeaderValue::from_str(&email).unwrap_or_else(|_| HeaderValue::from_static("invalid")),
+    );
+
+    let url = format!(
+        "{}{}{}",
+        state.kata_upstream.trim_end_matches('/'),
+        parts.uri.path(),
+        parts
+            .uri
+            .query()
+            .map(|q| format!("?{q}"))
+            .unwrap_or_default()
+    );
+
+    let client = reqwest::Client::new();
+    let upstream_request = client
+        .request(
+            Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(Method::GET),
+            &url,
+        )
+        .headers(
+            upstream_headers
+                .iter()
+                .filter_map(|(k, v)| {
+                    reqwest::header::HeaderName::from_bytes(k.as_str().as_bytes())
+                        .ok()
+                        .and_then(|k| {
+                            reqwest::header::HeaderValue::from_bytes(v.as_bytes())
+                                .ok()
+                                .map(|v| (k, v))
+                        })
+                })
+                .collect::<reqwest::header::HeaderMap>(),
+        )
+        .body(reqwest::Body::wrap_stream(body.into_data_stream()));
+
+    let upstream_response = match upstream_request.send().await {
+        Ok(response) => response,
+        Err(err) => {
+            tracing::warn!(%err, "kata sidecar unreachable");
+            return (StatusCode::BAD_GATEWAY, "review service unavailable").into_response();
+        }
+    };
+
+    let status = StatusCode::from_u16(upstream_response.status().as_u16())
+        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let content_type = upstream_response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| HeaderValue::from_bytes(v.as_bytes()).ok());
+    let mut response = Response::new(axum::body::Body::from_stream(
+        reqwest::Response::bytes_stream(upstream_response),
+    ));
+    *response.status_mut() = status;
+    if let Some(content_type) = content_type {
+        response
+            .headers_mut()
+            .insert(axum::http::header::CONTENT_TYPE, content_type);
+    }
+    response
+}
+
+/// story: kata at jjhub origin — the SPA's own path (`/r/{repo}/…`). The
+/// first segment is the flattened `{owner}__{name}` repo id.
+pub async fn spa_route(
+    State(state): State<AppState>,
+    axum::extract::Path(rest): axum::extract::Path<String>,
+    headers: HeaderMap,
+    request: Request,
+) -> Response {
+    let (repo_part, _) = rest.split_once('/').unwrap_or((rest.as_str(), ""));
+    let Some((owner, name)) = repo_part.split_once("__") else {
+        return (StatusCode::NOT_FOUND, "unknown repository").into_response();
+    };
+    let Some(user) = authenticate(&state, &headers).await else {
+        return axum::response::Redirect::to("/login").into_response();
+    };
+    if !authorize_repo(&state, owner, name, user).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
+    forward_to_kata(&state, user, request).await
+}
+
+/// story: kata at jjhub origin — the SPA's API. Repo-scoped paths
+/// (`/api/repos/{owner}__{name}/…`) get invariant-6 authz; the rest
+/// (whoami, events) needs any session.
+pub async fn api_route(
+    State(state): State<AppState>,
+    axum::extract::Path(rest): axum::extract::Path<String>,
+    headers: HeaderMap,
+    request: Request,
+) -> Response {
+    let Some(user) = authenticate(&state, &headers).await else {
+        return if headers.contains_key(axum::http::header::AUTHORIZATION) {
+            (StatusCode::UNAUTHORIZED, "authentication required").into_response()
+        } else {
+            axum::response::Redirect::to("/login").into_response()
+        };
+    };
+    if let Some(repo_part) = rest.strip_prefix("repos/") {
+        let repo_id = repo_part.split('/').next().unwrap_or("");
+        if let Some((owner, name)) = repo_id.split_once("__") {
+            if !authorize_repo(&state, owner, name, user).await {
+                return (StatusCode::NOT_FOUND, "repository not found").into_response();
+            }
+        }
+    }
+    forward_to_kata(&state, user, request).await
+}
+
+/// story: kata at jjhub origin — static assets. No session: they carry no
+/// repository data and the SPA page that requests them is already authed.
+pub async fn assets_route(State(state): State<AppState>, request: Request) -> Response {
+    forward_anonymous(&state, request).await
+}
+
+async fn forward_anonymous(state: &AppState, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let url = format!(
+        "{}{}{}",
+        state.kata_upstream.trim_end_matches('/'),
+        parts.uri.path(),
+        parts
+            .uri
+            .query()
+            .map(|q| format!("?{q}"))
+            .unwrap_or_default()
+    );
+    let client = reqwest::Client::new();
+    let upstream_response = match client
+        .request(
+            Method::from_bytes(parts.method.as_str().as_bytes()).unwrap_or(Method::GET),
+            &url,
+        )
+        .body(reqwest::Body::wrap_stream(body.into_data_stream()))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            tracing::warn!(%err, "kata sidecar unreachable");
+            return (StatusCode::BAD_GATEWAY, "review service unavailable").into_response();
+        }
+    };
+    let status = StatusCode::from_u16(upstream_response.status().as_u16())
+        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let content_type = upstream_response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| HeaderValue::from_bytes(v.as_bytes()).ok());
+    let mut response = Response::new(axum::body::Body::from_stream(
+        reqwest::Response::bytes_stream(upstream_response),
+    ));
+    *response.status_mut() = status;
+    if let Some(content_type) = content_type {
+        response
+            .headers_mut()
+            .insert(axum::http::header::CONTENT_TYPE, content_type);
+    }
+    response
 }

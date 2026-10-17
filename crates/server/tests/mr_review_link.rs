@@ -101,7 +101,7 @@ mod mr_review_links {
         let root = tempfile::tempdir().unwrap();
         setup(&pool, root.path(), true).await;
         let html = get(pool, root.path(), "/alice/demo/merge-requests/aaaa").await;
-        let expected = "http://127.0.0.1:7878/r/alice__demo/browse?change=aaaa";
+        let expected = "/r/alice__demo/browse?change=aaaa";
         assert!(
             html.contains(&format!("href=\"{expected}\"")),
             "review link rendered: {html}"
@@ -114,7 +114,7 @@ mod mr_review_links {
         setup(&pool, root.path(), false).await;
         let html = get(pool, root.path(), "/alice/demo/merge-requests/aaaa").await;
         assert!(
-            !html.contains("7878"),
+            !html.contains("127.0.0.1"),
             "no dead link for pre-backfill repos: {html}"
         );
     }
@@ -125,7 +125,7 @@ mod mr_review_links {
         setup(&pool, root.path(), true).await;
         let html = get(pool, root.path(), "/alice/demo/merge-requests").await;
         assert!(
-            html.contains("href=\"http://127.0.0.1:7878/r/alice__demo/browse?change=aaaa\""),
+            html.contains("href=\"/r/alice__demo/browse?change=aaaa\""),
             "stack page carries the review link: {html}"
         );
     }
