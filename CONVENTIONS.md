@@ -28,6 +28,8 @@ This repo is a colocated jj + git repo. Remote `origin` is GitHub.
 - Never merge a pull request on your own. The human merges.
 - Never open a PR before formatting, linting, and tests all pass.
 - Never create GitHub issues from automated workflows — use local Markdown files in `specs/` instead.
+- NEVER create GitHub issues, discussions, or comments on OTHER PEOPLE'S repositories (upstream projects) without the user's EXPLICIT permission for that specific action. Offer to draft the issue text for the user to review first.
+- NEVER reference jjhub (or link to it) in PUBLIC artifacts — other repos' issues/PRs, public forums, commit trailers. The repo is private; references are dead links for readers and leak the project's existence.
 - Never call GitHub REST API directly (curl, fetch, etc.) — use `gh`.
 
 ## Agent Workflow Mandates
