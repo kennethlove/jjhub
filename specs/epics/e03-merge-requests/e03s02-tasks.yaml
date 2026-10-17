@@ -7,16 +7,16 @@ tasks:
   - id: e03s02t1
     description: "stack derivation from commit parents at push time (invariant 3: derived, never stored authority)"
     verify: "cargo test -p domain stack_derivation"
-    status: pending
+    status: passing
   - id: e03s02t2
     description: "repo MR list page showing stack structure; bottom MR targets trunk, descendants target parent MR"
     verify: "cargo test -p server mr_list_page"
-    status: pending
+    status: passing
   - id: e03s02t3
     description: "MR detail page: revision list, per-revision file diffs (Tera + htmx)"
     verify: "cargo test -p server mr_detail_diff"
-    status: pending
+    status: passing
   - id: e03s02t4
     description: "trunk setting resolution: MRs target configured trunk bookmark (default trunk)"
     verify: "cargo test -p server trunk_targeting"
-    status: pending
+    status: passing

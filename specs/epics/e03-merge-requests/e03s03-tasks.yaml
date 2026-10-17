@@ -7,16 +7,16 @@ tasks:
   - id: e03s03t1
     description: "merge executor: squash (default) or merge-commit per repo setting; forward-only trunk update (invariant 4)"
     verify: "cargo test -p domain merge_executor"
-    status: pending
+    status: passing
   - id: e03s03t2
     description: "cascade: rebase descendant stack changes onto new trunk in stack order (invariant 7); descendants gain Revisions, stay open"
     verify: "cargo test -p server merge_cascade"
-    status: pending
+    status: passing
   - id: e03s03t3
     description: "merge button on MR detail; merged MR leaves state machine at merged"
     verify: "cargo test -p server merge_flow"
-    status: pending
+    status: passing
   - id: e03s03t4
     description: "e2e: 3-change stack, merge bottom, assert trunk advanced + descendants rebased server-side"
     verify: "verify-script: scripts/e2e-cascade-merge.sh"
-    status: pending
+    status: passing

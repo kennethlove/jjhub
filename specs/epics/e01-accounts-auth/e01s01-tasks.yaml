@@ -1,7 +1,7 @@
 story_id: e01s01
 title: "Register, login, session-authenticated pages"
 spec: e01s01-register-login.md
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e01s01t1

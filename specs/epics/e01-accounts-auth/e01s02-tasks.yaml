@@ -1,7 +1,7 @@
 story_id: e01s02
 title: "Personal access tokens for git transport"
 spec: e01s02-tokens.md
-status: failing
+status: passing
 bcps: 3
 tasks:
   - id: e01s02t1

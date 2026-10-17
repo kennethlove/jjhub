@@ -7,16 +7,16 @@ tasks:
   - id: e03s01t1
     description: "merge_requests + revisions table migrations (keyed repo+change-id; revisions immutable)"
     verify: "cargo test -p domain mr_model"
-    status: pending
+    status: passing
   - id: e03s01t2
     description: "post-receive hook: walk pushed refs, extract change-id headers, open/reopen MR per change-with-diff (one open MR per repo+change-id, invariant 1)"
     verify: "cargo test -p server mr_open_on_push"
-    status: pending
+    status: passing
   - id: e03s01t3
     description: "author-email check on re-push to open MR; reject mismatch (invariant 2)"
     verify: "cargo test -p server mr_author_email_guard"
-    status: pending
+    status: passing
   - id: e03s01t4
     description: "e2e: push two-change stack, assert two open MRs with revision counts"
     verify: "verify-script: scripts/e2e-mr-open.sh (jj fixture stack push, query DB/API, assert MRs)"
-    status: pending
+    status: passing
