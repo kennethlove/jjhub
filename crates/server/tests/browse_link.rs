@@ -79,6 +79,49 @@ mod browse_link {
     }
 
     #[sqlx::test(migrations = "./migrations")]
+    async fn browse_link_pins_trunk_head(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = setup(&pool, &root, true).await;
+        // seed a commit on trunk in the bare repo
+        let bare = domain::storage_path(root.path().to_str().unwrap(), "alice", "demo");
+        let seed = root.path().join("seed");
+        std::fs::create_dir_all(&seed).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .args(args)
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_SYSTEM", "/dev/null")
+                .current_dir(&seed)
+                .output()
+                .unwrap();
+            assert!(
+                out.status.success(),
+                "git {args:?}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        };
+        git(&["init", "-b", "trunk"]);
+        std::fs::write(seed.join("f.txt"), "x\n").unwrap();
+        git(&["add", "."]);
+        git(&[
+            "-c",
+            "user.email=a@e.com",
+            "-c",
+            "user.name=A",
+            "commit",
+            "-m",
+            "one",
+        ]);
+        git(&["push", bare.to_str().unwrap(), "trunk"]);
+
+        let html = get(&pool, &root, &cookie).await;
+        assert!(
+            html.contains("/browse?commit=") && !html.contains("browse?change="),
+            "browse link pinned to trunk head: {html}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
     async fn no_browse_link_without_meta(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         // pre-backfill shape: repo exists, colocated metadata does not

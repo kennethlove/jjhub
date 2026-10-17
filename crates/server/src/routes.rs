@@ -384,10 +384,14 @@ pub async fn repo_page(
         "",
     )
     .map(|link| {
-        format!(
-            " · <a href=\"{}\">Browse files</a>",
-            link.replace("browse?change=", "browse")
-        )
+        // story: browse pin — kata's browse is commit-centric; pin it to
+        // the trunk head so it opens on the current revision's detail,
+        // not an arbitrary log position
+        let bare = domain::storage_path(&state.storage_root, &owner, &name);
+        let pinned = crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
+            .map(|sha| format!("{link}?commit={sha}"))
+            .unwrap_or(link);
+        format!(" · <a href=\"{pinned}\">Browse files</a>")
     })
     .unwrap_or_default();
 
