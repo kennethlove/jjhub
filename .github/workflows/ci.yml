@@ -23,6 +23,10 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://postgres:jjhub@localhost:5432/jjhub_test
+      # story: CI hygiene — jj-lib-heavy debug builds exhausted runner
+      # disk (and once killed the linker with a bus error); no debuginfo
+      # roughly halves target/ size.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
