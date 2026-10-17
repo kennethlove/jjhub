@@ -2,15 +2,17 @@
 
 epics:
   e01-accounts-auth:
-    status: passing
+    status: pending
     stories:
       e01s01: passing
       e01s02: passing
+      e01s03: pending
   e02-repo-transport:
-    status: passing
+    status: pending
     stories:
       e02s01: passing
       e02s02: passing
+      e02s03: pending
   e03-merge-requests:
     status: passing
     stories:
@@ -19,10 +21,10 @@ epics:
       e03s03: passing
       e03s04: passing
   e04-review-ci:
-    status: pending
+    status: passing
     stories:
       e04s01: passing
-      e04s02: pending
+      e04s02: passing
   e05-kata-review:
     status: passing
     stories:

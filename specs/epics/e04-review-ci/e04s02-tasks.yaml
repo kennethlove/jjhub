@@ -1,13 +1,16 @@
 story_id: e04s02
 title: "CI status API + status rendering on MR"
-status: pending
+status: passing
 bcps: 5
 tasks:
   - id: e04s02t1
-    description: "statuses table (mr, revision, context, state pending/success/failure/error, target_url); token-authenticated status API endpoint for external CI"
+    description: >-
+      statuses table (mr, revision, context, state
+      pending/success/failure/error, target_url); token-authenticated
+      status API endpoint for external CI
     verify: "cargo test -p server status_api"
-    status: pending
+    status: passing
   - id: e04s02t2
     description: "status badges rendered on MR detail for latest revision"
     verify: "cargo test -p server status_render"
-    status: pending
+    status: passing

@@ -10,13 +10,13 @@ epics:
     slug: accounts-auth
     title: "User accounts: registration, sessions, transport tokens"
     wsjf: 21
-    bcp_total: 8
+    bcp_total: 12
     delta: ADDED
   - id: e02
     slug: repo-transport
     title: "Repositories + HTTP smart git transport (tracer bullet)"
     wsjf: 20
-    bcp_total: 14
+    bcp_total: 15
     delta: ADDED
   - id: e03
     slug: merge-requests

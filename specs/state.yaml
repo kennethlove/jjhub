@@ -7,6 +7,6 @@ vcs:
 session:
   started: "2026-10-17T21:47:17Z"
   active_epic_id: e04
-  active_story_id: e04s01
+  active_story_id: null
 handoff:
-  next_skill: develop-tdd
+  next_skill: verify-work
