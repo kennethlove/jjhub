@@ -1,7 +1,7 @@
 story_id: e01s03
 title: "Signup confirmation, auth error pages, logout control"
 spec: e01s03-auth-ux.md
-status: pending
+status: passing
 bcps: 4
 tasks:
   - id: e01s03t1
@@ -11,7 +11,7 @@ tasks:
     verify: "cargo test -p server signup_confirmation"
     risk: P1
     security: low
-    status: pending
+    status: passing
     allure:
       severity: high
       categories: ["Auth", "Security Review"]
@@ -23,7 +23,7 @@ tasks:
     verify: "cargo test -p server auth_error_page"
     risk: P1
     security: low
-    status: pending
+    status: passing
     allure:
       severity: high
       categories: ["Auth"]
@@ -34,7 +34,7 @@ tasks:
     verify: "cargo test -p server logout_control"
     risk: P1
     security: medium
-    status: pending
+    status: passing
     allure:
       severity: medium
       categories: ["Auth", "Security Review"]
