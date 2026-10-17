@@ -338,8 +338,8 @@ pub async fn repo_page(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("localhost:3000")
         .to_string();
-    let repo: Option<(String, String)> = sqlx::query_as(
-        "SELECT r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    let repo: Option<(uuid::Uuid, String, String)> = sqlx::query_as(
+        "SELECT r.id, r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
     .bind(&name)
@@ -348,20 +348,46 @@ pub async fn repo_page(
     .ok()
     .flatten();
 
-    match repo {
-        Some((visibility, trunk)) => Html(format!(
-            r#"<!doctype html><html><body>
+    let Some((repo_id, visibility, trunk)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+
+    // story: repo dashboard — the page surfaces open changes, not just
+    // clone instructions
+    let mrs = crate::stack::open_mrs(&state.pool, repo_id)
+        .await
+        .unwrap_or_default();
+    let mr_items: Vec<String> = mrs
+        .iter()
+        .map(|mr| {
+            format!(
+                "<li><a href=\"/{owner}/{name}/merge-requests/{change}\">{change}</a></li>",
+                owner = owner,
+                name = name,
+                change = mr.change_id
+            )
+        })
+        .collect();
+    let mr_section = if mr_items.is_empty() {
+        "<p>No open merge requests — push a change to open one.</p>".to_string()
+    } else {
+        format!("<ul>{}</ul>", mr_items.join("\n"))
+    };
+
+    Html(format!(
+        r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
 <p>{visibility} — trunk: {trunk}</p>
-{nav}<h2>Add this repository</h2>
+{nav}<h2>Open merge requests</h2>
+{mr_section}
+<p><a href="/{owner}/{name}/merge-requests">All merge requests</a></p>
+<h2>Add this repository</h2>
 <p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
 <pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
 jj git push --all</pre>
 </body></html>"#
-        ))
-        .into_response(),
-        None => (StatusCode::NOT_FOUND, "repository not found").into_response(),
-    }
+    ))
+    .into_response()
 }
 
 #[derive(Deserialize)]
