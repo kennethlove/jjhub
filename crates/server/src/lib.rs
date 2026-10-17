@@ -40,8 +40,8 @@ pub fn app(pool: PgPool) -> Router {
 pub fn app_with_storage(pool: PgPool, storage_root: String) -> Router {
     let kata_upstream =
         std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
-    let kata_public_base =
-        std::env::var("KATA_PUBLIC_BASE").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    // story: kata links — same-origin now; base kept for future flexibility
+    let kata_public_base = std::env::var("KATA_PUBLIC_BASE").unwrap_or_default();
     app_with_kata(pool, storage_root, kata_upstream, kata_public_base)
 }
 
@@ -122,6 +122,10 @@ pub fn app_with_secret(
             )),
         )
         .route("/{owner}/{name}", get(routes::repo_page))
+        .route("/r/{*rest}", get(review_proxy::spa_route))
+        .route("/api/{*rest}", get(review_proxy::api_route))
+        .route("/assets/{*rest}", get(review_proxy::assets_route))
+        .route("/favicon.svg", get(review_proxy::assets_route))
         .route(
             "/{owner}/{name}/merge-requests",
             get(routes::merge_requests_page),
