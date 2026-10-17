@@ -13,7 +13,11 @@ mod git_browse {
                 .current_dir(&seed)
                 .output()
                 .unwrap();
-            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+            assert!(
+                out.status.success(),
+                "git {args:?}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
         };
         git(&["init", "--bare", bare.to_str().unwrap()]);
         git(&["init", "-b", "trunk"]);
@@ -22,7 +26,15 @@ mod git_browse {
         std::fs::write(seed.join("docs/guide.md"), "guide\n").unwrap();
         std::fs::write(seed.join("logo.bin"), [0u8, 1, 2, 255, 128].repeat(100)).unwrap();
         git(&["add", "."]);
-        git(&["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "one"]);
+        git(&[
+            "-c",
+            "user.email=a@e.com",
+            "-c",
+            "user.name=A",
+            "commit",
+            "-m",
+            "one",
+        ]);
         git(&["push", bare.to_str().unwrap(), "trunk"]);
         bare
     }
@@ -32,10 +44,15 @@ mod git_browse {
         let root = tempfile::tempdir().unwrap();
         let bare = seed_bare(root.path());
         let entries = server::browse::list_tree(&bare, "trunk", "").expect("list");
-        let names: Vec<&str> = entries.iter().map(|(name, is_dir)| {
-            if *is_dir { return Box::leak(format!("{name}/").into_boxed_str()) as &str; }
-            Box::leak(name.clone().into_boxed_str()) as &str
-        }).collect();
+        let names: Vec<&str> = entries
+            .iter()
+            .map(|(name, is_dir)| {
+                if *is_dir {
+                    return Box::leak(format!("{name}/").into_boxed_str()) as &str;
+                }
+                Box::leak(name.clone().into_boxed_str()) as &str
+            })
+            .collect();
         assert!(names.contains(&"README.md"), "{names:?}");
         assert!(names.contains(&"docs/"), "{names:?}");
         assert!(names.contains(&"logo.bin"), "{names:?}");
@@ -58,7 +75,7 @@ mod git_browse {
         let blob = server::browse::read_blob(&bare, "trunk", "README.md").expect("read");
         assert!(matches!(blob, server::browse::Blob::Text(_)));
         if let server::browse::Blob::Text(text) = blob {
-            assert_eq!(text, "# hello\\n");
+            assert_eq!(text, "# hello\n");
         }
     }
 
@@ -67,7 +84,10 @@ mod git_browse {
         let root = tempfile::tempdir().unwrap();
         let bare = seed_bare(root.path());
         let blob = server::browse::read_blob(&bare, "trunk", "logo.bin").expect("read");
-        assert!(matches!(blob, server::browse::Blob::Binary { len: 500 }), "{blob:?}");
+        assert!(
+            matches!(blob, server::browse::Blob::Binary { len: 500 }),
+            "{blob:?}"
+        );
     }
 
     #[test]
