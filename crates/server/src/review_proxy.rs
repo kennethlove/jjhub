@@ -216,12 +216,24 @@ async fn run_proxy(
 /// must never show a dead link). The kata SPA deep-link is
 /// `/r/{repo}/browse?change=<change-id>`; the sidecar names the repo by
 /// its flattened `{owner}__{name}` workspace dir.
-pub fn review_link(storage_root: &str, owner: &str, name: &str, change_id: &str) -> Option<String> {
+pub fn review_link(
+    public_base: &str,
+    storage_root: &str,
+    owner: &str,
+    name: &str,
+    change_id: &str,
+) -> Option<String> {
     let meta = domain::meta_path(storage_root, owner, name);
     if !meta.join(".jj").exists() {
         return None;
     }
-    Some(format!(
-        "/review/{owner}/{name}/r/{owner}__{name}/browse?change={change_id}"
-    ))
+    // story: kata links — the SPA routes on absolute paths and fetches
+    // /api/* absolutely, so it must be opened at its own origin (the
+    // loopback-published sidecar). Proxy-prefix embedding waits on
+    // upstream base-path support (martint/kata#9).
+    Some(if change_id.is_empty() {
+        format!("{public_base}/r/{owner}__{name}/browse")
+    } else {
+        format!("{public_base}/r/{owner}__{name}/browse?change={change_id}")
+    })
 }

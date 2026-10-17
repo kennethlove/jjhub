@@ -73,7 +73,7 @@ mod browse_link {
         let cookie = setup(&pool, &root, true).await;
         let html = get(&pool, &root, &cookie).await;
         assert!(
-            html.contains("href=\"/review/alice/demo/r/alice__demo/browse\""),
+            html.contains("href=\"http://127.0.0.1:7878/r/alice__demo/browse\""),
             "browse link rendered: {html}"
         );
     }
@@ -86,9 +86,6 @@ mod browse_link {
         let meta = domain::meta_path(root.path().to_str().unwrap(), "alice", "demo");
         tokio::fs::remove_dir_all(&meta).await.unwrap();
         let html = get(&pool, &root, &cookie).await;
-        assert!(
-            !html.contains("/review/alice/demo/"),
-            "no dead browse link: {html}"
-        );
+        assert!(!html.contains("7878"), "no dead browse link: {html}");
     }
 }

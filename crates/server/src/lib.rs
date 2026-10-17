@@ -24,6 +24,8 @@ pub struct AppState {
     pub storage_root: String,
     // story: e05s03 — kata sidecar upstream.
     pub kata_upstream: String,
+    // story: kata links — loopback-published sidecar URL for browser links.
+    pub kata_public_base: String,
 }
 
 #[derive(Clone, Copy)]
@@ -38,12 +40,25 @@ pub fn app(pool: PgPool) -> Router {
 pub fn app_with_storage(pool: PgPool, storage_root: String) -> Router {
     let kata_upstream =
         std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
-    app_with_kata(pool, storage_root, kata_upstream)
+    let kata_public_base =
+        std::env::var("KATA_PUBLIC_BASE").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    app_with_kata(pool, storage_root, kata_upstream, kata_public_base)
 }
 
 /// story: e05s03 — explicit kata wiring for tests.
-pub fn app_with_kata(pool: PgPool, storage_root: String, kata_upstream: String) -> Router {
-    app_with_secret(pool, session_secret_from_env(), storage_root, kata_upstream)
+pub fn app_with_kata(
+    pool: PgPool,
+    storage_root: String,
+    kata_upstream: String,
+    kata_public_base: String,
+) -> Router {
+    app_with_secret(
+        pool,
+        session_secret_from_env(),
+        storage_root,
+        kata_upstream,
+        kata_public_base,
+    )
 }
 
 fn session_secret_from_env() -> Vec<u8> {
@@ -57,12 +72,14 @@ pub fn app_with_secret(
     session_secret: Vec<u8>,
     storage_root: String,
     kata_upstream: String,
+    kata_public_base: String,
 ) -> Router {
     let state = AppState {
         pool,
         session_secret,
         storage_root,
         kata_upstream,
+        kata_public_base,
     };
     let protected = Router::new()
         .route("/settings", get(routes::settings))
