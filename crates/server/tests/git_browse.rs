@@ -99,8 +99,6 @@ mod git_browse {
 
     #[test]
     fn traversal_paths_are_rejected() {
-        let root = tempfile::tempdir().unwrap();
-        let bare = seed_bare(root.path());
         // the validation gate lives in validate_path; traversal never reaches git
         assert!(server::browse::validate_path("../etc").is_err());
         assert!(server::browse::validate_path("/absolute").is_err());

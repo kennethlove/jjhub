@@ -135,6 +135,16 @@ pub fn app_with_secret(
             "/{owner}/{name}/merge-requests/{change_id}",
             get(routes::mr_detail_page),
         )
+        .route("/{owner}/{name}/tree", get(routes::tree_root))
+        .route("/{owner}/{name}/tree/{git_ref}", get(routes::tree_page))
+        .route(
+            "/{owner}/{name}/tree/{git_ref}/{*path}",
+            get(routes::tree_page_at),
+        )
+        .route(
+            "/{owner}/{name}/blob/{git_ref}/{*path}",
+            get(routes::blob_page),
+        )
         .route(
             "/review/{owner}/{name}",
             get(review_proxy::proxy).post(review_proxy::proxy),

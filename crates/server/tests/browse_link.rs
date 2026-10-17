@@ -116,6 +116,10 @@ mod browse_link {
 
         let html = get(&pool, &root, &cookie).await;
         assert!(
+            html.contains("/alice/demo/tree"),
+            "native Files link when commits exist: {html}"
+        );
+        assert!(
             html.contains("/browse?commit=") && !html.contains("browse?change="),
             "browse link pinned to trunk head: {html}"
         );
