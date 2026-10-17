@@ -98,11 +98,7 @@ mod status_render {
 
     /// alice's public repo with an MR holding two real revisions
     /// (trunk older, head latest).
-    async fn seed(
-        pool: &sqlx::PgPool,
-        root: &tempfile::TempDir,
-        cookie: &str,
-    ) -> (String, String) {
+    async fn seed(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) -> (String, String) {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(

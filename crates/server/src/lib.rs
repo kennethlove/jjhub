@@ -162,6 +162,17 @@ pub fn app_with_secret(
             get(review_proxy::proxy_rest).post(review_proxy::proxy_rest),
         )
         .merge(protected)
+        .merge(
+            Router::new()
+                .route(
+                    "/{owner}/{name}/merge-requests/{change_id}/statuses",
+                    post(routes::create_status),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    transport::require_token,
+                )),
+        )
         .merge(transport_routes(state.clone()))
         .with_state(state)
 }

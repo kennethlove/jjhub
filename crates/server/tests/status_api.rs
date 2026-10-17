@@ -139,12 +139,11 @@ mod status_api {
         .await;
         assert_eq!(response.status(), StatusCode::CREATED);
 
-        let (count, state): (i64, String) = sqlx::query_as(
-            "SELECT COUNT(*), MIN(state) FROM statuses WHERE context = 'ci/build'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let (count, state): (i64, String) =
+            sqlx::query_as("SELECT COUNT(*), MIN(state) FROM statuses WHERE context = 'ci/build'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!((count, state.as_str()), (1, "success"));
 
         // same (revision, context) again: one row, state replaced
@@ -156,12 +155,11 @@ mod status_api {
         )
         .await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        let (count, state): (i64, String) = sqlx::query_as(
-            "SELECT COUNT(*), MIN(state) FROM statuses WHERE context = 'ci/build'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let (count, state): (i64, String) =
+            sqlx::query_as("SELECT COUNT(*), MIN(state) FROM statuses WHERE context = 'ci/build'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!((count, state.as_str()), (1, "failure"));
 
         // invalid state rejected

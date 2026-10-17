@@ -601,6 +601,45 @@ pub async fn mr_detail_page(
     .await
     .unwrap_or_default();
 
+    // story: e04s02 — badges for the LATEST revision only
+    let statuses: Vec<(String, String, Option<String>)> = match revisions.first() {
+        Some((latest_id, _)) => sqlx::query_as(
+            "SELECT context, state, target_url FROM statuses \
+             WHERE revision_id = $1 ORDER BY context",
+        )
+        .bind(latest_id)
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default(),
+        None => Vec::new(),
+    };
+    let badges: Vec<String> = statuses
+        .iter()
+        .map(|(context, state, url)| {
+            let label = crate::stack::html_escape(&format!("{context}: {state}"));
+            // why: only http(s) may become a link; javascript: URLs
+            // render as plain text instead of being dropped silently
+            let inner = match url {
+                Some(u) if u.starts_with("http://") || u.starts_with("https://") => {
+                    format!("<a href=\"{}\">{}</a>", crate::stack::html_escape(u), label)
+                }
+                Some(u) => format!("{} ({})", label, crate::stack::html_escape(u)),
+                None => label,
+            };
+            format!(
+                "<span data-status=\"{}\" data-state=\"{}\">{}</span>",
+                crate::stack::html_escape(context),
+                crate::stack::html_escape(state),
+                inner
+            )
+        })
+        .collect();
+    let statuses_html = if badges.is_empty() {
+        String::new()
+    } else {
+        format!("<p class=\"statuses\">{}</p>", badges.join(" "))
+    };
+
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
     let mut sections = Vec::new();
     for (revision_id, commit) in &revisions {
@@ -644,6 +683,7 @@ pub async fn mr_detail_page(
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
+{statuses_html}
 {}
 {review_section}
 <form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Merge</button></form>
@@ -758,6 +798,104 @@ pub async fn add_comment(
     }
 
     Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
+}
+
+// story: e04s02 — external CI posts one status per (revision, context).
+// Token auth (Basic x-access-token) with push rights: owner or
+// collaborator. Re-reporting a context replaces its previous state.
+#[derive(Deserialize)]
+pub struct StatusForm {
+    revision: String,
+    context: String,
+    state: String,
+    target_url: Option<String>,
+}
+
+pub async fn create_status(
+    State(state): State<AppState>,
+    axum::extract::Extension(ci): axum::extract::Extension<crate::transport::TransportUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+    Form(form): Form<StatusForm>,
+) -> Response {
+    let repo: Option<(uuid::Uuid, uuid::Uuid)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, repo_owner_id)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE repo_id = $1 AND change_id = $2")
+            .bind(repo_id)
+            .bind(&change_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((mr_id,)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+
+    if !matches!(
+        form.state.as_str(),
+        "pending" | "success" | "failure" | "error"
+    ) {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "invalid status state").into_response();
+    }
+    let context = form.context.trim();
+    if context.is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "context required").into_response();
+    }
+
+    // same write gate as push: a CI token must belong to the owner or a
+    // collaborator
+    if !crate::transport::push_or_read_allowed(&state.pool, repo_id, ci.0, repo_owner_id).await {
+        return (
+            StatusCode::FORBIDDEN,
+            "token lacks write access to this repository",
+        )
+            .into_response();
+    }
+
+    let revision: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM revisions WHERE mr_id = $1 AND commit_id = $2")
+            .bind(mr_id)
+            .bind(&form.revision)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((revision_id,)) = revision else {
+        return (StatusCode::NOT_FOUND, "revision not found").into_response();
+    };
+
+    if let Err(err) = sqlx::query(
+        "INSERT INTO statuses (mr_id, revision_id, context, state, target_url) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (revision_id, context) \
+         DO UPDATE SET state = EXCLUDED.state, \
+                       target_url = EXCLUDED.target_url, \
+                       created_at = now()",
+    )
+    .bind(mr_id)
+    .bind(revision_id)
+    .bind(context)
+    .bind(&form.state)
+    .bind(&form.target_url)
+    .execute(&state.pool)
+    .await
+    {
+        tracing::error!(%err, "status upsert failed");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "status not recorded").into_response();
+    }
+
+    (StatusCode::CREATED, "status recorded").into_response()
 }
 
 // story: e03s03 — merge button target: owner-only, bottom MR, one click.
