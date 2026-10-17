@@ -85,6 +85,8 @@ pub fn app_with_secret(
     let protected = Router::new()
         .route("/settings", get(routes::settings))
         .route("/settings/tokens", post(routes::create_token))
+        // story: e02s03 — repo-page generate button (session + CSRF, same group)
+        .route("/{owner}/{name}/tokens", post(routes::create_repo_token))
         .route("/repos", post(routes::create_repo))
         .route("/{owner}/{name}/settings", post(routes::repo_settings))
         .route(

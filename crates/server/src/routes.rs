@@ -197,6 +197,23 @@ pub async fn logout() -> Response {
         .into_response()
 }
 
+// story: e02s03 — issue a fresh access token for the viewer and bounce
+// back to the repo page; plaintext rides the one-time cookie only
+pub async fn create_repo_token(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<TokenForm>,
+) -> Response {
+    let new = crate::token::create(&state.pool, current.0, &form.label).await;
+    let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+        "new_token",
+        new.plaintext,
+    ));
+    (jar, Redirect::to(&format!("/{owner}/{name}"))).into_response()
+}
+
 pub async fn settings(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
@@ -464,6 +481,22 @@ pub async fn repo_page(
             String::new()
         };
 
+    // story: e02s03 — the viewer's own token lands in the snippet via the
+    // one-time cookie; everyone else keeps the placeholder
+    let clone_token = jar
+        .get("new_token")
+        .map(|c| crate::stack::html_escape(c.value()))
+        .unwrap_or_else(|| "&lt;TOKEN&gt;".to_string());
+    let generate_form = viewer.as_ref().map(|_| {
+        format!(
+            r#"<form method="post" action="/{owner}/{name}/tokens">
+<input type="hidden" name="_csrf" value="{csrf}">
+<button type="submit">Generate token</button>
+</form>"#
+        )
+    });
+    let generate_form = generate_form.unwrap_or_default();
+
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
@@ -473,7 +506,8 @@ pub async fn repo_page(
 <p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
 <h2>Add this repository</h2>
 <p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
-<pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
+{generate_form}
+<pre>jj git remote add origin "http://x-access-token:{clone_token}@{host}/git/{owner}/{name}.git"
 jj git push --all</pre>
 </body></html>"#
     ))
