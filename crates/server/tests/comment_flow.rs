@@ -92,14 +92,30 @@ mod comment_flow {
         git_in(&seed, &["add", "."]);
         git_in(
             &seed,
-            &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "one"],
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "one",
+            ],
         );
         let trunk_commit = rev_parse(&seed);
         std::fs::write(seed.join("second.txt"), "second line\n").unwrap();
         git_in(&seed, &["add", "."]);
         git_in(
             &seed,
-            &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "two"],
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "two",
+            ],
         );
         let head_commit = rev_parse(&seed);
         git_in(&seed, &["push", bare.to_str().unwrap(), "trunk"]);
@@ -118,10 +134,7 @@ mod comment_flow {
             root,
             "/repos",
             Some(alice),
-            format!(
-                "name=demo&visibility=public&_csrf={}",
-                csrf(alice)
-            ),
+            format!("name=demo&visibility=public&_csrf={}", csrf(alice)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -236,12 +249,16 @@ mod comment_flow {
         assert!(head_pos < trunk_pos, "newest first: {html}");
 
         // each comment sits inside its own revision's section (pinned, never re-anchored)
-        let trunk_comment = html.find("Trunk looks wrong").expect("trunk comment rendered");
+        let trunk_comment = html
+            .find("Trunk looks wrong")
+            .expect("trunk comment rendered");
         assert!(
             trunk_comment > trunk_pos,
             "trunk comment pinned to trunk section: {html}"
         );
-        let head_comment = html.find("Second line fine").expect("head comment rendered");
+        let head_comment = html
+            .find("Second line fine")
+            .expect("head comment rendered");
         assert!(
             head_comment > head_pos && head_comment < trunk_pos,
             "head comment pinned to head section: {html}"
@@ -305,10 +322,7 @@ mod comment_flow {
             &root,
             "/alice/demo/merge-requests/aaaa/comments",
             Some(&bob),
-            format!(
-                "revision=caaaa1&body=hi&_csrf={}",
-                csrf(&bob)
-            ),
+            format!("revision=caaaa1&body=hi&_csrf={}", csrf(&bob)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -319,10 +333,7 @@ mod comment_flow {
             &root,
             "/alice/demo/merge-requests/aaaa/comments",
             Some(&alice),
-            format!(
-                "revision=caaaa1&body=owner+here&_csrf={}",
-                csrf(&alice)
-            ),
+            format!("revision=caaaa1&body=owner+here&_csrf={}", csrf(&alice)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -333,10 +344,7 @@ mod comment_flow {
             &root,
             "/alice/demo/settings/collaborators",
             Some(&alice),
-            format!(
-                "email=bob%40example.com&_csrf={}",
-                csrf(&alice)
-            ),
+            format!("email=bob%40example.com&_csrf={}", csrf(&alice)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -345,10 +353,7 @@ mod comment_flow {
             &root,
             "/alice/demo/merge-requests/aaaa/comments",
             Some(&bob),
-            format!(
-                "revision=caaaa1&body=now+mine&_csrf={}",
-                csrf(&bob)
-            ),
+            format!("revision=caaaa1&body=now+mine&_csrf={}", csrf(&bob)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);

@@ -593,8 +593,8 @@ pub async fn mr_detail_page(
     let Some((mr_id, mr_state)) = mr else {
         return (StatusCode::NOT_FOUND, "merge request not found").into_response();
     };
-    let revisions: Vec<String> = sqlx::query_scalar(
-        "SELECT commit_id FROM revisions WHERE mr_id = $1 ORDER BY pushed_at DESC",
+    let revisions: Vec<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT id, commit_id FROM revisions WHERE mr_id = $1 ORDER BY pushed_at DESC",
     )
     .bind(mr_id)
     .fetch_all(&state.pool)
@@ -603,10 +603,40 @@ pub async fn mr_detail_page(
 
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
     let mut sections = Vec::new();
-    for commit in &revisions {
+    for (revision_id, commit) in &revisions {
         let diff = crate::stack::unified_diff(&bare, commit);
+        // story: e04s01 — threads of THIS revision only; revision_id is a
+        // hard FK, so a thread can never drift to another revision
+        let threads: Vec<(String, String)> = sqlx::query_as(
+            "SELECT u.handle, c.body FROM comments c JOIN users u ON u.id = c.author_id \
+             WHERE c.revision_id = $1 ORDER BY c.created_at",
+        )
+        .bind(revision_id)
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+        let threads_html = if threads.is_empty() {
+            String::new()
+        } else {
+            let items: Vec<String> = threads
+                .iter()
+                .map(|(handle, body)| {
+                    format!(
+                        "<li>{}: {}</li>",
+                        crate::stack::html_escape(handle),
+                        crate::stack::html_escape(body)
+                    )
+                })
+                .collect();
+            format!("<ul class=\"threads\">{}</ul>", items.join(""))
+        };
         sections.push(format!(
-            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre></section>",
+            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre>{threads_html}\
+             <form method=\"post\" action=\"/{owner}/{name}/merge-requests/{change_id}/comments\">\
+             <input type=\"hidden\" name=\"revision\" value=\"{commit}\">\
+             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
+             <input name=\"body\" placeholder=\"Comment on this revision\" required>\
+             <button type=\"submit\">Comment</button></form></section>",
             crate::stack::html_escape(&diff)
         ));
     }
@@ -634,6 +664,100 @@ pub async fn mr_detail_page(
         },
     ))
     .into_response()
+}
+
+// story: e04s01 — post one comment to one immutable revision. Public repos
+// take any signed-in commenter; private repos require owner or
+// collaborator. The comment FKs an existing revision of this MR — threads
+// are pinned, never re-anchored.
+#[derive(Deserialize)]
+pub struct CommentForm {
+    revision: String,
+    body: String,
+}
+
+pub async fn add_comment(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+    Form(form): Form<CommentForm>,
+) -> Response {
+    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, repo_owner_id, visibility)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE repo_id = $1 AND change_id = $2")
+            .bind(repo_id)
+            .bind(&change_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((mr_id,)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+
+    let body = form.body.trim();
+    if body.is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "comment body required").into_response();
+    }
+
+    if visibility == "private" && current.0 != repo_owner_id {
+        let collaborator: Option<uuid::Uuid> = sqlx::query_scalar(
+            "SELECT repo_id FROM collaborators WHERE repo_id = $1 AND user_id = $2",
+        )
+        .bind(repo_id)
+        .bind(current.0)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+        if collaborator.is_none() {
+            return (
+                StatusCode::FORBIDDEN,
+                "only collaborators can comment on a private repository",
+            )
+                .into_response();
+        }
+    }
+
+    let revision: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM revisions WHERE mr_id = $1 AND commit_id = $2")
+            .bind(mr_id)
+            .bind(&form.revision)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((revision_id,)) = revision else {
+        return (StatusCode::NOT_FOUND, "revision not found").into_response();
+    };
+
+    if let Err(err) = sqlx::query(
+        "INSERT INTO comments (mr_id, revision_id, author_id, body) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(mr_id)
+    .bind(revision_id)
+    .bind(current.0)
+    .bind(body)
+    .execute(&state.pool)
+    .await
+    {
+        tracing::error!(%err, "comment insert failed");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "comment failed").into_response();
+    }
+
+    Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
 }
 
 // story: e03s03 — merge button target: owner-only, bottom MR, one click.
