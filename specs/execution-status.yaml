@@ -21,7 +21,7 @@ epics:
   e04-review-ci:
     status: pending
     stories:
-      e04s01: pending
+      e04s01: passing
       e04s02: pending
   e05-kata-review:
     status: passing
