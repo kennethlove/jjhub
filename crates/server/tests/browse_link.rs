@@ -34,9 +34,13 @@ mod browse_link {
         let token = server::session::csrf_token(secret.as_bytes(), value);
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(format!("name=demo&visibility=public&_csrf={token}")))
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={token}"
+            )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -50,7 +54,9 @@ mod browse_link {
 
     async fn get(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) -> String {
         let mut request = Request::get("/alice/demo").body(Body::empty()).unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         let response =
             server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
                 .oneshot(request)
@@ -75,7 +81,10 @@ mod browse_link {
     #[sqlx::test(migrations = "./migrations")]
     async fn no_browse_link_without_meta(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
+        // pre-backfill shape: repo exists, colocated metadata does not
         let cookie = setup(&pool, &root, false).await;
+        let meta = domain::meta_path(root.path().to_str().unwrap(), "alice", "demo");
+        tokio::fs::remove_dir_all(&meta).await.unwrap();
         let html = get(&pool, &root, &cookie).await;
         assert!(
             !html.contains("/review/alice/demo/"),

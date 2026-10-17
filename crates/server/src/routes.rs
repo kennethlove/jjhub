@@ -374,13 +374,24 @@ pub async fn repo_page(
         format!("<ul>{}</ul>", mr_items.join("\n"))
     };
 
+    // story: Browse files — kata's browse view through the auth proxy;
+    // same metadata guard as review links (no dead links, ever)
+    let browse = crate::review_proxy::review_link(&state.storage_root, &owner, &name, "")
+        .map(|link| {
+            format!(
+                " · <a href=\"{}\">Browse files</a>",
+                link.replace("browse?change=", "browse")
+            )
+        })
+        .unwrap_or_default();
+
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
 <p>{visibility} — trunk: {trunk}</p>
 {nav}<h2>Open merge requests</h2>
 {mr_section}
-<p><a href="/{owner}/{name}/merge-requests">All merge requests</a></p>
+<p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
 <h2>Add this repository</h2>
 <p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
 <pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
