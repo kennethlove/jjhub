@@ -42,3 +42,10 @@ epics:
     wsjf: 14
     bcp_total: 5
     delta: ADDED
+  - id: e07
+    slug: file-browser
+    title: "Native file browser — tree and blob at a revision"
+    wsjf: 12
+    bcp_total: 5
+    delta: ADDED
+

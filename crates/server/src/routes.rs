@@ -391,15 +391,27 @@ pub async fn repo_page(
         let pinned = crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
             .map(|sha| format!("{link}?commit={sha}"))
             .unwrap_or(link);
-        format!(" · <a href=\"{pinned}\">Browse files</a>")
+        format!(" · <a href=\"{pinned}\">Browse (kata)</a>")
     })
     .unwrap_or_default();
+    // story: e07s01 — native tree view; only when the repo has commits
+    let bare_for_files = domain::storage_path(&state.storage_root, &owner, &name);
+    let files_link =
+        if crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some() {
+            format!(
+                " · <a href=\"/{owner}/{name}/tree\">Files</a>",
+                owner = owner,
+                name = name
+            )
+        } else {
+            String::new()
+        };
 
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
 <p>{visibility} — trunk: {trunk}</p>
-{nav}<h2>Open merge requests</h2>
+{nav}<p>{browse}{files_link}</p><h2>Open merge requests</h2>
 {mr_section}
 <p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
 <h2>Add this repository</h2>
@@ -876,4 +888,199 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
         repos = repo_items.join("\n")
     ))
     .into_response()
+}
+
+// story: e07s01 — default tree route: trunk view rendered directly.
+pub async fn tree_root(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+) -> Response {
+    render_tree(state, owner, name, "trunk".to_string(), String::new()).await
+}
+
+// story: e07s01 — directory listing at ref+path.
+pub async fn tree_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name, git_ref)): axum::extract::Path<(String, String, String)>,
+) -> Response {
+    render_tree(state, owner, name, git_ref, String::new()).await
+}
+
+// story: e07s01 — directory listing at ref+path.
+pub async fn tree_page_at(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name, git_ref, path)): axum::extract::Path<(
+        String,
+        String,
+        String,
+        String,
+    )>,
+) -> Response {
+    render_tree(state, owner, name, git_ref, path).await
+}
+
+async fn render_tree(
+    state: AppState,
+    owner: String,
+    name: String,
+    git_ref: String,
+    path: String,
+) -> Response {
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    if !bare.join("HEAD").exists() {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
+    let Some(entries) = crate::browse::list_tree(&bare, &git_ref, &path) else {
+        return (StatusCode::NOT_FOUND, "unknown revision").into_response();
+    };
+
+    // breadcrumbs: repo root, then each ancestor of the current path
+    let mut crumbs = vec![format!(
+        "<a href=\"/{owner}/{name}/tree\">{owner}/{name}</a>",
+        owner = owner,
+        name = name
+    )];
+    let mut acc = String::new();
+    for part in path.split('/').filter(|p| !p.is_empty()) {
+        acc = if acc.is_empty() {
+            part.to_string()
+        } else {
+            format!("{acc}/{part}")
+        };
+        crumbs.push(format!(
+            "<a href=\"/{owner}/{name}/tree/{git_ref}/{acc}\">{part}</a>",
+            owner = owner,
+            name = name,
+            git_ref = git_ref,
+            acc = acc,
+            part = crate::stack::html_escape(part)
+        ));
+    }
+
+    let items: Vec<String> = entries
+        .iter()
+        .map(|(entry_name, is_dir)| {
+            let escaped = crate::stack::html_escape(entry_name);
+            if *is_dir {
+                let target = if path.is_empty() {
+                    format!("/{owner}/{name}/tree/{git_ref}/{n}", n = entry_name)
+                } else {
+                    format!(
+                        "/{owner}/{name}/tree/{git_ref}/{p}/{n}",
+                        p = path,
+                        n = entry_name
+                    )
+                };
+                format!(
+                    "<li>📁 <a href=\"{target}\">{escaped}/</a></li>",
+                    target = target,
+                    escaped = escaped
+                )
+            } else {
+                let target = if path.is_empty() {
+                    format!("/{owner}/{name}/blob/{git_ref}/{n}", n = entry_name)
+                } else {
+                    format!(
+                        "/{owner}/{name}/blob/{git_ref}/{p}/{n}",
+                        p = path,
+                        n = entry_name
+                    )
+                };
+                format!(
+                    "<li>📄 <a href=\"{target}\">{escaped}</a></li>",
+                    target = target,
+                    escaped = escaped
+                )
+            }
+        })
+        .collect();
+
+    Html(format!(
+        r#"<!doctype html><html><body>
+<h1>{owner}/{name} — {path_label}</h1>
+<p>{crumbs}</p>
+<ul>
+{items}
+</ul>
+</body></html>"#,
+        owner = owner,
+        name = name,
+        path_label = if path.is_empty() {
+            "/".to_string()
+        } else {
+            crate::stack::html_escape(&path)
+        },
+        crumbs = crumbs.join(" / "),
+        items = items.join("\n")
+    ))
+    .into_response()
+}
+
+// story: e07s01 — file contents at ref+path, line-numbered and escaped.
+pub async fn blob_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name, git_ref, path)): axum::extract::Path<(
+        String,
+        String,
+        String,
+        String,
+    )>,
+) -> Response {
+    let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    if !bare.join("HEAD").exists() {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
+    let back = if path.contains('/') {
+        let dir = path.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+        format!(
+            "/{owner}/{name}/tree/{git_ref}/{dir}",
+            owner = owner,
+            name = name,
+            git_ref = git_ref,
+            dir = dir
+        )
+    } else {
+        format!(
+            "/{owner}/{name}/tree/{git_ref}",
+            owner = owner,
+            name = name,
+            git_ref = git_ref
+        )
+    };
+    match crate::browse::read_blob(&bare, &git_ref, &path) {
+        Ok(crate::browse::Blob::Text(text)) => {
+            let numbered: Vec<String> = text
+                .lines()
+                .enumerate()
+                .map(|(i, line)| format!("{:>4} {}", i + 1, crate::stack::html_escape(line)))
+                .collect();
+            Html(format!(
+                r#"<!doctype html><html><body>
+<h1>{owner}/{name} — {path}</h1>
+<p><a href="{back}">back</a></p>
+<pre>{numbered}</pre>
+</body></html>"#,
+                owner = owner,
+                name = name,
+                path = crate::stack::html_escape(&path),
+                back = back,
+                numbered = numbered.join("\n")
+            ))
+            .into_response()
+        }
+        Ok(crate::browse::Blob::Binary { len }) => Html(format!(
+            r#"<!doctype html><html><body>
+<h1>{owner}/{name} — {path}</h1>
+<p><a href="{back}">back</a></p>
+<p>{len} bytes (binary file — not shown)</p>
+</body></html>"#,
+            owner = owner,
+            name = name,
+            path = crate::stack::html_escape(&path),
+            back = back,
+            len = len
+        ))
+        .into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "no such file").into_response(),
+    }
 }
