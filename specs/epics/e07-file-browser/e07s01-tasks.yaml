@@ -1,0 +1,23 @@
+story_id: e07s01
+spec: e07s01-tree-blob.md
+status: failing
+bcps: 5
+tasks:
+  - id: e07s01t1
+    description: "git plumbing: ls-tree listing + blob content at a validated ref"
+    verify: "cargo test -p server git_browse"
+    risk: P1
+    security: medium
+    status: failing
+    allure:
+      severity: high
+      categories: ["Security Review", "unit"]
+  - id: e07s01t2
+    description: "tree and blob pages (breadcrumbs, line numbers, escaping, binary note) + Files link on repo page"
+    verify: "cargo test -p server tree_blob_pages"
+    risk: P1
+    security: medium
+    status: failing
+    allure:
+      severity: high
+      categories: ["Security Review", "unit"]

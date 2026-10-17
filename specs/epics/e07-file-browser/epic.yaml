@@ -1,0 +1,10 @@
+epic: e07
+slug: file-browser
+title: "Native file browser — tree and blob at a revision"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e07s01
+    title: "Tree and blob pages at any ref"
+    bcps: 5
+    delta: ADDED
