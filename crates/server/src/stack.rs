@@ -107,3 +107,19 @@ pub fn html_escape(text: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
+
+/// story: browse pin — resolve a ref to its commit id in the bare repo.
+pub fn ref_commit(bare: &Path, ref_name: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(bare)
+        .args(["rev-parse", "--verify", ref_name])
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
