@@ -28,7 +28,7 @@ mod status_render {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
-                "email={email}&password=correct+horse+battery"
+                "email={email}&password=correct+horse+battery&password_confirm=correct+horse+battery"
             )))
             .unwrap();
         let response = app(pool.clone(), root).oneshot(request).await.unwrap();

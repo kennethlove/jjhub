@@ -18,26 +18,55 @@ pub async fn healthz() -> &'static str {
 pub struct RegisterForm {
     email: String,
     password: String,
+    password_confirm: String,
 }
 
-pub async fn register_form() -> Html<&'static str> {
-    Html(
+fn register_page(error: &str, email: &str) -> String {
+    let error_html = if error.is_empty() {
+        String::new()
+    } else {
+        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
+    };
+    let email = crate::stack::html_escape(email);
+    format!(
         r#"<!doctype html><html><body>
 <h1>Register</h1>
+{error_html}
 <form method="post" action="/register">
-<label>Email <input type="email" name="email" required></label>
+<label>Email <input type="email" name="email" value="{email}" required></label>
 <label>Password <input type="password" name="password" required minlength="10"></label>
+<label>Confirm password <input type="password" name="password_confirm" required minlength="10"></label>
 <button type="submit">Register</button>
 </form>
-</body></html>"#,
+</body></html>"#
     )
+}
+
+pub async fn register_form() -> Html<String> {
+    Html(register_page("", ""))
 }
 
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
     let (email, handle) = match domain::validate_registration(&form.email, &form.password) {
         Ok(pair) => pair,
-        Err(err) => return (StatusCode::UNPROCESSABLE_ENTITY, err.to_string()).into_response(),
+        Err(err) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                register_page(&err.to_string(), &form.email),
+            )
+                .into_response()
+        }
     };
+
+    // story: e01s03 — confirm the password at sign-up so a typo'd
+    // password can't lock a new account out on first login
+    if form.password != form.password_confirm {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            register_page("passwords do not match", &form.email),
+        )
+            .into_response();
+    }
 
     let password_hash = hash_password(&form.password);
     let existing: Option<String> =
@@ -48,7 +77,11 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             .ok()
             .flatten();
     if existing.is_some() {
-        return (StatusCode::CONFLICT, "email already registered").into_response();
+        return (
+            StatusCode::CONFLICT,
+            register_page("email already registered", &form.email),
+        )
+            .into_response();
     }
 
     let user_id: uuid::Uuid = match sqlx::query_scalar(
@@ -65,7 +98,11 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             if db.constraint() == Some("users_email_key")
                 || db.constraint() == Some("users_handle_unique") =>
         {
-            return (StatusCode::CONFLICT, "email already registered").into_response()
+            return (
+                StatusCode::CONFLICT,
+                register_page("email already registered", &form.email),
+            )
+                .into_response()
         }
         Err(err) => {
             return (
@@ -96,17 +133,27 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
         .into_response()
 }
 
-pub async fn login_form() -> Html<&'static str> {
-    Html(
+fn login_page(error: &str) -> String {
+    let error_html = if error.is_empty() {
+        String::new()
+    } else {
+        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
+    };
+    format!(
         r#"<!doctype html><html><body>
 <h1>Log in</h1>
+{error_html}
 <form method="post" action="/login">
 <label>Email <input type="email" name="email" required></label>
 <label>Password <input type="password" name="password" required></label>
 <button type="submit">Log in</button>
 </form>
-</body></html>"#,
+</body></html>"#
     )
+}
+
+pub async fn login_form() -> Html<String> {
+    Html(login_page(""))
 }
 
 #[derive(Deserialize)]
@@ -126,7 +173,13 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
 
     match row {
         Some((id, hash)) if verify_password(&form.password, &hash) => session_response(&state, id),
-        _ => StatusCode::UNAUTHORIZED.into_response(),
+        // story: e01s03 — same message for unknown email and wrong
+        // password: the page must not say which one was wrong
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            login_page("email or password is incorrect"),
+        )
+            .into_response(),
     }
 }
 
@@ -160,7 +213,7 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let nav = nav_html(handle.as_deref());
+    let nav = nav_html(handle.as_deref(), &csrf);
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -332,7 +385,11 @@ pub async fn repo_page(
     headers: axum::http::HeaderMap,
 ) -> Response {
     let viewer = viewer_handle(&state, &jar).await;
-    let nav = nav_html(viewer.as_deref());
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let nav = nav_html(viewer.as_deref(), &csrf);
     let host = headers
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
@@ -1068,12 +1125,16 @@ pub async fn manage_collaborators(
     Redirect::to(&format!("/{owner}/{name}")).into_response()
 }
 
-// story: e06s01 — shared nav: brand + (when authed) Repos and Settings.
-pub fn nav_html(user_handle: Option<&str>) -> String {
+// story: e06s01 — shared nav: brand + (when authed) Repos, Settings and
+// a CSRF-protected Log out button.
+pub fn nav_html(user_handle: Option<&str>, csrf: &str) -> String {
     match user_handle {
         Some(handle) => format!(
             "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
-             <a href=\"/settings\">Settings</a> <span>{handle}</span></nav>"
+             <a href=\"/settings\">Settings</a> <span>{handle}</span> \
+             <form method=\"post\" action=\"/logout\" style=\"display:inline\">\
+             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
+             <button type=\"submit\">Log out</button></form></nav>"
         ),
         None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
     }
@@ -1101,7 +1162,7 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
 <p>Forge-style hosting for Jujutsu repositories.</p>
 <p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
 </body></html>"#,
-            nav_html(None)
+            nav_html(None, "")
         ))
         .into_response();
     };
@@ -1145,7 +1206,7 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
 <h2>Your repositories</h2>
 <ul>{repos}</ul>
 </body></html>"#,
-        nav_html(Some(&handle)),
+        nav_html(Some(&handle), &csrf),
         csrf = csrf,
         repos = repo_items.join("\n")
     ))

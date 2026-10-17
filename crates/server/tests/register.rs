@@ -25,7 +25,7 @@ mod session_auth {
         let response = post(
             pool.clone(),
             "/register",
-            "email=Alice%40Example.COM&password=correct+horse+battery",
+            "email=Alice%40Example.COM&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
 
@@ -57,7 +57,7 @@ mod session_auth {
         let response = post(
             pool,
             "/register",
-            "email=alice%40example.com&password=short",
+            "email=alice%40example.com&password=short&password_confirm=short",
         )
         .await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
@@ -68,13 +68,13 @@ mod session_auth {
         post(
             pool.clone(),
             "/register",
-            "email=alice%40example.com&password=correct+horse+battery",
+            "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
         let response = post(
             pool,
             "/register",
-            "email=ALICE%40example.com&password=another+long+password",
+            "email=ALICE%40example.com&password=another+long+password&password_confirm=another+long+password",
         )
         .await;
         assert_eq!(response.status(), StatusCode::CONFLICT);

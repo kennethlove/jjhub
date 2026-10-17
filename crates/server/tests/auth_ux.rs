@@ -111,7 +111,9 @@ async fn auth_error_page_register_conflict_shows_form(pool: sqlx::PgPool) {
 async fn logout_control_settings_nav_has_button(pool: sqlx::PgPool) {
     let cookie = register(&pool).await;
     let mut request = Request::get("/settings").body(Body::empty()).unwrap();
-    request.headers_mut().insert("cookie", cookie.parse().unwrap());
+    request
+        .headers_mut()
+        .insert("cookie", cookie.parse().unwrap());
     let response = app(pool).oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_of(response).await;
@@ -119,7 +121,10 @@ async fn logout_control_settings_nav_has_button(pool: sqlx::PgPool) {
         body.contains(r#"action="/logout""#),
         "settings nav must offer logout: {body}"
     );
-    assert!(body.contains(r#"name="_csrf""#), "logout needs csrf: {body}");
+    assert!(
+        body.contains(r#"name="_csrf""#),
+        "logout needs csrf: {body}"
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]

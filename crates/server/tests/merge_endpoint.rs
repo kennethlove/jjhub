@@ -130,7 +130,7 @@ mod merge_endpoint {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
-                "email=alice%40example.com&password=correct+horse+battery",
+                "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
         let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
@@ -244,7 +244,7 @@ mod merge_endpoint {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
-                "email=bob%40example.com&password=correct+horse+battery",
+                "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
         let response =

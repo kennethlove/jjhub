@@ -48,7 +48,7 @@ mod mr_abandon_reopen {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
-                "email={email}&password=correct+horse+battery"
+                "email={email}&password=correct+horse+battery&password_confirm=correct+horse+battery"
             )))
             .unwrap();
         let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())

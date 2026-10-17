@@ -21,7 +21,7 @@ mod session_auth_login {
         let response = post(
             pool.clone(),
             "/register",
-            "email=bob%40example.com&password=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
         response
@@ -42,7 +42,7 @@ mod session_auth_login {
         let response = post(
             pool.clone(),
             "/login",
-            "email=bob%40example.com&password=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -62,7 +62,7 @@ mod session_auth_login {
         let response = post(
             pool,
             "/login",
-            "email=bob%40example.com&password=wrong-password",
+            "email=bob%40example.com&password=wrong-password&password_confirm=wrong-password",
         )
         .await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -73,7 +73,7 @@ mod session_auth_login {
         let response = post(
             pool,
             "/login",
-            "email=nobody%40example.com&password=correct+horse+battery",
+            "email=nobody%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);

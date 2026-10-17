@@ -7,7 +7,7 @@ mod csrf_protection {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
-                "email=alice%40example.com&password=correct+horse+battery",
+                "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
         let response =
@@ -136,7 +136,7 @@ mod csrf_protection {
             pool.clone(),
             &root,
             "/register",
-            "email=bob%40example.com&password=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             None,
         )
         .await;
@@ -146,7 +146,7 @@ mod csrf_protection {
             pool,
             &root,
             "/login",
-            "email=bob%40example.com&password=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             None,
         )
         .await;
