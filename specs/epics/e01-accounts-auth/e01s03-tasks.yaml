@@ -1,0 +1,40 @@
+story_id: e01s03
+title: "Signup confirmation, auth error pages, logout control"
+spec: e01s03-auth-ux.md
+status: passing
+bcps: 4
+tasks:
+  - id: e01s03t1
+    description: >-
+      register form gains a confirm-password field; mismatch returns 422
+      with a visible error and creates no user
+    verify: "cargo test -p server signup_confirmation"
+    risk: P1
+    security: low
+    status: passing
+    allure:
+      severity: high
+      categories: ["Auth", "Security Review"]
+  - id: e01s03t2
+    description: >-
+      login and register failures re-render their form with a visible
+      error message instead of a bare status body (status codes
+      unchanged: 401/409/422)
+    verify: "cargo test -p server auth_error_page"
+    risk: P1
+    security: low
+    status: passing
+    allure:
+      severity: high
+      categories: ["Auth"]
+  - id: e01s03t3
+    description: >-
+      logged-in nav renders a Log out button (POST /logout with hidden
+      _csrf) on every authenticated page; logged-out nav unchanged
+    verify: "cargo test -p server logout_control"
+    risk: P1
+    security: medium
+    status: passing
+    allure:
+      severity: medium
+      categories: ["Auth", "Security Review"]

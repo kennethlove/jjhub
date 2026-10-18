@@ -12,3 +12,7 @@ stories:
     title: "Personal access tokens for git transport"
     bcps: 3
     delta: ADDED
+  - id: e01s03
+    title: "Signup confirmation, auth error pages, logout control"
+    bcps: 4
+    delta: ADDED

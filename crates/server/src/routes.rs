@@ -18,26 +18,55 @@ pub async fn healthz() -> &'static str {
 pub struct RegisterForm {
     email: String,
     password: String,
+    password_confirm: String,
 }
 
-pub async fn register_form() -> Html<&'static str> {
-    Html(
+fn register_page(error: &str, email: &str) -> String {
+    let error_html = if error.is_empty() {
+        String::new()
+    } else {
+        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
+    };
+    let email = crate::stack::html_escape(email);
+    format!(
         r#"<!doctype html><html><body>
 <h1>Register</h1>
+{error_html}
 <form method="post" action="/register">
-<label>Email <input type="email" name="email" required></label>
+<label>Email <input type="email" name="email" value="{email}" required></label>
 <label>Password <input type="password" name="password" required minlength="10"></label>
+<label>Confirm password <input type="password" name="password_confirm" required minlength="10"></label>
 <button type="submit">Register</button>
 </form>
-</body></html>"#,
+</body></html>"#
     )
+}
+
+pub async fn register_form() -> Html<String> {
+    Html(register_page("", ""))
 }
 
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
     let (email, handle) = match domain::validate_registration(&form.email, &form.password) {
         Ok(pair) => pair,
-        Err(err) => return (StatusCode::UNPROCESSABLE_ENTITY, err.to_string()).into_response(),
+        Err(err) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Html(register_page(&err.to_string(), &form.email)),
+            )
+                .into_response()
+        }
     };
+
+    // story: e01s03 — confirm the password at sign-up so a typo'd
+    // password can't lock a new account out on first login
+    if form.password != form.password_confirm {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(register_page("passwords do not match", &form.email)),
+        )
+            .into_response();
+    }
 
     let password_hash = hash_password(&form.password);
     let existing: Option<String> =
@@ -48,7 +77,11 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             .ok()
             .flatten();
     if existing.is_some() {
-        return (StatusCode::CONFLICT, "email already registered").into_response();
+        return (
+            StatusCode::CONFLICT,
+            Html(register_page("email already registered", &form.email)),
+        )
+            .into_response();
     }
 
     let user_id: uuid::Uuid = match sqlx::query_scalar(
@@ -65,7 +98,11 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             if db.constraint() == Some("users_email_key")
                 || db.constraint() == Some("users_handle_unique") =>
         {
-            return (StatusCode::CONFLICT, "email already registered").into_response()
+            return (
+                StatusCode::CONFLICT,
+                Html(register_page("email already registered", &form.email)),
+            )
+                .into_response()
         }
         Err(err) => {
             return (
@@ -96,17 +133,27 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
         .into_response()
 }
 
-pub async fn login_form() -> Html<&'static str> {
-    Html(
+fn login_page(error: &str) -> String {
+    let error_html = if error.is_empty() {
+        String::new()
+    } else {
+        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
+    };
+    format!(
         r#"<!doctype html><html><body>
 <h1>Log in</h1>
+{error_html}
 <form method="post" action="/login">
 <label>Email <input type="email" name="email" required></label>
 <label>Password <input type="password" name="password" required></label>
 <button type="submit">Log in</button>
 </form>
-</body></html>"#,
+</body></html>"#
     )
+}
+
+pub async fn login_form() -> Html<String> {
+    Html(login_page(""))
 }
 
 #[derive(Deserialize)]
@@ -126,7 +173,13 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
 
     match row {
         Some((id, hash)) if verify_password(&form.password, &hash) => session_response(&state, id),
-        _ => StatusCode::UNAUTHORIZED.into_response(),
+        // story: e01s03 — same message for unknown email and wrong
+        // password: the page must not say which one was wrong
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Html(login_page("email or password is incorrect")),
+        )
+            .into_response(),
     }
 }
 
@@ -142,6 +195,23 @@ pub async fn logout() -> Response {
         ],
     )
         .into_response()
+}
+
+// story: e02s03 — issue a fresh access token for the viewer and bounce
+// back to the repo page; plaintext rides the one-time cookie only
+pub async fn create_repo_token(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<TokenForm>,
+) -> Response {
+    let new = crate::token::create(&state.pool, current.0, &form.label).await;
+    let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+        "new_token",
+        new.plaintext,
+    ));
+    (jar, Redirect::to(&format!("/{owner}/{name}"))).into_response()
 }
 
 pub async fn settings(
@@ -160,7 +230,7 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let nav = nav_html(handle.as_deref());
+    let nav = nav_html(handle.as_deref(), &csrf);
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -332,7 +402,11 @@ pub async fn repo_page(
     headers: axum::http::HeaderMap,
 ) -> Response {
     let viewer = viewer_handle(&state, &jar).await;
-    let nav = nav_html(viewer.as_deref());
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let nav = nav_html(viewer.as_deref(), &csrf);
     let host = headers
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
@@ -407,6 +481,23 @@ pub async fn repo_page(
             String::new()
         };
 
+    // story: e02s03 — the viewer's own token lands in the snippet via the
+    // one-time cookie; everyone else keeps the placeholder
+    let clone_token = jar
+        .get("new_token")
+        .map(|c| crate::stack::html_escape(c.value()))
+        .unwrap_or_else(|| "&lt;TOKEN&gt;".to_string());
+    let generate_form = viewer.as_ref().map(|_| {
+        format!(
+            r#"<form method="post" action="/{owner}/{name}/tokens">
+<input type="hidden" name="label" value="clone-{owner}/{name}">
+<input type="hidden" name="_csrf" value="{csrf}">
+<button type="submit">Generate token</button>
+</form>"#
+        )
+    });
+    let generate_form = generate_form.unwrap_or_default();
+
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name}</h1>
@@ -416,7 +507,8 @@ pub async fn repo_page(
 <p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
 <h2>Add this repository</h2>
 <p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
-<pre>jj git remote add origin "http://x-access-token:&lt;TOKEN&gt;@{host}/git/{owner}/{name}.git"
+{generate_form}
+<pre>jj git remote add origin "http://x-access-token:{clone_token}@{host}/git/{owner}/{name}.git"
 jj git push --all</pre>
 </body></html>"#
     ))
@@ -593,20 +685,89 @@ pub async fn mr_detail_page(
     let Some((mr_id, mr_state)) = mr else {
         return (StatusCode::NOT_FOUND, "merge request not found").into_response();
     };
-    let revisions: Vec<String> = sqlx::query_scalar(
-        "SELECT commit_id FROM revisions WHERE mr_id = $1 ORDER BY pushed_at DESC",
+    let revisions: Vec<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT id, commit_id FROM revisions WHERE mr_id = $1 ORDER BY pushed_at DESC",
     )
     .bind(mr_id)
     .fetch_all(&state.pool)
     .await
     .unwrap_or_default();
 
+    // story: e04s02 — badges for the LATEST revision only
+    let statuses: Vec<(String, String, Option<String>)> = match revisions.first() {
+        Some((latest_id, _)) => sqlx::query_as(
+            "SELECT context, state, target_url FROM statuses \
+             WHERE revision_id = $1 ORDER BY context",
+        )
+        .bind(latest_id)
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default(),
+        None => Vec::new(),
+    };
+    let badges: Vec<String> = statuses
+        .iter()
+        .map(|(context, state, url)| {
+            let label = crate::stack::html_escape(&format!("{context}: {state}"));
+            // why: only http(s) may become a link; javascript: URLs
+            // render as plain text instead of being dropped silently
+            let inner = match url {
+                Some(u) if u.starts_with("http://") || u.starts_with("https://") => {
+                    format!("<a href=\"{}\">{}</a>", crate::stack::html_escape(u), label)
+                }
+                Some(u) => format!("{} ({})", label, crate::stack::html_escape(u)),
+                None => label,
+            };
+            format!(
+                "<span data-status=\"{}\" data-state=\"{}\">{}</span>",
+                crate::stack::html_escape(context),
+                crate::stack::html_escape(state),
+                inner
+            )
+        })
+        .collect();
+    let statuses_html = if badges.is_empty() {
+        String::new()
+    } else {
+        format!("<p class=\"statuses\">{}</p>", badges.join(" "))
+    };
+
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
     let mut sections = Vec::new();
-    for commit in &revisions {
+    for (revision_id, commit) in &revisions {
         let diff = crate::stack::unified_diff(&bare, commit);
+        // story: e04s01 — threads of THIS revision only; revision_id is a
+        // hard FK, so a thread can never drift to another revision
+        let threads: Vec<(String, String)> = sqlx::query_as(
+            "SELECT u.handle, c.body FROM comments c JOIN users u ON u.id = c.author_id \
+             WHERE c.revision_id = $1 ORDER BY c.created_at",
+        )
+        .bind(revision_id)
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+        let threads_html = if threads.is_empty() {
+            String::new()
+        } else {
+            let items: Vec<String> = threads
+                .iter()
+                .map(|(handle, body)| {
+                    format!(
+                        "<li>{}: {}</li>",
+                        crate::stack::html_escape(handle),
+                        crate::stack::html_escape(body)
+                    )
+                })
+                .collect();
+            format!("<ul class=\"threads\">{}</ul>", items.join(""))
+        };
         sections.push(format!(
-            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre></section>",
+            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre>{threads_html}\
+             <form method=\"post\" action=\"/{owner}/{name}/merge-requests/{change_id}/comments\">\
+             <input type=\"hidden\" name=\"revision\" value=\"{commit}\">\
+             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
+             <input name=\"body\" placeholder=\"Comment on this revision\" required>\
+             <button type=\"submit\">Comment</button></form></section>",
             crate::stack::html_escape(&diff)
         ));
     }
@@ -614,6 +775,7 @@ pub async fn mr_detail_page(
     Html(format!(
         r#"<!doctype html><html><body>
 <h1>{owner}/{name} — {change_id} ({mr_state})</h1>
+{statuses_html}
 {}
 {review_section}
 <form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Merge</button></form>
@@ -634,6 +796,198 @@ pub async fn mr_detail_page(
         },
     ))
     .into_response()
+}
+
+// story: e04s01 — post one comment to one immutable revision. Public repos
+// take any signed-in commenter; private repos require owner or
+// collaborator. The comment FKs an existing revision of this MR — threads
+// are pinned, never re-anchored.
+#[derive(Deserialize)]
+pub struct CommentForm {
+    revision: String,
+    body: String,
+}
+
+pub async fn add_comment(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+    Form(form): Form<CommentForm>,
+) -> Response {
+    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, repo_owner_id, visibility)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE repo_id = $1 AND change_id = $2")
+            .bind(repo_id)
+            .bind(&change_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((mr_id,)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+
+    let body = form.body.trim();
+    if body.is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "comment body required").into_response();
+    }
+
+    if visibility == "private" && current.0 != repo_owner_id {
+        let collaborator: Option<uuid::Uuid> = sqlx::query_scalar(
+            "SELECT repo_id FROM collaborators WHERE repo_id = $1 AND user_id = $2",
+        )
+        .bind(repo_id)
+        .bind(current.0)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+        if collaborator.is_none() {
+            return (
+                StatusCode::FORBIDDEN,
+                "only collaborators can comment on a private repository",
+            )
+                .into_response();
+        }
+    }
+
+    let revision: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM revisions WHERE mr_id = $1 AND commit_id = $2")
+            .bind(mr_id)
+            .bind(&form.revision)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((revision_id,)) = revision else {
+        return (StatusCode::NOT_FOUND, "revision not found").into_response();
+    };
+
+    if let Err(err) = sqlx::query(
+        "INSERT INTO comments (mr_id, revision_id, author_id, body) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(mr_id)
+    .bind(revision_id)
+    .bind(current.0)
+    .bind(body)
+    .execute(&state.pool)
+    .await
+    {
+        tracing::error!(%err, "comment insert failed");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "comment failed").into_response();
+    }
+
+    Redirect::to(&format!("/{owner}/{name}/merge-requests/{change_id}")).into_response()
+}
+
+// story: e04s02 — external CI posts one status per (revision, context).
+// Token auth (Basic x-access-token) with push rights: owner or
+// collaborator. Re-reporting a context replaces its previous state.
+#[derive(Deserialize)]
+pub struct StatusForm {
+    revision: String,
+    context: String,
+    state: String,
+    target_url: Option<String>,
+}
+
+pub async fn create_status(
+    State(state): State<AppState>,
+    axum::extract::Extension(ci): axum::extract::Extension<crate::transport::TransportUser>,
+    axum::extract::Path((owner, name, change_id)): axum::extract::Path<(String, String, String)>,
+    Form(form): Form<StatusForm>,
+) -> Response {
+    let repo: Option<(uuid::Uuid, uuid::Uuid)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, repo_owner_id)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let mr: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM merge_requests WHERE repo_id = $1 AND change_id = $2")
+            .bind(repo_id)
+            .bind(&change_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((mr_id,)) = mr else {
+        return (StatusCode::NOT_FOUND, "merge request not found").into_response();
+    };
+
+    if !matches!(
+        form.state.as_str(),
+        "pending" | "success" | "failure" | "error"
+    ) {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "invalid status state").into_response();
+    }
+    let context = form.context.trim();
+    if context.is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, "context required").into_response();
+    }
+
+    // same write gate as push: a CI token must belong to the owner or a
+    // collaborator
+    if !crate::transport::push_or_read_allowed(&state.pool, repo_id, ci.0, repo_owner_id).await {
+        return (
+            StatusCode::FORBIDDEN,
+            "token lacks write access to this repository",
+        )
+            .into_response();
+    }
+
+    let revision: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM revisions WHERE mr_id = $1 AND commit_id = $2")
+            .bind(mr_id)
+            .bind(&form.revision)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((revision_id,)) = revision else {
+        return (StatusCode::NOT_FOUND, "revision not found").into_response();
+    };
+
+    if let Err(err) = sqlx::query(
+        "INSERT INTO statuses (mr_id, revision_id, context, state, target_url) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (revision_id, context) \
+         DO UPDATE SET state = EXCLUDED.state, \
+                       target_url = EXCLUDED.target_url, \
+                       created_at = now()",
+    )
+    .bind(mr_id)
+    .bind(revision_id)
+    .bind(context)
+    .bind(&form.state)
+    .bind(&form.target_url)
+    .execute(&state.pool)
+    .await
+    {
+        tracing::error!(%err, "status upsert failed");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "status not recorded").into_response();
+    }
+
+    (StatusCode::CREATED, "status recorded").into_response()
 }
 
 // story: e03s03 — merge button target: owner-only, bottom MR, one click.
@@ -806,12 +1160,16 @@ pub async fn manage_collaborators(
     Redirect::to(&format!("/{owner}/{name}")).into_response()
 }
 
-// story: e06s01 — shared nav: brand + (when authed) Repos and Settings.
-pub fn nav_html(user_handle: Option<&str>) -> String {
+// story: e06s01 — shared nav: brand + (when authed) Repos, Settings and
+// a CSRF-protected Log out button.
+pub fn nav_html(user_handle: Option<&str>, csrf: &str) -> String {
     match user_handle {
         Some(handle) => format!(
             "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
-             <a href=\"/settings\">Settings</a> <span>{handle}</span></nav>"
+             <a href=\"/settings\">Settings</a> <span>{handle}</span> \
+             <form method=\"post\" action=\"/logout\" style=\"display:inline\">\
+             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
+             <button type=\"submit\">Log out</button></form></nav>"
         ),
         None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
     }
@@ -839,7 +1197,7 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
 <p>Forge-style hosting for Jujutsu repositories.</p>
 <p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
 </body></html>"#,
-            nav_html(None)
+            nav_html(None, "")
         ))
         .into_response();
     };
@@ -883,7 +1241,7 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
 <h2>Your repositories</h2>
 <ul>{repos}</ul>
 </body></html>"#,
-        nav_html(Some(&handle)),
+        nav_html(Some(&handle), &csrf),
         csrf = csrf,
         repos = repo_items.join("\n")
     ))

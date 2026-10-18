@@ -85,6 +85,8 @@ pub fn app_with_secret(
     let protected = Router::new()
         .route("/settings", get(routes::settings))
         .route("/settings/tokens", post(routes::create_token))
+        // story: e02s03 — repo-page generate button (session + CSRF, same group)
+        .route("/{owner}/{name}/tokens", post(routes::create_repo_token))
         .route("/repos", post(routes::create_repo))
         .route("/{owner}/{name}/settings", post(routes::repo_settings))
         .route(
@@ -98,6 +100,10 @@ pub fn app_with_secret(
         .route(
             "/{owner}/{name}/merge-requests/{change_id}/abandon",
             post(routes::abandon_mr),
+        )
+        .route(
+            "/{owner}/{name}/merge-requests/{change_id}/comments",
+            post(routes::add_comment),
         )
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -158,6 +164,17 @@ pub fn app_with_secret(
             get(review_proxy::proxy_rest).post(review_proxy::proxy_rest),
         )
         .merge(protected)
+        .merge(
+            Router::new()
+                .route(
+                    "/{owner}/{name}/merge-requests/{change_id}/statuses",
+                    post(routes::create_status),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    transport::require_token,
+                )),
+        )
         .merge(transport_routes(state.clone()))
         .with_state(state)
 }

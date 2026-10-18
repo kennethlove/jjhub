@@ -321,7 +321,7 @@ fn challenge() -> Vec<(header::HeaderName, &'static str)> {
 }
 
 /// story: e03s04 — owner OR collaborator for push/private reads.
-async fn push_or_read_allowed(
+pub async fn push_or_read_allowed(
     pool: &sqlx::PgPool,
     repo_id: uuid::Uuid,
     user: uuid::Uuid,

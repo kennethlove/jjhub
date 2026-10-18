@@ -38,7 +38,7 @@ mod token_crud {
         let response = post(
             pool.clone(),
             "/register",
-            "email=bob%40example.com&password=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             None,
         )
         .await;

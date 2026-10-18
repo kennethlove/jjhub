@@ -1,7 +1,7 @@
 story_id: e02s01
 title: "Create repo, bare storage, repo page, clone over HTTP (public happy path)"
 spec: e02s01-repo-create-clone.md
-status: failing
+status: passing
 bcps: 8
 tasks:
   - id: e02s01t1
@@ -9,7 +9,7 @@ tasks:
     verify: "cargo test -p domain repo_model"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["domain", "unit"]

@@ -6,20 +6,37 @@ epics:
     stories:
       e01s01: passing
       e01s02: passing
+      e01s03: passing
   e02-repo-transport:
     status: passing
     stories:
       e02s01: passing
       e02s02: passing
+      e02s03: passing
   e03-merge-requests:
-    status: pending
+    status: passing
     stories:
-      e03s01: pending
-      e03s02: pending
-      e03s03: pending
-      e03s04: pending
+      e03s01: passing
+      e03s02: passing
+      e03s03: passing
+      e03s04: passing
   e04-review-ci:
-    status: pending
+    status: passing
     stories:
-      e04s01: pending
-      e04s02: pending
+      e04s01: passing
+      e04s02: passing
+  e05-kata-review:
+    status: passing
+    stories:
+      e05s01: passing
+      e05s02: passing
+      e05s03: passing
+      e05s04: passing
+  e06-site-shell:
+    status: passing
+    stories:
+      e06s01: passing
+  e07-file-browser:
+    status: passing
+    stories:
+      e07s01: passing

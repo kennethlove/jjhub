@@ -1,0 +1,18 @@
+story_id: e02s03
+title: "Clone snippet carries the viewer's access token"
+spec: e02s03-clone-token.md
+status: passing
+bcps: 2
+tasks:
+  - id: e02s03t1
+    description: >-
+      repo page 'Add this repository' snippet embeds a freshly generated
+      token for signed-in viewers (generate button posts back to the repo
+      page); placeholder stays for anonymous viewers
+    verify: "cargo test -p server clone_snippet_token"
+    risk: P1
+    security: medium
+    status: pending
+    allure:
+      severity: high
+      categories: ["Auth", "Security Review"]

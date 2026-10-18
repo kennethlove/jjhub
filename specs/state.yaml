@@ -1,12 +1,12 @@
 workflow_mode: solo-git
-active_flow: review
+active_flow: build_epic
 vcs:
   kind: jj
   repo: colocated-git
   remote: origin
 session:
-  started: "2026-07-10T00:00:00Z"
-  active_epic_id: e05
-  active_story_id: e05s04
+  started: "2026-10-17T21:47:17Z"
+  active_epic_id: e04
+  active_story_id: null
 handoff:
-  next_skill: respond-review
+  next_skill: verify-work

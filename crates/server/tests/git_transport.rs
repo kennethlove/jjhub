@@ -15,7 +15,7 @@ mod git_transport_public {
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
-                "email=alice%40example.com&password=correct+horse+battery",
+                "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
         let response = app(pool.clone(), root).oneshot(request).await.unwrap();
