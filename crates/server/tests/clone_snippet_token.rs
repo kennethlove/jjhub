@@ -113,11 +113,19 @@ async fn generate_token_lands_it_in_the_snippet(pool: sqlx::PgPool) {
     );
     // story: e02s03 — the button's own form must carry every field the
     // handler needs, or a real browser gets a deserialization error
-    let form_start = body.find(r#"action="/alice/demo/tokens""#).expect("generate form");
+    let form_start = body
+        .find(r#"action="/alice/demo/tokens""#)
+        .expect("generate form");
     let form_end = body[form_start..].find("</form>").expect("form close") + form_start;
     let form = &body[form_start..form_end];
-    assert!(form.contains(r#"name="label""#), "form must include label: {form}");
-    assert!(form.contains(r#"name="_csrf""#), "form must include csrf: {form}");
+    assert!(
+        form.contains(r#"name="label""#),
+        "form must include label: {form}"
+    );
+    assert!(
+        form.contains(r#"name="_csrf""#),
+        "form must include csrf: {form}"
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]

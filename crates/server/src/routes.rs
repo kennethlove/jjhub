@@ -490,6 +490,7 @@ pub async fn repo_page(
     let generate_form = viewer.as_ref().map(|_| {
         format!(
             r#"<form method="post" action="/{owner}/{name}/tokens">
+<input type="hidden" name="label" value="clone-{owner}/{name}">
 <input type="hidden" name="_csrf" value="{csrf}">
 <button type="submit">Generate token</button>
 </form>"#
