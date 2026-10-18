@@ -52,7 +52,7 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
         Err(err) => {
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
-                register_page(&err.to_string(), &form.email),
+                Html(register_page(&err.to_string(), &form.email)),
             )
                 .into_response()
         }
@@ -63,7 +63,7 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
     if form.password != form.password_confirm {
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
-            register_page("passwords do not match", &form.email),
+            Html(register_page("passwords do not match", &form.email)),
         )
             .into_response();
     }
@@ -79,7 +79,7 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
     if existing.is_some() {
         return (
             StatusCode::CONFLICT,
-            register_page("email already registered", &form.email),
+            Html(register_page("email already registered", &form.email)),
         )
             .into_response();
     }
@@ -100,7 +100,7 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
         {
             return (
                 StatusCode::CONFLICT,
-                register_page("email already registered", &form.email),
+                Html(register_page("email already registered", &form.email)),
             )
                 .into_response()
         }
@@ -177,7 +177,7 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
         // password: the page must not say which one was wrong
         _ => (
             StatusCode::UNAUTHORIZED,
-            login_page("email or password is incorrect"),
+            Html(login_page("email or password is incorrect")),
         )
             .into_response(),
     }
