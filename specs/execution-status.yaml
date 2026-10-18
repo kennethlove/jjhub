@@ -8,11 +8,11 @@ epics:
       e01s02: passing
       e01s03: passing
   e02-repo-transport:
-    status: pending
+    status: passing
     stories:
       e02s01: passing
       e02s02: passing
-      e02s03: pending
+      e02s03: passing
   e03-merge-requests:
     status: passing
     stories:

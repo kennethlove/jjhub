@@ -1,7 +1,7 @@
 story_id: e02s03
 title: "Clone snippet carries the viewer's access token"
 spec: e02s03-clone-token.md
-status: pending
+status: passing
 bcps: 2
 tasks:
   - id: e02s03t1
