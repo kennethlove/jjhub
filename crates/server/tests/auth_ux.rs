@@ -45,6 +45,21 @@ async fn register(pool: &sqlx::PgPool) -> String {
         .to_string()
 }
 
+// story: e01s03 — error pages must render as HTML, not plain text
+fn assert_html(response: &axum::response::Response) {
+    let ct = response
+        .headers()
+        .get("content-type")
+        .unwrap_or_else(|| panic!("content-type missing"))
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        ct.starts_with("text/html"),
+        "error page must be HTML, got {ct}"
+    );
+}
+
 #[sqlx::test(migrations = "./migrations")]
 async fn signup_confirmation_rejects_mismatch(pool: sqlx::PgPool) {
     let response = post(
@@ -55,6 +70,7 @@ async fn signup_confirmation_rejects_mismatch(pool: sqlx::PgPool) {
     )
     .await;
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_html(&response);
     let body = body_of(response).await;
     assert!(
         body.contains("passwords do not match"),
@@ -77,6 +93,7 @@ async fn auth_error_page_login_shows_message(pool: sqlx::PgPool) {
     )
     .await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_html(&response);
     let body = body_of(response).await;
     assert!(
         body.contains("email or password is incorrect"),
@@ -96,6 +113,7 @@ async fn auth_error_page_register_conflict_shows_form(pool: sqlx::PgPool) {
     )
     .await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert_html(&response);
     let body = body_of(response).await;
     assert!(
         body.contains("email already registered"),
