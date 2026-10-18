@@ -230,7 +230,7 @@ mod comment_flow {
         let html = body_of(
             app(pool.clone(), &root)
                 .oneshot(
-                    Request::get(&format!("/alice/demo/merge-requests/{change}"))
+                    Request::get(format!("/alice/demo/merge-requests/{change}"))
                         .body(Body::empty())
                         .unwrap(),
                 )
