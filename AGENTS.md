@@ -17,9 +17,9 @@ Stack: Rust / axum / htmx / Tera / Tailwind (Cargo workspace)
 | Run       | `cargo run`                                                                              |
 | Test      | `cargo test`                                                                             |
 | Build     | `cargo build`                                                                            |
-| Lint      | `cargo clippy -- -D warnings`                                                            |
+| Lint      | `cargo clippy --workspace --all-targets -- -D warnings`                                 |
 | Format    | `cargo fmt --all -- --check`                                                             |
-| Preflight | `cargo fmt --all -- --check && cargo clippy -- -D warnings && cargo test && cargo build` |
+| Preflight | `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test && cargo build` |
 | CI        | `gh pr checks` (when a PR is open)                                                       |
 
 ## Architecture
