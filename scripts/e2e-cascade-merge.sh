@@ -45,6 +45,8 @@ BARE="$TMP/repos/${OWNER_NAME}.git"
 
 echo "== push a two-change stack =="
 FIXTURE="$TMP/fixture"
+# CI has no jj identity; a commit written without one can't be pushed
+export JJ_USER="cascade" JJ_EMAIL="$EMAIL"
 JJ_USER="cascade" JJ_EMAIL="$EMAIL" jj git init --colocate "$FIXTURE" >/dev/null
 (
   cd "$FIXTURE"

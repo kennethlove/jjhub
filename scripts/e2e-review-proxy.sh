@@ -56,6 +56,8 @@ OWNER_NAME="${LOC#"$BASE"/}"
 NEW_TOKEN=$(curl -sf -b "$CJ" -c "$CJ" -X POST "$BASE/settings/tokens" \
   -d "label=e2e&_csrf=$CSRF" -o /dev/null -D - | tr -d '\r' | awk -F'[=;]' '/set-cookie: new_token=/ {print $2}')
 AUTH_URL="http://x-access-token:$NEW_TOKEN@127.0.0.1:$PORT/git/${OWNER_NAME}.git"
+# CI has no jj identity; a commit written without one can't be pushed
+export JJ_USER="e2e" JJ_EMAIL="$EMAIL"
 FIXTURE="$TMP/fixture"
 jj git init --colocate "$FIXTURE" >/dev/null
 (
