@@ -71,19 +71,24 @@ jobs:
       # kata-server builds outside this repo, so it gets its own cache
       # slot keyed on the compose pin — the pin is the only input that
       # changes it
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "${{ runner.temp }}/kata"
-          key: kata-${{ hashFiles('docker-compose.yml') }}
-      - name: Build kata sidecar at the compose-pinned commit
-        env:
-          KATA_SKIP_WEB_BUILD: "1"
+      # WHY: clone before the cache restore (BUG-001) — a cache hit
+      # pre-creates the workspace dir and git clone refuses a non-empty
+      # destination; the restore then extracts target/ over the checkout.
+      - name: Clone kata sidecar at the compose-pinned commit
         run: |
           PIN='s/.*KATA_COMMIT: ${KATA_COMMIT:-\([0-9a-f]\{40\}\)}.*/\1/p'
           KATA_COMMIT=$(sed -n "$PIN" docker-compose.yml)
           git clone --quiet https://github.com/martint/kata.git \
             "$RUNNER_TEMP/kata"
           git -C "$RUNNER_TEMP/kata" checkout --quiet "$KATA_COMMIT"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "${{ runner.temp }}/kata"
+          key: kata-${{ hashFiles('docker-compose.yml') }}
+      - name: Build kata sidecar
+        env:
+          KATA_SKIP_WEB_BUILD: "1"
+        run: |
           cargo build --quiet -p kata-server \
             --manifest-path "$RUNNER_TEMP/kata/Cargo.toml"
           echo "$RUNNER_TEMP/kata/target/debug" >> "$GITHUB_PATH"
