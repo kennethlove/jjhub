@@ -9,4 +9,4 @@ session:
   active_epic_id: e04
   active_story_id: null
 handoff:
-  next_skill: verify-work
+  next_skill: audit-code

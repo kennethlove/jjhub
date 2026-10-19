@@ -29,7 +29,8 @@ EMAIL="cascade-e2e-$(date +%s%N)@example.com"
 echo "== register + create repo =="
 curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
-  --data-urlencode "password=correct horse battery" >/dev/null
+  --data-urlencode "password=correct horse battery" \
+  --data-urlencode "password_confirm=correct horse battery" >/dev/null
 
 # session-authed POSTs carry the synchronizer token
 SESSION=$(awk '$6 == "session" {print $7}' "$CJ")
@@ -65,7 +66,7 @@ JJ_USER="cascade" JJ_EMAIL="$EMAIL" jj git init --colocate "$FIXTURE" >/dev/null
 sleep 1
 
 echo "== open MRs for pushed changes =="
-MR_COUNT=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+MR_COUNT=$(psql "$DB_URL" -tAc \
   "SELECT COUNT(*) FROM merge_requests mr \
    JOIN repositories r ON r.id = mr.repo_id \
    JOIN users u ON u.id = r.owner_id \
@@ -80,7 +81,7 @@ BOTTOM_CHANGE=""
 for COMMIT in $(git -C "$BARE" rev-list --all | head -5); do
   PARENT=$(git -C "$BARE" cat-file commit "$COMMIT" | sed -n 's/^parent //p' | head -1)
   if [ "$PARENT" = "$TRUNK_HEAD_BEFORE" ]; then
-    BOTTOM_CHANGE=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+    BOTTOM_CHANGE=$(psql "$DB_URL" -tAc \
       "SELECT mr.change_id FROM merge_requests mr \
        JOIN revisions rev ON rev.mr_id = mr.id \
        JOIN repositories r ON r.id = mr.repo_id JOIN users u ON u.id = r.owner_id \
@@ -94,7 +95,7 @@ CODE=$(curl -s -b "$CJ" -o /dev/null -w '%{http_code}' -X POST \
 test "$CODE" = "303" || { echo "merge returned $CODE" >&2; exit 1; }
 
 echo "== trunk advanced, descendant rebased =="
-MERGED_STATE=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+MERGED_STATE=$(psql "$DB_URL" -tAc \
   "SELECT state FROM merge_requests WHERE change_id = '$BOTTOM_CHANGE'")
 test "$MERGED_STATE" = "merged" || { echo "bottom not merged: $MERGED_STATE" >&2; exit 1; }
 # the descendant of the merged bottom is the newest other MR in the stack
@@ -109,7 +110,7 @@ TRUNK_HEAD_AFTER=$(git -C "$BARE" rev-parse refs/heads/trunk)
 test "$TRUNK_HEAD_AFTER" != "$TRUNK_HEAD_BEFORE" || {
   echo "trunk did not move" >&2; exit 1;
 }
-MAX_REVS=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+MAX_REVS=$(psql "$DB_URL" -tAc \
   "SELECT COALESCE(MAX(cnt), 0) FROM ( \
      SELECT COUNT(*) AS cnt FROM revisions rev \
      JOIN merge_requests mr ON mr.id = rev.mr_id \
@@ -122,7 +123,7 @@ test "$MAX_REVS" -ge 2 || {
 }
 # the rebased revision becomes the trunk head itself (cascade rebases in
 # stack order, last one lands on trunk)
-DESC_HEAD=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+DESC_HEAD=$(psql "$DB_URL" -tAc \
   "SELECT rev.commit_id FROM revisions rev JOIN merge_requests mr ON mr.id = rev.mr_id \
    JOIN repositories r ON r.id = mr.repo_id JOIN users u ON u.id = r.owner_id \
    WHERE u.email = '$EMAIL' AND mr.state = 'open' \

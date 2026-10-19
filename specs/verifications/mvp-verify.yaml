@@ -1,0 +1,68 @@
+story_id: mvp-v0.1.0
+verified_at: "2026-10-19T07:45:00Z"
+verifier: verify-work
+risk: P1
+ref: trunk fae7dd73
+phases:
+  smoke:
+    passed: true
+    note: >-
+      Cold-start via e2e scripts — each boots ./target/debug/server from
+      scratch against a fresh Postgres container (jjhub-verify-db, 5433).
+  build:
+    passed: true
+    command: "cargo build"
+  typecheck:
+    passed: true
+    note: "n/a — no separate typecheck stage; clippy covers Rust"
+  lint:
+    passed: true
+    command: "cargo clippy --workspace --all-targets -- -D warnings"
+  tests:
+    passed: true
+    command: "cargo test"
+    result: "134 passed (43 suites)"
+  terminal_verdict:
+    command: >-
+      cargo fmt --all -- --check && cargo clippy --workspace --all-targets
+      -- -D warnings && cargo test && cargo build
+    exit_code: 0
+    captured_at: "2026-10-19T07:43:00Z"
+    output: "FMT-OK / No issues found / 134 passed (43 suites) / Finished dev profile"
+    note: "Single contiguous run — not merged from other attempts"
+  manual:
+    steps:
+      - step: "scripts/e2e-clone.sh — register, create repo, push token, jj clone"
+        expected: "clone succeeds, contents asserted"
+        actual: "PASS"
+        passed: true
+      - step: "scripts/e2e-mr-open.sh — push change, MR opens"
+        expected: "MR row in DB, revisions recorded"
+        actual: "PASS"
+        passed: true
+      - step: "scripts/e2e-cascade-merge.sh — two-change stack merges in order"
+        expected: "bottom-first merge, head pinned"
+        actual: "PASS"
+        passed: true
+      - step: "scripts/e2e-sidecar.sh — kata loads colocated meta, lists change"
+        expected: "sidecar lists pushed change"
+        actual: "PASS (kata built at pinned commit 9c7903dd, KATA_SKIP_WEB_BUILD=1)"
+        passed: true
+      - step: "scripts/e2e-review-proxy.sh — auth proxy forwards identity"
+        expected: "review proxy serves kata with x-review-author"
+        actual: "PASS"
+        passed: true
+  gaps:
+    closed: true
+    log:
+      - gap: "clippy 1.97 manual_option_zip red in review_proxy.rs (x2)"
+        fix: "clippy --fix, api surface unchanged"
+      - gap: "e2e register calls missing password_confirm (added in PR #31)"
+        fix: "5 scripts updated with password_confirm field"
+      - gap: "e2e DB assertions hardcoded docker exec jjhub-pg; no such container"
+        fix: "psql \"$DB_URL\" — uses the script's own parameterized DB_URL"
+  skipped:
+    - "check-blind-spots.sh — not present in this repo"
+    - "completeness-critic.sh — not present in this repo"
+    - "NFR evidence gate — P1 risk, P0-only"
+    - "security-review step 5 — diff vs trunk is mechanical lint + test-script fixes only; MVP code passed per-story review in merged PRs"
