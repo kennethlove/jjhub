@@ -2,7 +2,7 @@
 
 Forge-style hosting for [Jujutsu](https://jj-vcs.dev) repositories — like GitHub, GitLab, and Forgejo, but built around jj's model instead of Git's.
 
-**Status: early development. Not usable yet.**
+**Status: early development. Use at your own risk.**
 
 ## Why
 
@@ -22,9 +22,8 @@ Planned post-MVP: conflict-tolerant hosting, operation-log audit, server-side im
 Stack: Rust, axum, htmx, Tera, Tailwind, sqlx + Postgres.
 
 ```bash
-# tests need Postgres (e.g. docker run -p 5432:5432 -e POSTGRES_PASSWORD=jjhub postgres:17-alpine)
-createdb jjhub_test
-DATABASE_URL=postgres://postgres:jjhub@localhost:5432/jjhub_test cargo test
+# tests need Postgres (e.g. docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=jjhub -e POSTGRES_DB=jjhub_test postgres:17-alpine)
+DATABASE_URL=postgres://postgres:jjhub@localhost:5432/jjhub_test cargo test --workspace
 
 cargo run   # http://localhost:3000
 ```
@@ -45,4 +44,4 @@ docker compose up -d   # http://localhost:3000
 
 ## License
 
-TBD.
+Apache License 2.0.

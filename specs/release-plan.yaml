@@ -1,10 +1,10 @@
 # specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.1.0 (MVP)
 
 version: "0.1.0"
-status: planning
+status: ready
 workflow_mode: solo-git
 
-# WSJF = user value + time criticality + risk reduction / job size (relative, coarse)
+# WSJF = (user value + time criticality + risk reduction) / job size, coarse
 epics:
   - id: e01
     slug: accounts-auth
@@ -48,4 +48,3 @@ epics:
     wsjf: 12
     bcp_total: 5
     delta: ADDED
-
