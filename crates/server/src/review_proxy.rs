@@ -175,11 +175,7 @@ async fn run_proxy(
                 .filter_map(|(k, v)| {
                     reqwest::header::HeaderName::from_bytes(k.as_str().as_bytes())
                         .ok()
-                        .and_then(|k| {
-                            reqwest::header::HeaderValue::from_bytes(v.as_bytes())
-                                .ok()
-                                .map(|v| (k, v))
-                        })
+                        .zip(reqwest::header::HeaderValue::from_bytes(v.as_bytes()).ok())
                 })
                 .collect::<reqwest::header::HeaderMap>(),
         )
@@ -305,11 +301,7 @@ async fn forward_to_kata(state: &AppState, user: uuid::Uuid, request: Request) -
                 .filter_map(|(k, v)| {
                     reqwest::header::HeaderName::from_bytes(k.as_str().as_bytes())
                         .ok()
-                        .and_then(|k| {
-                            reqwest::header::HeaderValue::from_bytes(v.as_bytes())
-                                .ok()
-                                .map(|v| (k, v))
-                        })
+                        .zip(reqwest::header::HeaderValue::from_bytes(v.as_bytes()).ok())
                 })
                 .collect::<reqwest::header::HeaderMap>(),
         )
