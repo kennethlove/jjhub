@@ -39,3 +39,58 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: jjhub
+          POSTGRES_DB: jjhub_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:jjhub@localhost:5432/jjhub_test
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install jj
+        run: |
+          V=0.46.0
+          NAME="jj-v$V-x86_64-unknown-linux-musl"
+          curl -fsSL -o /tmp/jj.tar.gz \
+            "https://github.com/jj-vcs/jj/releases/download/v$V/$NAME.tar.gz"
+          sudo tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
+      # kata-server builds outside this repo, so it gets its own cache
+      # slot keyed on the compose pin — the pin is the only input that
+      # changes it
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "${{ runner.temp }}/kata"
+          key: kata-${{ hashFiles('docker-compose.yml') }}
+      - name: Build kata sidecar at the compose-pinned commit
+        env:
+          KATA_SKIP_WEB_BUILD: "1"
+        run: |
+          PIN='s/.*KATA_COMMIT: ${KATA_COMMIT:-\([0-9a-f]\{40\}\)}.*/\1/p'
+          KATA_COMMIT=$(sed -n "$PIN" docker-compose.yml)
+          git clone --quiet https://github.com/martint/kata.git \
+            "$RUNNER_TEMP/kata"
+          git -C "$RUNNER_TEMP/kata" checkout --quiet "$KATA_COMMIT"
+          cargo build --quiet -p kata-server \
+            --manifest-path "$RUNNER_TEMP/kata/Cargo.toml"
+          echo "$RUNNER_TEMP/kata/target/debug" >> "$GITHUB_PATH"
+      - name: E2E suite
+        run: |
+          for s in e2e-clone e2e-mr-open e2e-cascade-merge \
+                   e2e-sidecar e2e-review-proxy; do
+            echo "== $s =="
+            bash "scripts/$s.sh"
+          done

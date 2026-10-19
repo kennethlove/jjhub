@@ -65,6 +65,8 @@ test -n "$NEW_TOKEN" || { echo "no token issued"; exit 1; }
 AUTH_URL="http://x-access-token:$NEW_TOKEN@127.0.0.1:$PORT/git/${OWNER_NAME}.git"
 
 echo "== jj git push =="
+# CI has no jj identity; a commit written without one can't be pushed
+export JJ_USER="e2e" JJ_EMAIL="$EMAIL"
 FIXTURE="$TMP/fixture"
 jj git init --colocate "$FIXTURE" >/dev/null
 (
