@@ -24,7 +24,8 @@ EMAIL="e2e-$(date +%s%N)@example.com"
 echo "== register =="
 curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
-  --data-urlencode "password=correct horse battery" >/dev/null
+  --data-urlencode "password=correct horse battery" \
+  --data-urlencode "password_confirm=correct horse battery" >/dev/null
 
 # session-authed POSTs carry the synchronizer token
 SESSION=$(awk '$6 == "session" {print $7}' "$CJ")

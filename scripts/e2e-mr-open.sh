@@ -28,7 +28,8 @@ EMAIL="mr-e2e-$(date +%s%N)@example.com"
 echo "== register + create repo =="
 curl -sf -c "$CJ" -X POST "$BASE/register" \
   --data-urlencode "email=$EMAIL" \
-  --data-urlencode "password=correct horse battery" >/dev/null
+  --data-urlencode "password=correct horse battery" \
+  --data-urlencode "password_confirm=correct horse battery" >/dev/null
 
 # session-authed POSTs carry the synchronizer token
 SESSION=$(awk '$6 == "session" {print $7}' "$CJ")
@@ -55,7 +56,7 @@ JJ_USER="mr-e2e" JJ_EMAIL="$EMAIL" jj git init --colocate "$FIXTURE" >/dev/null
 
 echo "== MR opened for the pushed change =="
 sleep 1 # post-receive upsert is async to the CGI response
-MR_ROWS=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+MR_ROWS=$(psql "$DB_URL" -tAc \
   "SELECT COUNT(*) FROM merge_requests mr \
    JOIN repositories r ON r.id = mr.repo_id \
    JOIN users u ON u.id = r.owner_id \
@@ -101,7 +102,7 @@ echo "== re-push by the real author succeeds =="
     jj describe -r "$REV" --ignore-immutable -m "author fixup" >/dev/null 2>&1
   JJ_USER="mr-e2e" JJ_EMAIL="$EMAIL" jj git push --all >/dev/null
 )
-REVISIONS=$(docker exec jjhub-pg psql -U postgres -d jjhub_test -tAc \
+REVISIONS=$(psql "$DB_URL" -tAc \
   "SELECT COUNT(*) FROM revisions mrrev \
    JOIN merge_requests mr ON mr.id = mrrev.mr_id \
    JOIN repositories r ON r.id = mr.repo_id \
