@@ -18,5 +18,8 @@
 {% endfor %}
 </ul>
 {% if at_cap %}<p>Showing the first 50 matches — a narrower query shows more.</p>{% endif %}
+{% elif not error %}
+{# story: e11s02 — a zero-match query gets a dedicated empty state, never a bare table #}
+<p>No revisions match <code>{{ query }}</code> — try a broader query such as <code>all()</code>.</p>
 {% endif %}
 {% endblock %}

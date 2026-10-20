@@ -81,7 +81,13 @@ pub async fn search_page(
     let Some((repo_id, trunk)) = visible_repo(&state, &owner, &name, &jar).await else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
-    let query = params.get("q").cloned().unwrap_or_default();
+    // story: e11s02 — absent or empty q means "show what is in flight".
+    let query = params
+        .get("q")
+        .map(|q| q.trim())
+        .filter(|q| !q.is_empty())
+        .unwrap_or("open()")
+        .to_string();
     let meta = domain::meta_path(&state.storage_root, &owner, &name);
     let (hits, error) = match jj_meta::revset_query(&meta, &trunk, &query, RESULT_CAP).await {
         Ok(hits) => (hits, None),
