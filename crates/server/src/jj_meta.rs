@@ -8,6 +8,71 @@
 
 use std::path::Path;
 
+// story: e11s01
+/// One commit matched by a revset query.
+#[derive(Debug, serde::Serialize)]
+pub struct RevsetHit {
+    pub change_id: String,
+    pub commit_id: String,
+    pub description: String,
+    pub is_open: bool,
+}
+
+// story: e11s01
+/// Why a revset query failed. `Invalid` maps to HTTP 400 (the caller shows
+/// the message); `Internal` is a server-side fault.
+#[derive(Debug)]
+pub enum RevsetQueryError {
+    Invalid(String),
+    Internal(String),
+}
+
+// story: e11s01
+/// Parse `query` with the jj_lib revset parser. `Ok(())` means the query is
+/// syntactically valid in the server-side dialect (which adds a zero-arg
+/// `open()` alias); `Err` is a message suitable for an HTTP 400 response.
+pub fn parse_revset(query: &str) -> Result<(), String> {
+    let settings = settings();
+    let user_email = settings.user_email().to_owned();
+    let extensions = jj_lib::revset::RevsetExtensions::default();
+    lower_revset(query, &user_email, &extensions).map(|_| ())
+}
+
+// story: e11s01
+/// parse + alias expansion + lowering: `UserRevsetExpression` ready for
+/// symbol resolution against a repo.
+fn lower_revset(
+    query: &str,
+    user_email: &str,
+    extensions: &jj_lib::revset::RevsetExtensions,
+) -> Result<std::sync::Arc<jj_lib::revset::UserRevsetExpression>, String> {
+    use jj_lib::fileset::FilesetAliasesMap;
+    use jj_lib::revset::{self, RevsetAliasesMap, RevsetDiagnostics, RevsetParseContext};
+
+    let mut aliases_map = RevsetAliasesMap::new();
+    // story: e11s01 — server dialect aliases jj_lib doesn't builtin:
+    // `open()` = commits not reachable from any bookmark, `trunk()` = the
+    // trunk bookmark symbol.
+    aliases_map
+        .insert("open()", "all() ~ (bookmarks()::)")
+        .map_err(|e| format!("revset alias: {e}"))?;
+    aliases_map
+        .insert("trunk()", "trunk")
+        .map_err(|e| format!("revset alias: {e}"))?;
+    let context = RevsetParseContext {
+        aliases_map: &aliases_map,
+        local_variables: std::collections::HashMap::new(),
+        user_email,
+        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        default_ignored_remote: None,
+        fileset_aliases_map: &FilesetAliasesMap::new(),
+        use_glob_by_default: true,
+        extensions,
+        workspace: None,
+    };
+    revset::parse(&mut RevsetDiagnostics::new(), query, &context).map_err(|e| e.to_string())
+}
+
 fn settings() -> jj_lib::settings::UserSettings {
     use jj_lib::config::{ConfigLayer, ConfigSource, StackedConfig};
     let mut config = StackedConfig::with_defaults();
