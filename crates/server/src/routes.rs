@@ -1161,18 +1161,18 @@ pub async fn manage_collaborators(
 }
 
 // story: e06s01 — shared nav: brand + (when authed) Repos, Settings and
-// a CSRF-protected Log out button.
+// a CSRF-protected Log out button. Body lives in templates/nav.html.
 pub fn nav_html(user_handle: Option<&str>, csrf: &str) -> String {
-    match user_handle {
-        Some(handle) => format!(
-            "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
-             <a href=\"/settings\">Settings</a> <span>{handle}</span> \
-             <form method=\"post\" action=\"/logout\" style=\"display:inline\">\
-             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
-             <button type=\"submit\">Log out</button></form></nav>"
-        ),
-        None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
-    }
+    crate::render::render("nav.html", &page_context(user_handle, csrf))
+}
+
+// story: e15s02 — the context every page template builds on: viewer
+// handle (empty for visitors) and the session-derived CSRF token
+fn page_context(user_handle: Option<&str>, csrf: &str) -> tera::Context {
+    let mut context = tera::Context::new();
+    context.insert("user_handle", &user_handle.unwrap_or_default());
+    context.insert("csrf", csrf);
+    context
 }
 
 async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
@@ -1190,16 +1190,9 @@ async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
 // users (create form + owned repos).
 pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
     let Some(handle) = viewer_handle(&state, &jar).await else {
-        return Html(format!(
-            r#"<!doctype html><html><body>
-{}
-<h1>jjhub</h1>
-<p>Forge-style hosting for Jujutsu repositories.</p>
-<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
-</body></html>"#,
-            nav_html(None, "")
-        ))
-        .into_response();
+        let mut context = page_context(None, "");
+        context.insert("repos", &Vec::<serde_json::Value>::new());
+        return Html(crate::render::render("home.html", &context)).into_response();
     };
 
     let csrf = jar
@@ -1214,38 +1207,20 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
     .fetch_all(&state.pool)
     .await
     .unwrap_or_default();
-    let repo_items: Vec<String> = repos
+    let repo_items: Vec<serde_json::Value> = repos
         .iter()
         .map(|(name, visibility)| {
-            format!(
-                "<li><a href=\"/{handle}/{name}\">{handle}/{name}</a> <small>{visibility}</small></li>",
-                handle = handle,
-                name = name,
-                visibility = visibility
-            )
+            serde_json::json!({
+                "owner": handle,
+                "name": name,
+                "visibility": visibility
+            })
         })
         .collect();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-{}
-<h1>jjhub</h1>
-<h2>Create repository</h2>
-<form method="post" action="/repos">
-<input type="hidden" name="_csrf" value="{csrf}">
-<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
-<label><input type="radio" name="visibility" value="public" checked> public</label>
-<label><input type="radio" name="visibility" value="private"> private</label>
-<button type="submit">Create</button>
-</form>
-<h2>Your repositories</h2>
-<ul>{repos}</ul>
-</body></html>"#,
-        nav_html(Some(&handle), &csrf),
-        csrf = csrf,
-        repos = repo_items.join("\n")
-    ))
-    .into_response()
+    let mut context = page_context(Some(&handle), &csrf);
+    context.insert("repos", &repo_items);
+    Html(crate::render::render("home.html", &context)).into_response()
 }
 
 // story: e07s01 — default tree route: trunk view rendered directly.

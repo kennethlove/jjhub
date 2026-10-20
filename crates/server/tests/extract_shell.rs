@@ -28,7 +28,8 @@ mod extract_shell {
     }
 
     fn csrf(cookie: &str) -> String {
-        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "shell-suite-secret".into());
+        let secret =
+            std::env::var("SESSION_SECRET").unwrap_or_else(|_| "shell-suite-secret".into());
         let value = cookie.strip_prefix("session=").unwrap_or(cookie);
         server::session::csrf_token(secret.as_bytes(), value)
     }

@@ -1,0 +1,1 @@
+<nav><a href="/">jjhub</a>{% if user_handle %} <a href="/">Repos</a> <a href="/settings">Settings</a> <span>{{ user_handle }}</span> <form method="post" action="/logout" style="display:inline"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit">Log out</button></form>{% else %} <a href="/login">Log in</a>{% endif %}</nav>

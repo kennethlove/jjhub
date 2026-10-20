@@ -6,7 +6,7 @@ tasks:
   - id: e15s02t1
     description: "site shell, home, and nav move to templates"
     verify: "cargo test -p server extract_shell"
-    status: todo
+    status: passing
   - id: e15s02t2
     description: "auth, settings, and token forms move to templates"
     verify: "cargo test -p server extract_auth"
