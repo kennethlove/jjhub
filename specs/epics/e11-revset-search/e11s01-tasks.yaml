@@ -10,7 +10,7 @@ tasks:
   - id: e11s01t2
     description: "endpoint returns matching commits"
     verify: "cargo test -p server revset_query"
-    status: failing
+    status: passing
   - id: e11s01t3
     description: "invalid query returns 400 with message"
     verify: "cargo test -p server revset_error"
