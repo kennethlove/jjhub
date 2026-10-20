@@ -133,6 +133,8 @@ pub fn app_with_secret(
         .route("/{owner}/{name}", get(routes::repo_page))
         // story: e11s01 — revset search endpoint
         .route("/{owner}/{name}/revsets", get(revsets::revsets_query))
+        // story: e11s02 — repository-scoped revset search page
+        .route("/{owner}/{name}/search", get(revsets::search_page))
         .route("/r/{*rest}", get(review_proxy::spa_route))
         .route("/api/{*rest}", get(review_proxy::api_route))
         .route("/assets/{*rest}", get(review_proxy::assets_route))
