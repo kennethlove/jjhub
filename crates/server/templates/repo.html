@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }}</h1>
+<p>{{ visibility }} — trunk: {{ trunk }}</p>
+{% include "nav.html" %}
+<p>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}{% if files %} · <a href="/{{ owner }}/{{ name }}/tree">Files</a>{% endif %}</p>
+<h2>Open merge requests</h2>
+{% if mrs %}
+<ul>
+{% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a></li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No open merge requests — push a change to open one.</p>
+{% endif %}
+<p><a href="/{{ owner }}/{{ name }}/merge-requests">All merge requests</a>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}</p>
+<h2>Add this repository</h2>
+<p>Clone: <code>http://{{ host }}/git/{{ owner }}/{{ name }}.git</code></p>
+{% if generate %}
+<form method="post" action="/{{ owner }}/{{ name }}/tokens">
+<input type="hidden" name="label" value="clone-{{ owner }}/{{ name }}">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<button type="submit">Generate token</button>
+</form>
+{% endif %}
+<pre>jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
+jj git push --all</pre>
+{% endblock %}

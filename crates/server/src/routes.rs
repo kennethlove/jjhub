@@ -372,7 +372,6 @@ pub async fn repo_page(
         .get(crate::session::SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
-    let nav = nav_html(viewer.as_deref(), &csrf);
     let host = headers
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
@@ -397,22 +396,7 @@ pub async fn repo_page(
     let mrs = crate::stack::open_mrs(&state.pool, repo_id)
         .await
         .unwrap_or_default();
-    let mr_items: Vec<String> = mrs
-        .iter()
-        .map(|mr| {
-            format!(
-                "<li><a href=\"/{owner}/{name}/merge-requests/{change}\">{change}</a></li>",
-                owner = owner,
-                name = name,
-                change = mr.change_id
-            )
-        })
-        .collect();
-    let mr_section = if mr_items.is_empty() {
-        "<p>No open merge requests — push a change to open one.</p>".to_string()
-    } else {
-        format!("<ul>{}</ul>", mr_items.join("\n"))
-    };
+    let mr_ids: Vec<String> = mrs.iter().map(|mr| mr.change_id.clone()).collect();
 
     // story: Browse files — kata's browse view through the auth proxy;
     // same metadata guard as review links (no dead links, ever)
@@ -428,57 +412,36 @@ pub async fn repo_page(
         // the trunk head so it opens on the current revision's detail,
         // not an arbitrary log position
         let bare = domain::storage_path(&state.storage_root, &owner, &name);
-        let pinned = crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
+        crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
             .map(|sha| format!("{link}?commit={sha}"))
-            .unwrap_or(link);
-        format!(" · <a href=\"{pinned}\">Browse (kata)</a>")
+            .unwrap_or(link)
     })
     .unwrap_or_default();
     // story: e07s01 — native tree view; only when the repo has commits
     let bare_for_files = domain::storage_path(&state.storage_root, &owner, &name);
-    let files_link =
-        if crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some() {
-            format!(
-                " · <a href=\"/{owner}/{name}/tree\">Files</a>",
-                owner = owner,
-                name = name
-            )
-        } else {
-            String::new()
-        };
+    let has_files =
+        crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some();
 
     // story: e02s03 — the viewer's own token lands in the snippet via the
     // one-time cookie; everyone else keeps the placeholder
     let clone_token = jar
         .get("new_token")
-        .map(|c| crate::stack::html_escape(c.value()))
-        .unwrap_or_else(|| "&lt;TOKEN&gt;".to_string());
-    let generate_form = viewer.as_ref().map(|_| {
-        format!(
-            r#"<form method="post" action="/{owner}/{name}/tokens">
-<input type="hidden" name="label" value="clone-{owner}/{name}">
-<input type="hidden" name="_csrf" value="{csrf}">
-<button type="submit">Generate token</button>
-</form>"#
-        )
-    });
-    let generate_form = generate_form.unwrap_or_default();
+        .map(|c| c.value().to_string())
+        .unwrap_or_else(|| "<TOKEN>".to_string());
+    let generate = viewer.is_some();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name}</h1>
-<p>{visibility} — trunk: {trunk}</p>
-{nav}<p>{browse}{files_link}</p><h2>Open merge requests</h2>
-{mr_section}
-<p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
-<h2>Add this repository</h2>
-<p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
-{generate_form}
-<pre>jj git remote add origin "http://x-access-token:{clone_token}@{host}/git/{owner}/{name}.git"
-jj git push --all</pre>
-</body></html>"#
-    ))
-    .into_response()
+    let mut context = page_context(viewer.as_deref(), &csrf);
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("visibility", &visibility);
+    context.insert("trunk", &trunk);
+    context.insert("browse_href", &browse);
+    context.insert("files", &has_files);
+    context.insert("mrs", &mr_ids);
+    context.insert("host", &host);
+    context.insert("clone_token", &clone_token);
+    context.insert("generate", &generate);
+    Html(crate::render::render("repo.html", &context)).into_response()
 }
 
 #[derive(Deserialize)]
@@ -1234,11 +1197,10 @@ async fn render_tree(
     };
 
     // breadcrumbs: repo root, then each ancestor of the current path
-    let mut crumbs = vec![format!(
-        "<a href=\"/{owner}/{name}/tree\">{owner}/{name}</a>",
-        owner = owner,
-        name = name
-    )];
+    let mut crumbs = vec![serde_json::json!({
+        "href": format!("/{owner}/{name}/tree"),
+        "label": format!("{owner}/{name}")
+    })];
     let mut acc = String::new();
     for part in path.split('/').filter(|p| !p.is_empty()) {
         acc = if acc.is_empty() {
@@ -1246,73 +1208,41 @@ async fn render_tree(
         } else {
             format!("{acc}/{part}")
         };
-        crumbs.push(format!(
-            "<a href=\"/{owner}/{name}/tree/{git_ref}/{acc}\">{part}</a>",
-            owner = owner,
-            name = name,
-            git_ref = git_ref,
-            acc = acc,
-            part = crate::stack::html_escape(part)
-        ));
+        crumbs.push(serde_json::json!({
+            "href": format!("/{owner}/{name}/tree/{git_ref}/{acc}"),
+            "label": part
+        }));
     }
 
-    let items: Vec<String> = entries
+    let items: Vec<serde_json::Value> = entries
         .iter()
         .map(|(entry_name, is_dir)| {
-            let escaped = crate::stack::html_escape(entry_name);
-            if *is_dir {
-                let target = if path.is_empty() {
-                    format!("/{owner}/{name}/tree/{git_ref}/{n}", n = entry_name)
-                } else {
-                    format!(
-                        "/{owner}/{name}/tree/{git_ref}/{p}/{n}",
-                        p = path,
-                        n = entry_name
-                    )
-                };
-                format!(
-                    "<li>📁 <a href=\"{target}\">{escaped}/</a></li>",
-                    target = target,
-                    escaped = escaped
-                )
+            let kind = if *is_dir { "tree" } else { "blob" };
+            let base = if path.is_empty() {
+                String::new()
             } else {
-                let target = if path.is_empty() {
-                    format!("/{owner}/{name}/blob/{git_ref}/{n}", n = entry_name)
-                } else {
-                    format!(
-                        "/{owner}/{name}/blob/{git_ref}/{p}/{n}",
-                        p = path,
-                        n = entry_name
-                    )
-                };
-                format!(
-                    "<li>📄 <a href=\"{target}\">{escaped}</a></li>",
-                    target = target,
-                    escaped = escaped
-                )
-            }
+                format!("/{path}")
+            };
+            serde_json::json!({
+                "is_dir": is_dir,
+                "href": format!("/{owner}/{name}/{kind}/{git_ref}{base}/{entry_name}"),
+                "label": entry_name
+            })
         })
         .collect();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path_label}</h1>
-<p>{crumbs}</p>
-<ul>
-{items}
-</ul>
-</body></html>"#,
-        owner = owner,
-        name = name,
-        path_label = if path.is_empty() {
-            "/".to_string()
-        } else {
-            crate::stack::html_escape(&path)
-        },
-        crumbs = crumbs.join(" / "),
-        items = items.join("\n")
-    ))
-    .into_response()
+    let path_label = if path.is_empty() {
+        "/".to_string()
+    } else {
+        path.clone()
+    };
+    let mut context = page_context(None, "");
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("path_label", &path_label);
+    context.insert("crumbs", &crumbs);
+    context.insert("items", &items);
+    Html(crate::render::render("tree.html", &context)).into_response()
 }
 
 // story: e07s01 — file contents at ref+path, line-numbered and escaped.
@@ -1348,38 +1278,37 @@ pub async fn blob_page(
     };
     match crate::browse::read_blob(&bare, &git_ref, &path) {
         Ok(crate::browse::Blob::Text(text)) => {
-            let numbered: Vec<String> = text
+            let lines: Vec<serde_json::Value> = text
                 .lines()
                 .enumerate()
-                .map(|(i, line)| format!("{:>4} {}", i + 1, crate::stack::html_escape(line)))
+                .map(|(i, line)| {
+                    serde_json::json!({
+                        "number": format!("{:>4}", i + 1),
+                        "text": line
+                    })
+                })
                 .collect();
-            Html(format!(
-                r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path}</h1>
-<p><a href="{back}">back</a></p>
-<pre>{numbered}</pre>
-</body></html>"#,
-                owner = owner,
-                name = name,
-                path = crate::stack::html_escape(&path),
-                back = back,
-                numbered = numbered.join("\n")
-            ))
-            .into_response()
+            let mut context = page_context(None, "");
+            context.insert("owner", &owner);
+            context.insert("name", &name);
+            context.insert("path", &path);
+            context.insert("back", &back);
+            context.insert("binary", &false);
+            context.insert("len", &0);
+            context.insert("lines", &lines);
+            Html(crate::render::render("blob.html", &context)).into_response()
         }
-        Ok(crate::browse::Blob::Binary { len }) => Html(format!(
-            r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path}</h1>
-<p><a href="{back}">back</a></p>
-<p>{len} bytes (binary file — not shown)</p>
-</body></html>"#,
-            owner = owner,
-            name = name,
-            path = crate::stack::html_escape(&path),
-            back = back,
-            len = len
-        ))
-        .into_response(),
+        Ok(crate::browse::Blob::Binary { len }) => {
+            let mut context = page_context(None, "");
+            context.insert("owner", &owner);
+            context.insert("name", &name);
+            context.insert("path", &path);
+            context.insert("back", &back);
+            context.insert("binary", &true);
+            context.insert("len", &len);
+            context.insert("lines", &Vec::<serde_json::Value>::new());
+            Html(crate::render::render("blob.html", &context)).into_response()
+        }
         Err(_) => (StatusCode::NOT_FOUND, "no such file").into_response(),
     }
 }
