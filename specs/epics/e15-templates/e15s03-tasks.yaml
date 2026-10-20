@@ -1,17 +1,17 @@
 story_id: e15s03
-title: "MR, review, settings, and error pages extracted"
-status: todo
+title: MR, review, settings, and error pages extracted
+status: failing
 bcps: 5
 tasks:
-  - id: e15s03t1
-    description: "MR detail, open, merge, and abandon pages"
-    verify: "cargo test -p server extract_mr"
-    status: todo
-  - id: e15s03t2
-    description: "review, comment, and CI status pages"
-    verify: "cargo test -p server extract_review"
-    status: todo
-  - id: e15s03t3
-    description: "routes.rs holds no page-level doctype strings"
-    verify: "! grep -q 'doctype' crates/server/src/routes.rs"
-    status: todo
+- id: e15s03t1
+  description: MR detail, open, merge, and abandon pages
+  verify: cargo test -p server extract_mr
+  status: failing
+- id: e15s03t2
+  description: review, comment, and CI status pages
+  verify: cargo test -p server extract_review
+  status: failing
+- id: e15s03t3
+  description: routes.rs holds no page-level doctype strings
+  verify: '! grep -q ''doctype'' crates/server/src/routes.rs'
+  status: failing
