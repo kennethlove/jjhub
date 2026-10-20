@@ -6,7 +6,7 @@ tasks:
   - id: e11s01t1
     description: "parse queries with jj_lib revset parser"
     verify: "cargo test -p server revset_parse"
-    status: failing
+    status: passing
   - id: e11s01t2
     description: "endpoint returns matching commits"
     verify: "cargo test -p server revset_query"
