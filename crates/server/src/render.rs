@@ -22,6 +22,9 @@ fn engine() -> &'static Tera {
             ("login.html", include_str!("../templates/login.html")),
             ("register.html", include_str!("../templates/register.html")),
             ("settings.html", include_str!("../templates/settings.html")),
+            ("repo.html", include_str!("../templates/repo.html")),
+            ("tree.html", include_str!("../templates/tree.html")),
+            ("blob.html", include_str!("../templates/blob.html")),
         ] {
             tera.add_raw_template(name, source)
                 .unwrap_or_else(|err| panic!("load {name}: {err}"));

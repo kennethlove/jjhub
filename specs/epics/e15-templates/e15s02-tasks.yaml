@@ -1,6 +1,6 @@
 story_id: e15s02
 title: "Shell, auth, repo, and tree pages extracted"
-status: todo
+status: passing
 bcps: 5
 tasks:
   - id: e15s02t1
@@ -14,4 +14,4 @@ tasks:
   - id: e15s02t3
     description: "repo, tree, and blob pages move to templates"
     verify: "cargo test -p server extract_browse"
-    status: todo
+    status: passing

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }} — {{ path_label }}</h1>
+<p>{% for crumb in crumbs %}{% if not loop.first %} / {% endif %}<a href="{{ crumb.href | safe }}">{{ crumb.label }}</a>{% endfor %}</p>
+<ul>
+{% for entry in items %}<li>{% if entry.is_dir %}📁 <a href="{{ entry.href | safe }}">{{ entry.label }}/</a>{% else %}📄 <a href="{{ entry.href | safe }}">{{ entry.label }}</a>{% endif %}</li>
+{% endfor %}
+</ul>
+{% endblock %}

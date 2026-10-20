@@ -71,10 +71,11 @@ mod extract_browse {
     }
 
     async fn get(pool: &sqlx::PgPool, root: &tempfile::TempDir, path: &str) -> String {
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(Request::get(path).body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
             .into_owned()
