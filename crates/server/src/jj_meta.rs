@@ -172,8 +172,7 @@ pub async fn revset_query(
             if hits.len() >= limit {
                 break;
             }
-            let (commit_id, change_id) =
-                pair.map_err(|e| Invalid(format!("evaluate: {e}")))?;
+            let (commit_id, change_id) = pair.map_err(|e| Invalid(format!("evaluate: {e}")))?;
             if working_copies.contains(&commit_id) {
                 continue;
             }
