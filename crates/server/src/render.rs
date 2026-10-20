@@ -42,6 +42,8 @@ fn engine() -> &'static Tera {
                 "status_badge.html",
                 include_str!("../templates/status_badge.html"),
             ),
+            // story: e11s02 — repository-scoped revset search page
+            ("search.html", include_str!("../templates/search.html")),
         ] {
             tera.add_raw_template(name, source)
                 .unwrap_or_else(|err| panic!("load {name}: {err}"));

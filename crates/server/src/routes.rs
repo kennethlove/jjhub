@@ -1078,14 +1078,15 @@ pub fn nav_html(user_handle: Option<&str>, csrf: &str) -> String {
 
 // story: e15s02 — the context every page template builds on: viewer
 // handle (empty for visitors) and the session-derived CSRF token
-fn page_context(user_handle: Option<&str>, csrf: &str) -> tera::Context {
+// story: e11s01/e15s01 — shared page chrome (nav identity + CSRF token)
+pub(crate) fn page_context(user_handle: Option<&str>, csrf: &str) -> tera::Context {
     let mut context = tera::Context::new();
     context.insert("user_handle", &user_handle.unwrap_or_default());
     context.insert("csrf", csrf);
     context
 }
 
-async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
+pub(crate) async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
     let cookie = jar.get(crate::session::SESSION_COOKIE)?;
     let user_id = crate::session::verify(&state.session_secret, cookie.value())?;
     sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")

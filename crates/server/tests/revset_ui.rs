@@ -3,7 +3,6 @@
 // the e11s01 result cap. See e11s02-search-ui.md.
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 fn git(args: &[&str], cwd: Option<&std::path::Path>) {
@@ -137,11 +136,10 @@ async fn revset_ui_search_page_renders_results_and_mr_links(pool: sqlx::PgPool) 
     .fetch_one(&pool)
     .await
     .unwrap();
-    let owner_id: uuid::Uuid =
-        sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let owner_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     sqlx::query("INSERT INTO merge_requests (repo_id, owner_id, change_id) VALUES ($1, $2, $3)")
         .bind(repo_id)
         .bind(owner_id)
@@ -169,7 +167,13 @@ async fn revset_ui_search_page_escapes_query(pool: sqlx::PgPool) {
     let cookie = register(&pool, &root, "alice%40example.com").await;
     create_repo(&pool, &root, &cookie, "demo").await;
 
-    let (status, body) = get(pool.clone(), &root, "/alice/demo/search?q=%3Cscript%3E", None).await;
+    let (status, body) = get(
+        pool.clone(),
+        &root,
+        "/alice/demo/search?q=%3Cscript%3E",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains("<script>"), "no raw tag: {body}");
     assert!(body.contains("&lt;script&gt;"), "escaped query: {body}");
@@ -218,7 +222,9 @@ async fn revset_ui_private_repo_stranger_is_404(pool: sqlx::PgPool) {
     );
     let mut request = Request::post("/repos")
         .header("content-type", "application/x-www-form-urlencoded")
-        .body(Body::from("name=vault&visibility=private&_csrf=".to_string() + &csrf))
+        .body(Body::from(
+            "name=vault&visibility=private&_csrf=".to_string() + &csrf,
+        ))
         .unwrap();
     request
         .headers_mut()
