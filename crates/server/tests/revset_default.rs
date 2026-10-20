@@ -88,7 +88,6 @@ async fn seed_trunk(root: &std::path::Path, owner: &str, name: &str, description
 // story: e11s02 — an open commit lives in the meta workspace, reachable
 // from no bookmark; same seed as the e11s01 open-dialect test.
 async fn seed_open(root: &std::path::Path, owner: &str, name: &str) {
-    use jj_lib::object_id::ObjectId;
     use jj_lib::repo::{Repo as _, StoreFactories};
     use jj_lib::workspace::default_working_copy_factories;
 
