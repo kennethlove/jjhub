@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Register · jjhub{% endblock %}
+{% block body %}
+<h1>Register</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="/register">
+<label>Email <input type="email" name="email" value="{{ email }}" required></label>
+<label>Password <input type="password" name="password" required minlength="10"></label>
+<label>Confirm password <input type="password" name="password_confirm" required minlength="10"></label>
+<button type="submit">Register</button>
+</form>
+{% endblock %}
