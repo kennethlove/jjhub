@@ -1,13 +1,13 @@
 story_id: e12s01
 title: "DESIGN.md token system"
-status: failing
+status: passing
 bcps: 3
 tasks:
   - id: e12s01t1
     description: "inventory current markup; confirm no stylesheet exists"
     verify: "grep -rc 'class=' crates/server/src"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["Design System", "unit"]
@@ -15,7 +15,7 @@ tasks:
     description: "write DESIGN.md with frontmatter tokens and rationale"
     verify: "test -f DESIGN.md && grep -q 'elevation' DESIGN.md"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["Design System", "unit"]
@@ -23,7 +23,7 @@ tasks:
     description: "document the state contract and reduced motion"
     verify: "grep -q 'focus-visible' DESIGN.md && grep -q 'prefers-reduced-motion' DESIGN.md"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["Design System", "unit"]
@@ -31,7 +31,7 @@ tasks:
     description: "design.md lint gate passes on the committed file"
     verify: "npx @google/design.md lint DESIGN.md"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["Design System", "lint"]
