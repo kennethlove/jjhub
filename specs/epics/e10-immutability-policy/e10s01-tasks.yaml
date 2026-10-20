@@ -1,0 +1,17 @@
+story_id: e10s01
+title: "Protected refs rejected at the push gate"
+status: todo
+bcps: 5
+tasks:
+  - id: e10s01t1
+    description: "protected-ref config source"
+    verify: "cargo test -p server protect_config"
+    status: todo
+  - id: e10s01t2
+    description: "check_push rejects protected refs"
+    verify: "cargo test -p server protect_reject"
+    status: todo
+  - id: e10s01t3
+    description: "unprotected refs still pass"
+    verify: "cargo test -p server protect_allow"
+    status: todo

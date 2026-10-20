@@ -1,0 +1,14 @@
+epic: e14
+slug: kata-embed
+title: "Inline kata embed on merge request pages"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e14s01
+    title: "Inline kata embed on merge request pages"
+    bcps: 3
+    delta: ADDED
+  - id: e14s02
+    title: "Embed states, fallback, reduced motion"
+    bcps: 2
+    delta: ADDED

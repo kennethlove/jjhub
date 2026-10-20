@@ -1,0 +1,17 @@
+story_id: e15s02
+title: "Shell, auth, repo, and tree pages extracted"
+status: todo
+bcps: 5
+tasks:
+  - id: e15s02t1
+    description: "site shell, home, and nav move to templates"
+    verify: "cargo test -p server extract_shell"
+    status: todo
+  - id: e15s02t2
+    description: "auth, settings, and token forms move to templates"
+    verify: "cargo test -p server extract_auth"
+    status: todo
+  - id: e15s02t3
+    description: "repo, tree, and blob pages move to templates"
+    verify: "cargo test -p server extract_browse"
+    status: todo

@@ -1,0 +1,14 @@
+epic: e13
+slug: landing-tree
+title: "File tree on the repository landing page"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e13s01
+    title: "Root file tree on the landing page"
+    bcps: 3
+    delta: ADDED
+  - id: e13s02
+    title: "Landing tree navigation and empty state"
+    bcps: 2
+    delta: ADDED

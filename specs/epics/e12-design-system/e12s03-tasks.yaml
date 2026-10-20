@@ -1,0 +1,21 @@
+story_id: e12s03
+title: "Audit gate documented in conventions"
+status: failing
+bcps: 2
+tasks:
+  - id: e12s03t1
+    description: "design-audit section in CONVENTIONS.md names DESIGN.md"
+    verify: "grep -q 'DESIGN.md' CONVENTIONS.md"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories: ["Design System", "docs"]
+  - id: e12s03t2
+    description: "audit named as the UI-change gate"
+    verify: "grep -qi 'design audit' CONVENTIONS.md"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories: ["Design System", "docs"]

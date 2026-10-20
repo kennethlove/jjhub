@@ -1,0 +1,17 @@
+story_id: e08s01
+title: "Clone and serve repos containing conflicted commits"
+status: todo
+bcps: 5
+tasks:
+  - id: e08s01t1
+    description: "fixture repo with a jj-conflicted commit"
+    verify: "cargo test -p server conflict_fixture"
+    status: todo
+  - id: e08s01t2
+    description: "smart-http serves refs incl refs/jj GC refs"
+    verify: "cargo test -p server conflict_refs"
+    status: todo
+  - id: e08s01t3
+    description: "e2e clone of the conflicted fixture"
+    verify: "bash scripts/e2e-clone.sh"
+    status: todo

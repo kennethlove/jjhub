@@ -1,0 +1,18 @@
+epic: e15
+slug: templates
+title: "Server-rendered Tera templates (page HTML out of Rust)"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e15s01
+    title: "Tera renderer and base layout"
+    bcps: 5
+    delta: ADDED
+  - id: e15s02
+    title: "Shell, auth, repo, and tree pages extracted"
+    bcps: 5
+    delta: ADDED
+  - id: e15s03
+    title: "MR, review, settings, and error pages extracted"
+    bcps: 5
+    delta: ADDED

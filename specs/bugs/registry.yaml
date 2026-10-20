@@ -1,0 +1,10 @@
+# specs/bugs/registry.yaml — bug summary for release-planning
+bugs:
+  - id: BUG-001
+    title: >-
+      e2e job fails — kata clone collides with rust-cache-restored
+      workspace dir
+    scope: ci
+    severity: high
+    status: fixed
+    fix: "PR 35 — cache restore moved after clone; merged as bd34df9c"

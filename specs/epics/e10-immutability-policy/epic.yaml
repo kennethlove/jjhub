@@ -1,0 +1,18 @@
+epic: e10
+slug: immutability-policy
+title: "Server-side immutability policy for protected refs"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e10s01
+    title: "Protected refs rejected at the push gate"
+    bcps: 5
+    delta: ADDED
+  - id: e10s02
+    title: "Protection rules visible in repo settings"
+    bcps: 3
+    delta: ADDED
+  - id: e10s03
+    title: "Audit trail for rejected pushes"
+    bcps: 3
+    delta: ADDED

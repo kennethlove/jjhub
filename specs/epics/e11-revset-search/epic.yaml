@@ -1,0 +1,14 @@
+epic: e11
+slug: revset-search
+title: "Revset search — server-side jj query syntax"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e11s01
+    title: "Revset query endpoint end-to-end"
+    bcps: 5
+    delta: ADDED
+  - id: e11s02
+    title: "Search UI scoped to the repository"
+    bcps: 3
+    delta: ADDED

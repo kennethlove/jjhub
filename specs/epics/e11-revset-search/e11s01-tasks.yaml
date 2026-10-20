@@ -1,0 +1,17 @@
+story_id: e11s01
+title: "Revset query endpoint end-to-end"
+status: todo
+bcps: 5
+tasks:
+  - id: e11s01t1
+    description: "parse queries with jj_lib revset parser"
+    verify: "cargo test -p server revset_parse"
+    status: todo
+  - id: e11s01t2
+    description: "endpoint returns matching commits"
+    verify: "cargo test -p server revset_query"
+    status: todo
+  - id: e11s01t3
+    description: "invalid query returns 400 with message"
+    verify: "cargo test -p server revset_error"
+    status: todo

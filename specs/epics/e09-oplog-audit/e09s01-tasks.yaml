@@ -1,0 +1,17 @@
+story_id: e09s01
+title: "Read the colocated .meta operation log"
+status: todo
+bcps: 5
+tasks:
+  - id: e09s01t1
+    description: "jj_lib op_store reads local operations"
+    verify: "cargo test -p server oplog_read"
+    status: todo
+  - id: e09s01t2
+    description: "newest-operations list page"
+    verify: "cargo test -p server oplog_page"
+    status: todo
+  - id: e09s01t3
+    description: "missing .meta degrades gracefully"
+    verify: "cargo test -p server oplog_missing"
+    status: todo

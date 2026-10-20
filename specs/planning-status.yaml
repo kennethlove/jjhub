@@ -1,0 +1,40 @@
+# discover-phase checklist for the v0.2.0 planning cycle — run-planning
+context_capsule:
+  written_at: "2026-10-19"
+  written_by: elaborate-spec
+  feature_name: "jjhub v0.2.0"
+workflows:
+  survey-context:
+    required: true
+    status: done
+  scope-work:
+    required: true
+    status: done
+  research-first:
+    required: true
+    status: done
+    note: >
+      Prior Art appended to specs/product/SCOPE_LATEST.yaml —
+      adopt: jj-lib 0.41 revset/ops APIs, DESIGN.md standard;
+      extend: jj git conflict repr, receive_guard, browse tree,
+      kata forwarder
+  elaborate-spec:
+    required: true
+    status: done
+    note: >
+      Capsule refreshed for v0.2.0 from the confirmed scope — prior
+      v0.1.0 capsule had no written_at; interview already ran inside
+      scope-work with the user's answers
+  plan-release:
+    required: true
+    status: done
+    note: >
+      v0.2.0 index written with 7 WSJF-ordered epics (e08-e14);
+      epic.yaml manifests stubbed with empty stories; BUG-001 marked
+      fixed in registry
+  slice-tasks:
+    required: true
+    status: done
+    note: >
+      17 vertical slices across e08-e14: tasks.yaml with verify
+      commands, epic.yaml manifests, execution-status todos

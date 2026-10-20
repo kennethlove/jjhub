@@ -1,40 +1,68 @@
 # specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
-feature_name: "jjhub"
+feature_name: "jjhub v0.2.0 — conflict tolerance, governance, search, polish"
 problem_statement: >
-  Git forges lose review identity on force-push, treat stacks as metadata, and cannot
-  represent jj's conflict commits or operation log. jj users rewrite history constantly;
-  existing hosting fights that workflow. jjhub is a forge-style hosting service for
-  Jujutsu repositories built around jj's model: change-id anchored reviews,
-  edit-in-place revision tracking, and stacks derived from the commit graph.
+  v0.1.0 shipped the hosting MVP, but it steers around hard cases:
+  conflicted commits are skipped at trunk resolution, the operation log
+  is write-only, immutability is not enforced, code search stops at the
+  file tree, the UI has no design system, the repo landing page hides
+  the tree, and kata is only linked. v0.2.0 closes the Post-MVP
+  roadmap items the user selected plus the three extras: design
+  system, landing tree, and inline kata embed.
 constraints:
-  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres (day one)"
-  - "Solo self-hosters are the MVP target; commercial service path later"
-  - "Public open source codebase"
-  - "HTTP(S) smart git + token auth in MVP; SSH follows later"
-  - "Local accounts in MVP; OIDC later"
-  - "No CI runners in MVP — render externally posted statuses only"
-  - "Conventional Commits without emoji; TDD where possible; beads for task tracking"
+  - "No new storage format for conflicts or operations"
+  - "No privileged data access beyond what jj itself reads"
+  - "Preflight green and all 134 existing tests keep passing"
+  - "One user per epic; not all epics ship in the same release"
+  - "Stack: Rust / axum / htmx / Tera / Tailwind / Postgres"
+  - "Design system first (e12) so later epics consume its tokens"
+  - "Page HTML lives in Tera templates (e15); handlers stay in Rust"
+  - >
+    UI work runs keystone render, impeccable live, and ux audit
+    tools before handoff
 out_of_scope:
-  - "Issues tracker"
-  - "User profiles beyond account"
-  - "Organizations / teams"
-  - "SSH transport"
-  - "OIDC auth"
-  - "CI runners"
-  - "Conflict-tolerant hosting (post-MVP)"
-  - "Operation log audit UI (post-MVP)"
-  - "Server-side immutability policy (post-MVP)"
-  - "Revset search API (post-MVP)"
+  - "Issue tracker and code review UI"
+  - "Organizations, teams, and fine-grained access control"
+  - "SSH, OIDC, and CI runners"
+  - "Full-text code search across history"
+  - "Rewriting kata's own UI"
+  - "Commercial features (SSO, billing, data residency)"
 key_decisions:
-  - decision: "Change-id header anchors MR identity, not branch tip hash"
-    rationale: "Survives rewrite/rebase/squash; the core jj-native review model"
-  - decision: "Stack parentage derived from commit parents, not PR metadata"
-    rationale: "No cascade rebase bookkeeping; merge squashes bottom, server rebases rest"
-  - decision: "Git smart HTTP backend (bare git repos)"
-    rationale: "jj git backend compatibility; git clients coexist; no migration friction"
-  - decision: "MVP cut: repos + collaborators + MRs only"
-    rationale: "Defer issues/profiles/teams to keep first release focused on review model"
-  - decision: "Postgres over SQLite from day one"
-    rationale: "User choice; teams roadmap-ready"
-  - decision: "Local accounts (email/password) over OIDC-only"
-    rationale: "Fully self-contained self-host; no external IdP requirement"
+  - decision: "e08 conflict-tolerant hosting — extend, not build"
+    rationale: >
+      jj-lib 0.41 is already a dependency; git represents conflicts as
+      .jjconflict-* dirs plus a jj:trees header. Serve them, skip only
+      conflicted bookmarks (jj_meta.rs:116 already does).
+  - decision: "e09 operation-log audit — read .meta via op_store"
+    rationale: >
+      Operation struct (op_store.rs:360) and OpStore trait
+      (op_store.rs:464) read the colocated repo's op log directly.
+  - decision: "e10 server-side immutability — insert at push parse"
+    rationale: >
+      receive_guard.rs check_push (L100) already parses ref updates;
+      policy belongs at that existing gate.
+  - decision: "e11 revset search — adopt jj-lib revset parser"
+    rationale: >
+      parse_program (revset_parser.rs:447) and evaluate
+      (revset.rs:680) cover the query engine; no hand-rolled parser.
+  - decision: "e12 site-wide design system via DESIGN.md standard"
+    rationale: >
+      No DESIGN.md exists; tokens plus the UX audit gate become the
+      e12 deliverable and the input for later UI work.
+  - decision: "e13 landing tree — reuse browse list_tree"
+    rationale: >
+      list_tree (browse.rs:54) already powers the tree pages; the
+      landing page renders the same call at root path.
+  - decision: "e14 inline kata embed via same-origin iframe"
+    rationale: >
+      The PR #25 forwarder already serves kata at jjhub origin; no CSP
+      exists yet, so set frame policy when the embed lands.
+  - decision: "e15 Tera templates before e12s02 styles pages"
+    rationale: >
+      User directed templates into 0.2.0 for cleaner separation;
+      styling a Tera layout once beats restyling Rust string
+      literals. tera = "1" is already a dependency, unused.
+  - decision: "UI verification uses keystone, impeccable, ux tools"
+    rationale: >
+      User directive: keystone_render screenshots at target
+      viewports, ux_audit as the blocking gate, impeccable live
+      tools engaged on its events.

@@ -1,0 +1,13 @@
+story_id: e08s02
+title: "Conflict-aware blob and tree browsing"
+status: todo
+bcps: 3
+tasks:
+  - id: e08s02t1
+    description: "blob page renders conflict markers and sides"
+    verify: "cargo test -p server conflict_browse"
+    status: todo
+  - id: e08s02t2
+    description: "tree page handles jjconflict dirs"
+    verify: "cargo test -p server conflict_tree"
+    status: todo

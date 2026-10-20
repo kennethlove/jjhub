@@ -1,0 +1,9 @@
+story_id: e10s03
+title: "Audit trail for rejected pushes"
+status: todo
+bcps: 3
+tasks:
+  - id: e10s03t1
+    description: "rejections recorded with identity and ref"
+    verify: "cargo test -p server protect_audit"
+    status: todo

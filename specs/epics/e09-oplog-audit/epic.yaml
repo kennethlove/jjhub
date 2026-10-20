@@ -1,0 +1,14 @@
+epic: e09
+slug: oplog-audit
+title: "Operation-log audit trail from the colocated .meta log"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e09s01
+    title: "Read the colocated .meta operation log"
+    bcps: 5
+    delta: ADDED
+  - id: e09s02
+    title: "Operation detail view with ref changes"
+    bcps: 3
+    delta: ADDED

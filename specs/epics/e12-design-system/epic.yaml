@@ -1,0 +1,18 @@
+epic: e12
+slug: design-system
+title: "Site-wide design system (DESIGN.md, tokens, audit gate)"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e12s01
+    title: "DESIGN.md token system"
+    bcps: 3
+    delta: ADDED
+  - id: e12s02
+    title: "Site pages migrated to design tokens"
+    bcps: 5
+    delta: ADDED
+  - id: e12s03
+    title: "Audit gate documented in conventions"
+    bcps: 2
+    delta: ADDED
