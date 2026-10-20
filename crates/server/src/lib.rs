@@ -7,6 +7,7 @@ pub mod mr;
 pub mod password;
 pub mod receive_guard;
 pub mod repo;
+pub mod revsets;
 pub mod review_proxy;
 pub mod routes;
 pub mod session;
@@ -129,6 +130,8 @@ pub fn app_with_secret(
             )),
         )
         .route("/{owner}/{name}", get(routes::repo_page))
+        // story: e11s01 — revset search endpoint
+        .route("/{owner}/{name}/revsets", get(revsets::revsets_query))
         .route("/r/{*rest}", get(review_proxy::spa_route))
         .route("/api/{*rest}", get(review_proxy::api_route))
         .route("/assets/{*rest}", get(review_proxy::assets_route))

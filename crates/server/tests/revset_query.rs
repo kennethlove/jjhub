@@ -169,6 +169,8 @@ async fn revset_query_open_dialect_finds_unreachable_commit(pool: sqlx::PgPool) 
     // story: e11s01 — an open commit: visible in the view, reachable from no
     // bookmark. Created directly in the meta workspace.
     let meta = root.path().join(".meta").join("alice__demo");
+    // the push happened after create_repo; import the new refs first
+    server::jj_meta::sync_refs(&meta).await.expect("sync refs");
     let mut config = jj_lib::config::StackedConfig::with_defaults();
     let mut identity =
         jj_lib::config::ConfigLayer::empty(jj_lib::config::ConfigSource::Default);
@@ -202,9 +204,7 @@ async fn revset_query_open_dialect_finds_unreachable_commit(pool: sqlx::PgPool) 
         .write()
         .await
         .unwrap();
-    tokio::runtime::Handle::current()
-        .block_on(tx.commit("seed open commit"))
-        .unwrap();
+    tx.commit("seed open commit").await.unwrap();
     drop(workspace);
 
     let (status, value) = revsets(pool.clone(), &root, "alice", "demo", "open()").await;
