@@ -540,36 +540,33 @@ pub async fn merge_requests_page(
     let stacks = crate::stack::derive_page_model(&bare, &mrs);
 
     // change_id -> stack position labels for rendering
-    let pulls_root = format!("/{owner}/{name}/merge-requests");
-    let mut position: Vec<String> = Vec::new();
+    let mut items: Vec<String> = Vec::new();
     for (stack_idx, stack) in stacks.iter().enumerate() {
         for (mr_idx, change_id) in stack.iter().enumerate() {
-            let review = crate::review_proxy::review_link(
-                &state.kata_public_base,
-                &state.storage_root,
-                &owner,
-                &name,
-                change_id,
-            )
-            .map(|href| format!(" — <a href=\"{href}\">review</a>"))
-            .unwrap_or_default();
-            position.push(format!(
-                "<li data-change=\"{change_id}\">#{stack_idx}:{mr_idx} \
-                 <a href=\"{pulls_root}/{change_id}\">{change_id}</a>{review}</li>"
-            ));
+            let mut item = tera::Context::new();
+            item.insert("owner", &owner);
+            item.insert("name", &name);
+            item.insert("change_id", change_id);
+            item.insert("stack_idx", &stack_idx);
+            item.insert("mr_idx", &mr_idx);
+            item.insert(
+                "review_href",
+                &crate::review_proxy::review_link(
+                    &state.kata_public_base,
+                    &state.storage_root,
+                    &owner,
+                    &name,
+                    change_id,
+                ),
+            );
+            items.push(crate::render::render("mr_list_item.html", &item));
         }
     }
-
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name} — merge requests</h1>
-<ol>
-{}
-</ol>
-</body></html>"#,
-        position.join("\n")
-    ))
-    .into_response()
+    let mut context = tera::Context::new();
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("position_html", &items.join("\n"));
+    Html(crate::render::render("mr_pages.html", &context)).into_response()
 }
 
 // story: e03s02 — MR detail: revisions newest-first, each with its
@@ -640,29 +637,24 @@ pub async fn mr_detail_page(
             let label = crate::stack::html_escape(&format!("{context}: {state}"));
             // why: only http(s) may become a link; javascript: URLs
             // render as plain text instead of being dropped silently
-            let inner = match url {
+            let href = match url {
                 Some(u) if u.starts_with("http://") || u.starts_with("https://") => {
-                    format!("<a href=\"{}\">{}</a>", crate::stack::html_escape(u), label)
+                    Some(crate::stack::html_escape(u))
                 }
-                Some(u) => format!("{} ({})", label, crate::stack::html_escape(u)),
-                None => label,
+                _ => None,
             };
-            format!(
-                "<span data-status=\"{}\" data-state=\"{}\">{}</span>",
-                crate::stack::html_escape(context),
-                crate::stack::html_escape(state),
-                inner
-            )
+            let mut badge = tera::Context::new();
+            badge.insert("context", &crate::stack::html_escape(context));
+            badge.insert("state", &crate::stack::html_escape(state));
+            badge.insert("label", &label);
+            badge.insert("url", &url.as_deref().map(crate::stack::html_escape));
+            badge.insert("href", &href);
+            crate::render::render("status_badge.html", &badge)
         })
         .collect();
-    let statuses_html = if badges.is_empty() {
-        String::new()
-    } else {
-        format!("<p class=\"statuses\">{}</p>", badges.join(" "))
-    };
 
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
-    let mut sections = Vec::new();
+    let mut sections: Vec<String> = Vec::new();
     for (revision_id, commit) in &revisions {
         let diff = crate::stack::unified_diff(&bare, commit);
         // story: e04s01 — threads of THIS revision only; revision_id is a
@@ -675,56 +667,45 @@ pub async fn mr_detail_page(
         .fetch_all(&state.pool)
         .await
         .unwrap_or_default();
-        let threads_html = if threads.is_empty() {
-            String::new()
-        } else {
-            let items: Vec<String> = threads
-                .iter()
-                .map(|(handle, body)| {
-                    format!(
-                        "<li>{}: {}</li>",
-                        crate::stack::html_escape(handle),
-                        crate::stack::html_escape(body)
-                    )
+        let threads: Vec<serde_json::Value> = threads
+            .iter()
+            .map(|(handle, body)| {
+                serde_json::json!({
+                    "handle_html": crate::stack::html_escape(handle),
+                    "body_html": crate::stack::html_escape(body),
                 })
-                .collect();
-            format!("<ul class=\"threads\">{}</ul>", items.join(""))
-        };
-        sections.push(format!(
-            "<section data-revision=\"{commit}\"><h2>{commit}</h2><pre>{}</pre>{threads_html}\
-             <form method=\"post\" action=\"/{owner}/{name}/merge-requests/{change_id}/comments\">\
-             <input type=\"hidden\" name=\"revision\" value=\"{commit}\">\
-             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
-             <input name=\"body\" placeholder=\"Comment on this revision\" required>\
-             <button type=\"submit\">Comment</button></form></section>",
-            crate::stack::html_escape(&diff)
-        ));
+            })
+            .collect();
+        let mut revision = tera::Context::new();
+        revision.insert("owner", &owner);
+        revision.insert("name", &name);
+        revision.insert("change_id", &change_id);
+        revision.insert("csrf", &csrf);
+        revision.insert("commit", commit);
+        revision.insert("diff_html", &crate::stack::html_escape(&diff));
+        revision.insert("threads", &threads);
+        sections.push(crate::render::render("mr_revision.html", &revision));
     }
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {change_id} ({mr_state})</h1>
-{statuses_html}
-{}
-{review_section}
-<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/merge"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Merge</button></form>
-<form method="post" action="/{owner}/{name}/merge-requests/{change_id}/abandon"><input type="hidden" name="_csrf" value="{csrf}"><button type="submit">Abandon</button></form>
-</body></html>"#,
-        sections.join("\n"),
-        review_section = match crate::review_proxy::review_link(
+    let mut context = tera::Context::new();
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("change_id", &change_id);
+    context.insert("mr_state", &mr_state);
+    context.insert("csrf", &csrf);
+    context.insert("badges", &badges);
+    context.insert("sections", &sections);
+    context.insert(
+        "review_href",
+        &crate::review_proxy::review_link(
             &state.kata_public_base,
             &state.storage_root,
             &owner,
             &name,
             &change_id,
-        ) {
-            Some(href) => format!(
-                "<p><a href=\"{href}\">Review in kata &rarr;</a></p>"
-            ),
-            None => String::new(),
-        },
-    ))
-    .into_response()
+        ),
+    );
+    Html(crate::render::render("mr_detail.html", &context)).into_response()
 }
 
 // story: e04s01 — post one comment to one immutable revision. Public repos
