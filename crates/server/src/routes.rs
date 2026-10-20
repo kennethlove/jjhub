@@ -22,24 +22,10 @@ pub struct RegisterForm {
 }
 
 fn register_page(error: &str, email: &str) -> String {
-    let error_html = if error.is_empty() {
-        String::new()
-    } else {
-        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
-    };
-    let email = crate::stack::html_escape(email);
-    format!(
-        r#"<!doctype html><html><body>
-<h1>Register</h1>
-{error_html}
-<form method="post" action="/register">
-<label>Email <input type="email" name="email" value="{email}" required></label>
-<label>Password <input type="password" name="password" required minlength="10"></label>
-<label>Confirm password <input type="password" name="password_confirm" required minlength="10"></label>
-<button type="submit">Register</button>
-</form>
-</body></html>"#
-    )
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("email", email);
+    crate::render::render("register.html", &context)
 }
 
 pub async fn register_form() -> Html<String> {
@@ -134,22 +120,9 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
 }
 
 fn login_page(error: &str) -> String {
-    let error_html = if error.is_empty() {
-        String::new()
-    } else {
-        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
-    };
-    format!(
-        r#"<!doctype html><html><body>
-<h1>Log in</h1>
-{error_html}
-<form method="post" action="/login">
-<label>Email <input type="email" name="email" required></label>
-<label>Password <input type="password" name="password" required></label>
-<button type="submit">Log in</button>
-</form>
-</body></html>"#
-    )
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    crate::render::render("login.html", &context)
 }
 
 pub async fn login_form() -> Html<String> {
@@ -230,7 +203,6 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let nav = nav_html(handle.as_deref(), &csrf);
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -245,37 +217,31 @@ pub async fn settings(
     .await
     .unwrap_or_default();
 
-    let new_token_html = match jar.get("new_token") {
-        Some(cookie) => {
-            let value = cookie.value().to_string();
-            format!(
-                "<p><strong>Copy this token now, it will not be shown again:</strong> <code>{value}</code></p>"
-            )
-        }
-        None => String::new(),
-    };
+    // story: e15s02 — the plaintext rides the template context once;
+    // the template escapes it like any other value
+    let new_token = jar
+        .get("new_token")
+        .map(|cookie| cookie.value().to_string())
+        .unwrap_or_default();
 
-    let token_rows: String = tokens
+    let token_items: Vec<serde_json::Value> = tokens
         .iter()
-        .map(|(label, prefix)| format!("<li>{label} — {prefix}…</li>"))
+        .map(|(label, prefix)| {
+            serde_json::json!({
+                "label": label,
+                "prefix": prefix
+            })
+        })
         .collect();
 
     match email {
-        Some(email) => Html(format!(
-            r#"<!doctype html><html><body>
-<h1>Settings</h1>
-{nav}<p>Signed in as {email}</p>
-<h2>Access tokens</h2>
-{new_token_html}
-<form method="post" action="/settings/tokens">
-<input type="hidden" name="_csrf" value="{csrf}">
-<label>Label <input name="label" required></label>
-<button type="submit">Generate token</button>
-</form>
-<ul>{token_rows}</ul>
-</body></html>"#
-        ))
-        .into_response(),
+        Some(email) => {
+            let mut context = page_context(handle.as_deref(), &csrf);
+            context.insert("email", &email);
+            context.insert("new_token", &new_token);
+            context.insert("tokens", &token_items);
+            Html(crate::render::render("settings.html", &context)).into_response()
+        }
         None => Redirect::to("/login").into_response(),
     }
 }
