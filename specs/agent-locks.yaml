@@ -7,3 +7,7 @@ locks:
   locked_by: 'agent: e15s02'
   locked_at: '2026-10-20T21:21:31Z'
   files_touched: []
+  - story_id: e10s01
+    locked_by: 'agent: e10s01'
+    locked_at: '2026-10-20T21:14:53Z'
+    files_touched: []
