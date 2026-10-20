@@ -58,10 +58,10 @@ epics:
       e10s02: todo
       e10s03: todo
   e11-revset-search:
-    status: in_progress
+    status: passing
     stories:
       e11s01: passing
-      e11s02: todo
+      e11s02: passing
   e12-design-system:
     status: in_progress
     stories:
