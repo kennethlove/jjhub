@@ -6,6 +6,7 @@ pub mod middleware;
 pub mod mr;
 pub mod password;
 pub mod receive_guard;
+pub mod render;
 pub mod repo;
 pub mod review_proxy;
 pub mod revsets;
