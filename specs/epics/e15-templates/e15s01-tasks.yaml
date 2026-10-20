@@ -1,17 +1,17 @@
 story_id: e15s01
 title: "Tera renderer and base layout"
-status: todo
+status: passing
 bcps: 5
 tasks:
   - id: e15s01t1
     description: "init Tera renderer with base layout template"
     verify: "cargo test -p server tera_layout"
-    status: todo
+    status: passing
   - id: e15s01t2
     description: "extract the login page as the first template"
     verify: "cargo test -p server extract_login"
-    status: todo
+    status: passing
   - id: e15s01t3
     description: "full suite stays green after renderer wiring"
     verify: "cargo test --workspace"
-    status: todo
+    status: passing
