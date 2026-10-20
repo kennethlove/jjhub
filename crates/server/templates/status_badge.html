@@ -1,0 +1,1 @@
+<span data-status="{{ context | safe }}" data-state="{{ state | safe }}">{% if href %}<a href="{{ href | safe }}">{{ label | safe }}</a>{% elif url %}{{ label | safe }} ({{ url | safe }}){% else %}{{ label | safe }}{% endif %}</span>

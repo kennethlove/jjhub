@@ -46,7 +46,18 @@ mod extract_review {
         git(&["init", "-b", "trunk", seed.to_str().unwrap()]);
         std::fs::write(seed.join("a.txt"), "a.txt\n").unwrap();
         git_in(&seed, &["add", "."]);
-        git_in(&seed, &["-c", "user.email=a@e.com", "-c", "user.name=A", "commit", "-m", "one"]);
+        git_in(
+            &seed,
+            &[
+                "-c",
+                "user.email=a@e.com",
+                "-c",
+                "user.name=A",
+                "commit",
+                "-m",
+                "one",
+            ],
+        );
         git_in(&seed, &["push", bare.to_str().unwrap(), "trunk"]);
         let commit = String::from_utf8_lossy(
             &std::process::Command::new("git")
@@ -90,11 +101,10 @@ mod extract_review {
     }
 
     async fn get(pool: &sqlx::PgPool, root: &std::path::Path, path: &str) -> String {
-        let response =
-            server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
-                .oneshot(Request::get(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
+        let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
             .into_owned()
@@ -105,7 +115,7 @@ mod extract_review {
     fn detail_ctx(
         bare: &std::path::Path,
         commit: &str,
-        badges: &[serde_json::Value],
+        badges: &[String],
         threads: &[serde_json::Value],
         review_href: &Option<String>,
     ) -> Context {
@@ -136,39 +146,41 @@ mod extract_review {
     }
 
     /// One expected status badge, following the page's link rules.
-    fn badge(context: &str, state: &str, url: Option<&str>) -> serde_json::Value {
+    fn badge(context: &str, state: &str, url: Option<&str>) -> String {
         let label = server::stack::html_escape(&format!("{context}: {state}"));
         let url = url.map(server::stack::html_escape);
         let href = match &url {
             Some(u) if u.starts_with("http://") || u.starts_with("https://") => Some(u.clone()),
             _ => None,
         };
-        serde_json::json!({
-            "context": server::stack::html_escape(context),
-            "state": server::stack::html_escape(state),
-            "label": label,
-            "url": url,
-            "href": href,
-        })
+        let mut ctx = Context::new();
+        ctx.insert("context", &server::stack::html_escape(context));
+        ctx.insert("state", &server::stack::html_escape(state));
+        ctx.insert("label", &label);
+        ctx.insert("url", &url);
+        ctx.insert("href", &href);
+        server::render::render("status_badge.html", &ctx)
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn ci_status_badges_match_template(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let (bare, commit) = mount(&pool, root.path()).await;
-        let revision_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM revisions")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let (mr_id, revision_id): (uuid::Uuid, uuid::Uuid) =
+            sqlx::query_as("SELECT mr_id, id FROM revisions")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         for (context, state, url) in [
             ("ci/build", "success", Some("https://ci.example/1")),
             ("ci/test", "failure", Some("javascript:alert(1)")),
             ("ci/docs", "pending", None),
         ] {
             sqlx::query(
-                "INSERT INTO statuses (revision_id, context, state, target_url) \
-                 VALUES ($1, $2, $3, $4)",
+                "INSERT INTO statuses (mr_id, revision_id, context, state, target_url) \
+                 VALUES ($1, $2, $3, $4, $5)",
             )
+            .bind(mr_id)
             .bind(revision_id)
             .bind(context)
             .bind(state)

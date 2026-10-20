@@ -116,11 +116,10 @@ mod extract_mr {
     }
 
     async fn get(pool: &sqlx::PgPool, root: &std::path::Path, path: &str) -> String {
-        let response =
-            server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
-                .oneshot(Request::get(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
+        let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
             .into_owned()
@@ -172,12 +171,20 @@ mod extract_mr {
         for (stack_idx, stack) in stacks.iter().enumerate() {
             for (mr_idx, change_id) in stack.iter().enumerate() {
                 let mut item = Context::new();
+                item.insert("owner", "alice");
+                item.insert("name", "demo");
                 item.insert("change_id", change_id);
                 item.insert("stack_idx", &stack_idx);
                 item.insert("mr_idx", &mr_idx);
                 item.insert(
                     "review_href",
-                    &server::review_proxy::review_link("", root.path().to_str().unwrap(), "alice", "demo", change_id),
+                    &server::review_proxy::review_link(
+                        "",
+                        root.path().to_str().unwrap(),
+                        "alice",
+                        "demo",
+                        change_id,
+                    ),
                 );
                 items.push(server::render::render("mr_list_item.html", &item));
             }
