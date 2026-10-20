@@ -53,9 +53,7 @@ pub async fn revsets_query(
         .await
         .map_err(|e| match e {
             RevsetQueryError::Invalid(message) => (StatusCode::BAD_REQUEST, message),
-            RevsetQueryError::Internal(message) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, message)
-            }
+            RevsetQueryError::Internal(message) => (StatusCode::INTERNAL_SERVER_ERROR, message),
         })?;
     Ok(Json(hits))
 }
@@ -75,14 +73,13 @@ async fn is_visible_to(
     if user_id == repo_owner_id {
         return true;
     }
-    let collaborator: Option<uuid::Uuid> = sqlx::query_scalar(
-        "SELECT repo_id FROM collaborators WHERE repo_id = $1 AND user_id = $2",
-    )
-    .bind(repo_id)
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
+    let collaborator: Option<uuid::Uuid> =
+        sqlx::query_scalar("SELECT repo_id FROM collaborators WHERE repo_id = $1 AND user_id = $2")
+            .bind(repo_id)
+            .bind(user_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
     collaborator.is_some()
 }

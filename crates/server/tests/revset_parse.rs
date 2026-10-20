@@ -12,8 +12,7 @@ mod revset_parse {
             "open() | all()",
             "all() ~ open()",
         ] {
-            server::jj_meta::parse_revset(query)
-                .unwrap_or_else(|e| panic!("parse {query:?}: {e}"));
+            server::jj_meta::parse_revset(query).unwrap_or_else(|e| panic!("parse {query:?}: {e}"));
         }
     }
 

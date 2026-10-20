@@ -74,7 +74,10 @@ async fn create_repo(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str
 async fn seed_trunk(root: &std::path::Path, owner: &str, name: &str, descriptions: &[&str]) {
     let bare = root.join(owner).join(format!("{name}.git"));
     let scratch = root.join(format!("seed-{name}"));
-    git(&["clone", bare.to_str().unwrap(), scratch.to_str().unwrap()], None);
+    git(
+        &["clone", bare.to_str().unwrap(), scratch.to_str().unwrap()],
+        None,
+    );
     for (i, description) in descriptions.iter().enumerate() {
         std::fs::write(scratch.join(format!("file-{i}.txt")), format!("{i}\n")).unwrap();
         git(&["add", "."], Some(&scratch));
@@ -107,7 +110,13 @@ async fn revset_query_returns_matching_commits(pool: sqlx::PgPool) {
     let root = tempfile::tempdir().unwrap();
     let cookie = register(&pool, &root, "alice%40example.com").await;
     create_repo(&pool, &root, &cookie, "demo").await;
-    seed_trunk(root.path(), "alice", "demo", &["first change", "second change"]).await;
+    seed_trunk(
+        root.path(),
+        "alice",
+        "demo",
+        &["first change", "second change"],
+    )
+    .await;
 
     let (status, value) = revsets(pool.clone(), &root, "alice", "demo", "all()").await;
     assert_eq!(status, StatusCode::OK, "body: {value}");
@@ -130,10 +139,22 @@ async fn revset_query_filters_by_description(pool: sqlx::PgPool) {
     let root = tempfile::tempdir().unwrap();
     let cookie = register(&pool, &root, "alice%40example.com").await;
     create_repo(&pool, &root, &cookie, "demo").await;
-    seed_trunk(root.path(), "alice", "demo", &["first change", "second change"]).await;
+    seed_trunk(
+        root.path(),
+        "alice",
+        "demo",
+        &["first change", "second change"],
+    )
+    .await;
 
-    let (status, value) =
-        revsets(pool.clone(), &root, "alice", "demo", "description(%22second%22)").await;
+    let (status, value) = revsets(
+        pool.clone(),
+        &root,
+        "alice",
+        "demo",
+        "description(%22second%22)",
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "body: {value}");
     let commits = value.as_array().expect("JSON array");
     assert_eq!(commits.len(), 1, "body: {value}");
@@ -172,8 +193,7 @@ async fn revset_query_open_dialect_finds_unreachable_commit(pool: sqlx::PgPool) 
     // the push happened after create_repo; import the new refs first
     server::jj_meta::sync_refs(&meta).await.expect("sync refs");
     let mut config = jj_lib::config::StackedConfig::with_defaults();
-    let mut identity =
-        jj_lib::config::ConfigLayer::empty(jj_lib::config::ConfigSource::Default);
+    let mut identity = jj_lib::config::ConfigLayer::empty(jj_lib::config::ConfigSource::Default);
     identity.set_value("user.name", "Test").ok();
     identity.set_value("user.email", "test@example.com").ok();
     config.add_layer(identity);

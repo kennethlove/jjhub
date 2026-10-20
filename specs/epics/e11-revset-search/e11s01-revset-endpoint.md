@@ -132,16 +132,16 @@ history, saved queries. Any write-side jj operation.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server revset_parse` — parse_program accepts valid
+- [x] `cargo test -p server revset_parse` — parse_program accepts valid
       revsets (`trunk()`, `open()`, `description(x)`, unions) and rejects
       garbage. (e11s01t1)
-- [ ] `cargo test -p server revset_query` — seeded repo: endpoint returns
+- [x] `cargo test -p server revset_query` — seeded repo: endpoint returns
       matching commits as JSON, capped at 50, scoped to the path repo.
       (e11s01t2)
-- [ ] `cargo test -p server revset_error` — unparseable query → 400 with
+- [x] `cargo test -p server revset_error` — unparseable query → 400 with
       message; unknown repo → 404; private repo unauthorized → 404.
       (e11s01t3)
-- [ ] `cargo test --workspace` green.
+- [x] `cargo test --workspace` green.
 
 ## 18. Test scenarios (Gherkin)
 
