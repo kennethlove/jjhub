@@ -2,7 +2,7 @@
 
 ## Question
 
-Can the review model of [kata](https://github.com/martint/kata) (Apache-2.0) front jjhub-hosted bare repos, replacing from-scratch e03 review UI + e04 comment threads? Decided by four unknowns (see bead jjhub-che); unknown #1 was the go/no-go.
+Can the review model of [kata](https://github.com/martint/kata) (Apache-2.0) front jjhub-hosted bare repos, replacing from-scratch e03 review UI + e04 comment threads? Decided by four unknowns; unknown #1 was the go/no-go.
 
 ## Result
 
