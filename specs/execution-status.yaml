@@ -52,9 +52,9 @@ epics:
       e09s01: todo
       e09s02: todo
   e10-immutability-policy:
-    status: todo
+    status: in_progress
     stories:
-      e10s01: todo
+      e10s01: passing
       e10s02: todo
       e10s03: todo
   e11-revset-search:
@@ -82,5 +82,5 @@ epics:
     status: in_progress
     stories:
       e15s01: passing
-      e15s02: todo
+      e15s02: passing
       e15s03: todo
