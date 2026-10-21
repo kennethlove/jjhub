@@ -105,44 +105,23 @@ async fn run_pre_receive() -> i32 {
         return 0;
     };
 
-    let mut pushed = Vec::new();
-    for update in &updates {
-        // branch updates only; tags and deletes are out of scope
-        if !update.ref_name.starts_with("refs/heads/") || update.new.chars().all(|c| c == '0') {
-            continue;
-        }
-        let Ok(output) = std::process::Command::new("git")
-            .args(["cat-file", "commit", &update.new])
-            .output()
-        else {
-            continue;
-        };
-        if !output.status.success() {
-            continue;
-        }
-        let Some(identity) =
-            server::receive_guard::parse_commit_identity(&String::from_utf8_lossy(&output.stdout))
-        else {
-            continue;
-        };
-        pushed.push(server::receive_guard::PushedCommit {
-            ref_name: update.ref_name.clone(),
-            old: update.old.clone(),
-            new: update.new.clone(),
-            change_id: Some(identity.change_id),
-            author_email: identity.author_email,
-            committer_email: identity.committer_email,
-        });
-    }
-    if pushed.is_empty() {
-        return 0;
-    }
-
-    match server::receive_guard::check_push(&pool, repo_id, pushed).await {
-        Ok(rejections) if rejections.is_empty() => 0,
+    // story: e10s01 — admission: protected-ref rule over EVERY update
+    // (tags and deletions included), then the open-MR identity rule.
+    // Refusals print to stderr before any ref moves.
+    // story: e10s03 — every refusal is also persisted with the pushing
+    // identity and the ref; a failed insert is logged and the push is
+    // STILL refused (exit 1 either way).
+    let git_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    match server::receive_guard::admit_push(&pool, repo_id, &updates, &git_dir).await {
+        Ok(reasons) if reasons.is_empty() => 0,
         Ok(rejections) => {
-            for reason in &rejections {
-                eprintln!("jjhub: {reason}");
+            for rejection in &rejections {
+                eprintln!("jjhub: {}", rejection.reason);
+            }
+            if let Err(err) =
+                server::receive_guard::record_rejections(&pool, repo_id, &rejections).await
+            {
+                eprintln!("jjhub: record rejection: {err}");
             }
             1
         }

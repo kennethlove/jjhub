@@ -6,7 +6,7 @@
 {% if binary %}
 <p>{{ len }} bytes (binary file — not shown)</p>
 {% else %}
-<pre>{% for line in lines %}{{ line.number }} {{ line.text }}
+<pre class="code-block">{% for line in lines %}{{ line.number }} {{ line.text }}
 {% endfor %}</pre>
 {% endif %}
 {% endblock %}

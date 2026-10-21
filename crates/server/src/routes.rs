@@ -14,6 +14,15 @@ pub async fn healthz() -> &'static str {
     "ok"
 }
 
+// story: e12s02 — embedded stylesheet: compiled into the binary, so the
+// response never touches the filesystem and never hits the kata sidecar.
+pub async fn app_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        include_str!("../assets/app.css"),
+    )
+}
+
 #[derive(Deserialize)]
 pub struct RegisterForm {
     email: String,

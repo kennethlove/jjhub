@@ -1,53 +1,66 @@
 story_id: e12s02
-title: "Site pages migrated to design tokens"
-status: failing
+title: Site pages migrated to design tokens
+status: passing
 bcps: 5
 tasks:
-  - id: e12s02t1
-    description: "embedded stylesheet served at GET /assets/app.css"
-    verify: "cargo test -p server site_css"
-    risk: P1
-    status: failing
-    allure:
-      severity: high
-      categories: ["Design System", "unit"]
-  - id: e12s02t2
-    description: "token base layer in app.css (:root vars, base type)"
-    verify: "grep -q ':root' crates/server/assets/app.css"
-    risk: P1
-    status: failing
-    allure:
-      severity: high
-      categories: ["Design System", "unit"]
-  - id: e12s02t3
-    description: "shell, nav, and auth pages link the stylesheet"
-    verify: "cargo test -p server site_shell"
-    risk: P1
-    status: failing
-    allure:
-      severity: high
-      categories: ["Design System", "integration"]
-  - id: e12s02t4
-    description: "repo, MR, tree, and blob pages migrate to tokens"
-    verify: "cargo test -p server"
-    risk: P1
-    status: failing
-    allure:
-      severity: high
-      categories: ["Design System", "integration"]
-  - id: e12s02t5
-    description: "focus-visible, disabled, and reduced-motion states"
-    verify: "grep -q 'prefers-reduced-motion' crates/server/assets/app.css"
-    risk: P1
-    status: failing
-    allure:
-      severity: high
-      categories: ["Design System", "unit"]
-  - id: e12s02t6
-    description: "UX audit gate on the stylesheet"
-    verify: "verify-script: run UX audit on crates/server/assets/app.css — zero contrast, token, and state failures"
-    risk: P2
-    status: failing
-    allure:
-      severity: normal
-      categories: ["Design System", "lint"]
+- id: e12s02t1
+  description: embedded stylesheet served at GET /assets/app.css
+  verify: cargo test -p server site_css
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - Design System
+    - unit
+- id: e12s02t2
+  description: token base layer in app.css (:root vars, base type)
+  verify: grep -q ':root' crates/server/assets/app.css
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - Design System
+    - unit
+- id: e12s02t3
+  description: shell, nav, and auth pages link the stylesheet
+  verify: cargo test -p server site_shell
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - Design System
+    - integration
+- id: e12s02t4
+  description: repo, MR, tree, and blob pages migrate to tokens
+  verify: cargo test -p server
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - Design System
+    - integration
+- id: e12s02t5
+  description: focus-visible, disabled, and reduced-motion states
+  verify: grep -q 'prefers-reduced-motion' crates/server/assets/app.css
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - Design System
+    - unit
+- id: e12s02t6
+  description: UX audit gate on the stylesheet
+  verify: 'verify-script: run UX audit on crates/server/assets/app.css — zero contrast,
+    token, and state failures'
+  risk: P2
+  status: passing
+  allure:
+    severity: normal
+    categories:
+    - Design System
+    - lint

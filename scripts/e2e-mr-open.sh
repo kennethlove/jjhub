@@ -98,10 +98,13 @@ test "$OLD_REV" = "$NEW_REV" || {
 echo "== re-push by the real author succeeds =="
 (
   cd "$FIXTURE"
-  REV=$(jj log -r trunk --no-graph -T 'commit_id.short()')
+  # e10s01: a protected trunk is created and advanced, never rewritten —
+  # the author amend (a sibling of the accepted head) is refused, so the
+  # fixup lands as a child of the accepted remote head: a fast-forward
+  # advance that still appends an MR revision.
+  jj new trunk@origin -m "author fixup"
   echo "three" > a.txt
-  JJ_USER="mr-e2e" JJ_EMAIL="$EMAIL" \
-    jj describe -r "$REV" --ignore-immutable -m "author fixup" >/dev/null 2>&1
+  jj bookmark set trunk -r @ --allow-backwards >/dev/null
   JJ_USER="mr-e2e" JJ_EMAIL="$EMAIL" jj git push --all >/dev/null
 )
 REVISIONS=$(psql "$DB_URL" -tAc \

@@ -11,35 +11,32 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 build mid wave-8 integration (session quit 2026-10-21).
-    PR #37 OPEN, head 85833b4d pushed, green (waves 1-4: e12s01,
-    e15s01-03, e11s01-02, e10s01, e15s02 + plans + rollups).
-    MAIN WS @ = 85833b4d with TWO local child chains not yet pushed:
-    e10s03 chain clean (top 1814458c, story passing, 182 tests),
-    e12s02 chain rebased ON it, every commit CONFLICT-flagged from
-    specs/agent-locks.yaml 2-sided conflict at rebased root 2db87214.
+    v0.2.0 build wave 8 integrated locally, not yet pushed
+    (session 2026-10-22).
+    STACK: PR 37 closed, replaced by stacked PRs #38-#43
+    (v020-s1..s6, merge in order; retarget each base to trunk after
+    a merge). origin/v020-build 85833b4d is stale — never PR it.
+    CHAIN @ = 2c62137f3d01 "integrate build wave 5 — e10s03 +
+    e12s02" on top of v020-s6/467b919f81bb: fix restore e10s01
+    push gate (817a40bc5538), e10s03 RED/GREEN/closeout, e12s02
+    11-commit chain, zero conflicts, zero divergence.
     RESUME STEPS:
-    1. Union-resolve locks: side A = `jj file show -r 2db87214-`
-       (parent = 1814458c side, e10s03 entry); side B = base + e12s02
-       entry (entry fields seen in session). Then `jj new 2db87214`,
-       write union, `jj squash`; sweep conflicts down chain.
-    2. VERIFY ad39e723 rides (security): wave-1 line shipped inline
-       branch-only run_pre_receive loop; ad39e723 restores admit_push
-       over ALL updates + e10s01 guard. After integration grep main.rs.
-    3. Integration node `jj new <top> -m "chore(specs): integrate build
-       wave 5 — e10s03 + e12s02"`; sweeps: conflict/UNDESCRIBED/
-       DIVERGENT over descendants(@)~@ then trunk..@.
-    4. execution-status rollup: e10s03+e12s02 -> passing; e10, e12
-       -> in_progress. Preflight (55+ suites, ~174-182 tests), then
-       `jj bookmark set v020-build --allow-backwards -r @` + push.
-    5. Remaining 11 stories: e08x3, e09x2, e10s02, e12s03, e13x2,
+    1. Preflight at @ (DATABASE_URL=
+       postgres://postgres:jjhub@localhost:5437/jjhub_test, container
+       jjhub-pg-e15s02). Then roll up execution-status.yaml:
+       e10s03+e12s02 -> passing; e10, e12 -> in_progress.
+    2. `jj bookmark create v020-s7 -r @`, `jj git push -b v020-s7`,
+       open PR base v020-s6 (gh needs `env -u GITHUB_TOKEN`). Close
+       the finish-wave-8 task.
+    3. Remaining 11 stories: e08x3, e09x2, e10s02, e12s03, e13x2,
        e14x2. 2-parallel waves; main ws = integration owner.
-    6. Cleanup: leaked container docker rm -f jjhub-pg-e15s02.
-    LESSONS: RTK mangles jj log output - assert every captured hash AND
-    parent before acting; `jj rebase -s <ws tip>` moves ONLY that commit
-    (source = chain ROOT = child of shared base); both-append files
-    (agent-locks, .beads/issues.jsonl) always conflict at parallel
-    integration - union-resolve by recipe; --allow-backwards belongs on
-    `jj bookmark set`; gh needs `env -u GITHUB_TOKEN`. Dispatch = `cd
-    <ws> && pi --no-session -p "$(cat brief)"`, 3600s timeout (2400
-    killed two agents once).
+    4. Cleanup: docker rm -f jjhub-pg-e15s02 after wave tests done.
+    LESSONS: RTK mangles jj template strings with + concat — use
+    `separate(" ", ...)` only; `jj rebase -s` can behave as -r and
+    fork originals — verify parent map after every rebase; abandons
+    take whole descendant subtrees — check what still hangs off a
+    commit before `jj abandon <id>`; both-append files (agent-locks)
+    conflict at every parallel integration — union-resolve with
+    /tmp/union_locks.py pattern (strip diff prefixes, dedupe entries
+    by story_id, canonical render, yaml validate); gh needs
+    `env -u GITHUB_TOKEN`.
