@@ -108,12 +108,12 @@ styling (e14), per-page custom CSS.
 
 ## 17. Acceptance criteria
 
-- [ ] `GET /assets/app.css` returns the stylesheet (test).
-- [ ] Shell, auth, repo, MR, and browse pages link the stylesheet
+- [x] `GET /assets/app.css` returns the stylesheet (test).
+- [x] Shell, auth, repo, MR, and browse pages link the stylesheet
       (tests).
-- [ ] `:focus-visible`, `:disabled`, `prefers-reduced-motion` present.
-- [ ] UX audit gate reports zero contrast/token/state failures.
-- [ ] `cargo test --workspace` green.
+- [x] `:focus-visible`, `:disabled`, `prefers-reduced-motion` present.
+- [x] UX audit gate reports zero contrast/token/state failures.
+- [x] `cargo test --workspace` green.
 
 ## 18. Test scenarios (Gherkin)
 

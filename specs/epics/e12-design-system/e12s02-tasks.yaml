@@ -1,6 +1,6 @@
 story_id: e12s02
 title: Site pages migrated to design tokens
-status: failing
+status: passing
 bcps: 5
 tasks:
 - id: e12s02t1
@@ -27,7 +27,7 @@ tasks:
   description: shell, nav, and auth pages link the stylesheet
   verify: cargo test -p server site_shell
   risk: P1
-  status: failing
+  status: passing
   allure:
     severity: high
     categories:
@@ -37,7 +37,7 @@ tasks:
   description: repo, MR, tree, and blob pages migrate to tokens
   verify: cargo test -p server
   risk: P1
-  status: failing
+  status: passing
   allure:
     severity: high
     categories:
@@ -47,7 +47,7 @@ tasks:
   description: focus-visible, disabled, and reduced-motion states
   verify: grep -q 'prefers-reduced-motion' crates/server/assets/app.css
   risk: P1
-  status: failing
+  status: passing
   allure:
     severity: high
     categories:
@@ -58,7 +58,7 @@ tasks:
   verify: 'verify-script: run UX audit on crates/server/assets/app.css — zero contrast,
     token, and state failures'
   risk: P2
-  status: failing
+  status: passing
   allure:
     severity: normal
     categories:
