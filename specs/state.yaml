@@ -1,5 +1,5 @@
 workflow_mode: solo-git
-active_flow: planning
+active_flow: build_epic
 vcs:
   kind: jj
   repo: colocated-git
@@ -7,6 +7,39 @@ vcs:
 session:
   started: "2026-10-19T00:00:00Z"
   active_epic_id: e12-design-system
-  active_story_id: e12s01
+  active_story_id: e12s02
 handoff:
-  next_skill: kickoff-branch
+  next_skill: build-epic
+  notes: |
+    v0.2.0 build mid wave-8 integration (session quit 2026-10-21).
+    PR #37 OPEN, head 85833b4d pushed, green (waves 1-4: e12s01,
+    e15s01-03, e11s01-02, e10s01, e15s02 + plans + rollups).
+    MAIN WS @ = 85833b4d with TWO local child chains not yet pushed:
+    e10s03 chain clean (top 1814458c, story passing, 182 tests),
+    e12s02 chain rebased ON it, every commit CONFLICT-flagged from
+    specs/agent-locks.yaml 2-sided conflict at rebased root 2db87214.
+    RESUME STEPS:
+    1. Union-resolve locks: side A = `jj file show -r 2db87214-`
+       (parent = 1814458c side, e10s03 entry); side B = base + e12s02
+       entry (entry fields seen in session). Then `jj new 2db87214`,
+       write union, `jj squash`; sweep conflicts down chain.
+    2. VERIFY ad39e723 rides (security): wave-1 line shipped inline
+       branch-only run_pre_receive loop; ad39e723 restores admit_push
+       over ALL updates + e10s01 guard. After integration grep main.rs.
+    3. Integration node `jj new <top> -m "chore(specs): integrate build
+       wave 5 — e10s03 + e12s02"`; sweeps: conflict/UNDESCRIBED/
+       DIVERGENT over descendants(@)~@ then trunk..@.
+    4. execution-status rollup: e10s03+e12s02 -> passing; e10, e12
+       -> in_progress. Preflight (55+ suites, ~174-182 tests), then
+       `jj bookmark set v020-build --allow-backwards -r @` + push.
+    5. Remaining 11 stories: e08x3, e09x2, e10s02, e12s03, e13x2,
+       e14x2. 2-parallel waves; main ws = integration owner.
+    6. Cleanup: leaked container docker rm -f jjhub-pg-e15s02.
+    LESSONS: RTK mangles jj log output - assert every captured hash AND
+    parent before acting; `jj rebase -s <ws tip>` moves ONLY that commit
+    (source = chain ROOT = child of shared base); both-append files
+    (agent-locks, .beads/issues.jsonl) always conflict at parallel
+    integration - union-resolve by recipe; --allow-backwards belongs on
+    `jj bookmark set`; gh needs `env -u GITHUB_TOKEN`. Dispatch = `cd
+    <ws> && pi --no-session -p "$(cat brief)"`, 3600s timeout (2400
+    killed two agents once).
