@@ -70,12 +70,12 @@ mod protect_audit {
         (dir, commit)
     }
 
-    fn jj_commit_body(committer: &str) -> String {
+    fn jj_commit_body(change_id: &str, committer: &str) -> String {
         format!(
             "tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904\n\
              author Alice <alice@example.com> 1700000000 +0000\n\
              committer {committer} 1700000000 +0000\n\
-             change-id zzzz\n\
+             change-id {change_id}\n\
              \n\
              rewrite trunk\n"
         )
@@ -84,7 +84,7 @@ mod protect_audit {
     #[sqlx::test(migrations = "./migrations")]
     async fn rejected_push_is_recorded_with_identity_and_ref(pool: sqlx::PgPool) {
         let (repo_id, _alice) = seed(&pool).await;
-        let (dir, commit) = repo_with_commit(&jj_commit_body("Alice <alice@example.com>"));
+        let (dir, commit) = repo_with_commit(&jj_commit_body("zzzz", "Alice <alice@example.com>"));
         let updates = vec![PushedRef {
             old: "a".repeat(40),
             new: commit.clone(),
@@ -95,17 +95,25 @@ mod protect_audit {
             .await
             .unwrap();
         assert_eq!(rejections.len(), 1, "{rejections:?}");
-        record_rejections(&pool, repo_id, &rejections).await.unwrap();
-
-        let rows: Vec<(String, String, String, String, String, chrono::DateTime<chrono::Utc>)> =
-            sqlx::query_as(
-                "SELECT ref_name, old_sha, new_sha, identity, reason, created_at \
-                 FROM push_rejections WHERE repo_id = $1",
-            )
-            .bind(repo_id)
-            .fetch_all(&pool)
+        record_rejections(&pool, repo_id, &rejections)
             .await
             .unwrap();
+
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            String,
+            String,
+            chrono::DateTime<chrono::Utc>,
+        )> = sqlx::query_as(
+            "SELECT ref_name, old_sha, new_sha, identity, reason, created_at \
+                 FROM push_rejections WHERE repo_id = $1",
+        )
+        .bind(repo_id)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
         assert_eq!(rows.len(), 1, "{rows:?}");
         let (ref_name, old_sha, new_sha, identity, reason, created_at) = &rows[0];
         assert_eq!(ref_name, "refs/heads/trunk");
@@ -132,15 +140,16 @@ mod protect_audit {
             .await
             .unwrap();
         assert_eq!(rejections.len(), 1, "{rejections:?}");
-        record_rejections(&pool, repo_id, &rejections).await.unwrap();
+        record_rejections(&pool, repo_id, &rejections)
+            .await
+            .unwrap();
 
-        let (ref_name, identity): (String, String) = sqlx::query_as(
-            "SELECT ref_name, identity FROM push_rejections WHERE repo_id = $1",
-        )
-        .bind(repo_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let (ref_name, identity): (String, String) =
+            sqlx::query_as("SELECT ref_name, identity FROM push_rejections WHERE repo_id = $1")
+                .bind(repo_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(ref_name, "refs/tags/v1.0.0");
         assert_eq!(identity, "unknown", "no parseable commit, still recorded");
     }
@@ -160,7 +169,8 @@ mod protect_audit {
         )
         .await
         .unwrap();
-        let (dir, commit) = repo_with_commit(&jj_commit_body("Mallory <mallory@example.com>"));
+        let (dir, commit) =
+            repo_with_commit(&jj_commit_body("aaaa", "Mallory <mallory@example.com>"));
         let updates = vec![PushedRef {
             old: "0".repeat(40),
             new: commit,
@@ -171,7 +181,9 @@ mod protect_audit {
             .await
             .unwrap();
         assert_eq!(rejections.len(), 1, "{rejections:?}");
-        record_rejections(&pool, repo_id, &rejections).await.unwrap();
+        record_rejections(&pool, repo_id, &rejections)
+            .await
+            .unwrap();
 
         let (ref_name, identity, reason): (String, String, String) = sqlx::query_as(
             "SELECT ref_name, identity, reason FROM push_rejections WHERE repo_id = $1",
@@ -232,7 +244,9 @@ mod protect_audit {
             .await
             .unwrap();
         assert!(rejections.is_empty(), "{rejections:?}");
-        record_rejections(&pool, repo_id, &rejections).await.unwrap();
+        record_rejections(&pool, repo_id, &rejections)
+            .await
+            .unwrap();
 
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM push_rejections")
             .fetch_one(&pool)

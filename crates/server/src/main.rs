@@ -108,12 +108,20 @@ async fn run_pre_receive() -> i32 {
     // story: e10s01 — admission: protected-ref rule over EVERY update
     // (tags and deletions included), then the open-MR identity rule.
     // Refusals print to stderr before any ref moves.
+    // story: e10s03 — every refusal is also persisted with the pushing
+    // identity and the ref; a failed insert is logged and the push is
+    // STILL refused (exit 1 either way).
     let git_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     match server::receive_guard::admit_push(&pool, repo_id, &updates, &git_dir).await {
         Ok(reasons) if reasons.is_empty() => 0,
-        Ok(reasons) => {
-            for reason in &reasons {
-                eprintln!("jjhub: {reason}");
+        Ok(rejections) => {
+            for rejection in &rejections {
+                eprintln!("jjhub: {}", rejection.reason);
+            }
+            if let Err(err) =
+                server::receive_guard::record_rejections(&pool, repo_id, &rejections).await
+            {
+                eprintln!("jjhub: record rejection: {err}");
             }
             1
         }

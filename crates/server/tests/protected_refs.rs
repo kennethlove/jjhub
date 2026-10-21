@@ -371,11 +371,13 @@ mod admit {
             .unwrap();
         assert_eq!(reasons.len(), 2, "{reasons:?}");
         assert!(
-            reasons.iter().any(|r| r.contains("refs/heads/trunk")),
+            reasons
+                .iter()
+                .any(|r| r.reason.contains("refs/heads/trunk")),
             "protected-ref rule ran: {reasons:?}"
         );
         assert!(
-            reasons.iter().any(|r| r.contains("aaaa")),
+            reasons.iter().any(|r| r.reason.contains("aaaa")),
             "identity rule ran: {reasons:?}"
         );
     }
