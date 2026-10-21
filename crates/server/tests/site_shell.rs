@@ -130,7 +130,7 @@ mod site_shell_css {
     const LINK: &str = "<link rel=\"stylesheet\" href=\"/assets/app.css\">";
 
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> String {
-        std::env::set_var("SESSION_SECRET", "shell-css-suite-secret");
+        std::env::set_var("SESSION_SECRET", "shell-suite-secret");
         let request = Request::post("/register")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(
@@ -196,3 +196,4 @@ mod site_shell_css {
         );
     }
 }
+
