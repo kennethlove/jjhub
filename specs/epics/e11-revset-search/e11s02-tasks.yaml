@@ -1,13 +1,13 @@
 story_id: e11s02
-title: "Search UI scoped to the repository"
-status: todo
+title: Search UI scoped to the repository
+status: passing
 bcps: 3
 tasks:
-  - id: e11s02t1
-    description: "search box and results page"
-    verify: "cargo test -p server revset_ui"
-    status: todo
-  - id: e11s02t2
-    description: "default query and empty state"
-    verify: "cargo test -p server revset_default"
-    status: todo
+- id: e11s02t1
+  description: search box and results page
+  verify: cargo test -p server revset_ui
+  status: passing
+- id: e11s02t2
+  description: default query and empty state
+  verify: cargo test -p server revset_default
+  status: passing
