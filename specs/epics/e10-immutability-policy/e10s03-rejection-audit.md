@@ -105,10 +105,11 @@ Audit-view page or API, pagination, retention/pruning, op-log integration
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server protect_audit` — a rejected push inserts a row
+- [x] `cargo test -p server protect_audit` — a rejected push inserts a row
       with repo, ref, identity, reason, and timestamp; an accepted push
       inserts none; insert failure still refuses the push. (e10s03t1)
-- [ ] `cargo test --workspace` green.
+      — 5 passed, 164 filtered out (51 suites, 0.93s).
+- [x] `cargo test --workspace` green. — 182 passed (57 suites, 55.92s).
 
 ## 18. Test scenarios (Gherkin)
 

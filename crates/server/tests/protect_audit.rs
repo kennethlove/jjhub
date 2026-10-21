@@ -31,7 +31,9 @@ mod protect_audit {
             let mut cmd = std::process::Command::new("git");
             cmd.args(args)
                 .current_dir(dir.path())
-                .env("GIT_CONFIG_NOSYSTEM", "1");
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_SYSTEM", "/dev/null");
             if let Some(input) = input {
                 use std::io::Write;
                 let mut child = cmd
@@ -207,6 +209,8 @@ mod protect_audit {
                     .args(args)
                     .current_dir(dir.path())
                     .env("GIT_CONFIG_NOSYSTEM", "1")
+                    .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                    .env("GIT_CONFIG_SYSTEM", "/dev/null")
                     .output()
                     .unwrap();
                 assert!(
