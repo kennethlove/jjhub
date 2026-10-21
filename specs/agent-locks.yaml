@@ -39,3 +39,11 @@ locks:
   locked_by: 'agent: e12s02'
   locked_at: '2026-10-21T00:54:01Z'
   files_touched: []
+- story_id: e08s01
+  locked_by: 'agent-e08s01'
+  locked_at: '2026-10-21T20:48:30Z'
+  files_touched:
+  - crates/server/tests/conflict_fixture.rs
+  - crates/server/tests/conflict_refs.rs
+  - crates/server/tests/conflict_support/mod.rs
+  - scripts/e2e-clone.sh
