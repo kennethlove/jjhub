@@ -31,7 +31,11 @@ locks:
   locked_by: 'agent: e10s03'
   locked_at: '2026-10-21T00:50:45Z'
   files_touched:
-    - crates/server/migrations/0009_push_rejections.sql
-    - crates/server/src/main.rs
-    - crates/server/src/receive_guard.rs
-    - crates/server/tests/protect_audit.rs
+  - crates/server/migrations/0009_push_rejections.sql
+  - crates/server/src/main.rs
+  - crates/server/src/receive_guard.rs
+  - crates/server/tests/protect_audit.rs
+- story_id: e12s02
+  locked_by: 'agent: e12s02'
+  locked_at: '2026-10-21T00:54:01Z'
+  files_touched: []
