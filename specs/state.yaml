@@ -6,37 +6,37 @@ vcs:
   remote: origin
 session:
   started: "2026-10-19T00:00:00Z"
-  active_epic_id: e12-design-system
-  active_story_id: e12s02
+  active_epic_id: e08-conflict-hosting
+  active_story_id: e08s01
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 build wave 8 integrated locally, not yet pushed
-    (session 2026-10-22).
-    STACK: PR 37 closed, replaced by stacked PRs #38-#43
-    (v020-s1..s6, merge in order; retarget each base to trunk after
-    a merge). origin/v020-build 85833b4d is stale — never PR it.
-    CHAIN @ = 2c62137f3d01 "integrate build wave 5 — e10s03 +
-    e12s02" on top of v020-s6/467b919f81bb: fix restore e10s01
-    push gate (817a40bc5538), e10s03 RED/GREEN/closeout, e12s02
-    11-commit chain, zero conflicts, zero divergence.
-    RESUME STEPS:
-    1. Preflight at @ (DATABASE_URL=
-       postgres://postgres:jjhub@localhost:5437/jjhub_test, container
-       jjhub-pg-e15s02). Then roll up execution-status.yaml:
-       e10s03+e12s02 -> passing; e10, e12 -> in_progress.
-    2. `jj bookmark create v020-s7 -r @`, `jj git push -b v020-s7`,
-       open PR base v020-s6 (gh needs `env -u GITHUB_TOKEN`). Close
-       the finish-wave-8 task.
-    3. Remaining 11 stories: e08x3, e09x2, e10s02, e12s03, e13x2,
-       e14x2. 2-parallel waves; main ws = integration owner.
-    4. Cleanup: docker rm -f jjhub-pg-e15s02 after wave tests done.
+    v0.2.0 waves 1-5 ALL MERGED to trunk c49530cc (session
+    2026-10-22). PR 37 closed; stacked PRs #38-#45 merged; GitHub
+    now has only refs/heads/trunk (v020-s1..s7 and v020-build
+    branches deleted; local v020-build bookmark deleted). Trunk
+    tree verified identical to the v020-s7 tip (497c81f1) before
+    the old chain was hidden.
+    NEXT: the finish-wave-8 task's remaining stories = 11 stories
+    (e08x3 conflict hosting, e09x2 oplog audit, e10s02 protection
+    settings, e12s03 state/a11y audit, e13x2 landing file tree,
+    e14x2 kata embed). Pattern that works: 2 parallel subagents per
+    wave in jj workspaces; main ws = integration owner; branch per
+    segment off trunk, stack, preflight green before each push
+    (env -u GITHUB_TOKEN gh pr create).
+    ENV: DB container jjhub-pg-e15s02 (host port 5437),
+    CARGO_TARGET_DIR=/tmp/jjhub-segtarget warm, preflight script
+    /tmp/preflight-seg.sh <name> <tip>; local e2e recipe needs the
+    /tmp/e2e-bin/psql shim + kata built at the docker-compose pin
+    (see project memory). Cleanup: docker rm -f jjhub-pg-e15s02
+    after the remaining stories are done.
     LESSONS: RTK mangles jj template strings with + concat — use
     `separate(" ", ...)` only; `jj rebase -s` can behave as -r and
     fork originals — verify parent map after every rebase; abandons
     take whole descendant subtrees — check what still hangs off a
     commit before `jj abandon <id>`; both-append files (agent-locks)
-    conflict at every parallel integration — union-resolve with
-    /tmp/union_locks.py pattern (strip diff prefixes, dedupe entries
-    by story_id, canonical render, yaml validate); gh needs
-    `env -u GITHUB_TOKEN`.
+    conflict at every parallel integration — union-resolve
+    (strip diff prefixes, dedupe entries by story_id, canonical
+    render, yaml validate); trunk is append-only for clients
+    (e10s01): advance by child commits, never amend after first
+    push; gh needs `env -u GITHUB_TOKEN`.
