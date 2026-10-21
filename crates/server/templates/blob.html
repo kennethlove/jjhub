@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }} — {{ path }}</h1>
+<p><a href="{{ back | safe }}">back</a></p>
+{% if binary %}
+<p>{{ len }} bytes (binary file — not shown)</p>
+{% else %}
+<pre>{% for line in lines %}{{ line.number }} {{ line.text }}
+{% endfor %}</pre>
+{% endif %}
+{% endblock %}

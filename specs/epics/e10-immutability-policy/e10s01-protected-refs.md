@@ -133,16 +133,16 @@ refs.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server protect_config` — resolver returns
+- [x] `cargo test -p server protect_config` — resolver returns
       `refs/heads/{trunk}` + `refs/tags/*` for a seeded repo and honors a
       custom trunk. (e10s01t1)
-- [ ] `cargo test -p server protect_reject` — non-fast-forward update to a
+- [x] `cargo test -p server protect_reject` — non-fast-forward update to a
       protected ref and deletion of a protected ref each produce a
       rejection naming the ref. (e10s01t2)
-- [ ] `cargo test -p server protect_allow` — creation and fast-forward of a
+- [x] `cargo test -p server protect_allow` — creation and fast-forward of a
       protected ref pass; updates to unprotected change branches produce no
       protected-ref rejection. (e10s01t3)
-- [ ] `cargo test --workspace` green.
+- [x] `cargo test --workspace` green.
 
 ## 18. Test scenarios (Gherkin)
 

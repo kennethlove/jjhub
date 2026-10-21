@@ -22,24 +22,10 @@ pub struct RegisterForm {
 }
 
 fn register_page(error: &str, email: &str) -> String {
-    let error_html = if error.is_empty() {
-        String::new()
-    } else {
-        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
-    };
-    let email = crate::stack::html_escape(email);
-    format!(
-        r#"<!doctype html><html><body>
-<h1>Register</h1>
-{error_html}
-<form method="post" action="/register">
-<label>Email <input type="email" name="email" value="{email}" required></label>
-<label>Password <input type="password" name="password" required minlength="10"></label>
-<label>Confirm password <input type="password" name="password_confirm" required minlength="10"></label>
-<button type="submit">Register</button>
-</form>
-</body></html>"#
-    )
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("email", email);
+    crate::render::render("register.html", &context)
 }
 
 pub async fn register_form() -> Html<String> {
@@ -134,22 +120,9 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
 }
 
 fn login_page(error: &str) -> String {
-    let error_html = if error.is_empty() {
-        String::new()
-    } else {
-        format!("<p role=\"alert\">{}</p>", crate::stack::html_escape(error))
-    };
-    format!(
-        r#"<!doctype html><html><body>
-<h1>Log in</h1>
-{error_html}
-<form method="post" action="/login">
-<label>Email <input type="email" name="email" required></label>
-<label>Password <input type="password" name="password" required></label>
-<button type="submit">Log in</button>
-</form>
-</body></html>"#
-    )
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    crate::render::render("login.html", &context)
 }
 
 pub async fn login_form() -> Html<String> {
@@ -230,7 +203,6 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let nav = nav_html(handle.as_deref(), &csrf);
     let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
         .bind(current.0)
         .fetch_optional(&state.pool)
@@ -245,37 +217,31 @@ pub async fn settings(
     .await
     .unwrap_or_default();
 
-    let new_token_html = match jar.get("new_token") {
-        Some(cookie) => {
-            let value = cookie.value().to_string();
-            format!(
-                "<p><strong>Copy this token now, it will not be shown again:</strong> <code>{value}</code></p>"
-            )
-        }
-        None => String::new(),
-    };
+    // story: e15s02 — the plaintext rides the template context once;
+    // the template escapes it like any other value
+    let new_token = jar
+        .get("new_token")
+        .map(|cookie| cookie.value().to_string())
+        .unwrap_or_default();
 
-    let token_rows: String = tokens
+    let token_items: Vec<serde_json::Value> = tokens
         .iter()
-        .map(|(label, prefix)| format!("<li>{label} — {prefix}…</li>"))
+        .map(|(label, prefix)| {
+            serde_json::json!({
+                "label": label,
+                "prefix": prefix
+            })
+        })
         .collect();
 
     match email {
-        Some(email) => Html(format!(
-            r#"<!doctype html><html><body>
-<h1>Settings</h1>
-{nav}<p>Signed in as {email}</p>
-<h2>Access tokens</h2>
-{new_token_html}
-<form method="post" action="/settings/tokens">
-<input type="hidden" name="_csrf" value="{csrf}">
-<label>Label <input name="label" required></label>
-<button type="submit">Generate token</button>
-</form>
-<ul>{token_rows}</ul>
-</body></html>"#
-        ))
-        .into_response(),
+        Some(email) => {
+            let mut context = page_context(handle.as_deref(), &csrf);
+            context.insert("email", &email);
+            context.insert("new_token", &new_token);
+            context.insert("tokens", &token_items);
+            Html(crate::render::render("settings.html", &context)).into_response()
+        }
         None => Redirect::to("/login").into_response(),
     }
 }
@@ -406,7 +372,6 @@ pub async fn repo_page(
         .get(crate::session::SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
-    let nav = nav_html(viewer.as_deref(), &csrf);
     let host = headers
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
@@ -431,22 +396,7 @@ pub async fn repo_page(
     let mrs = crate::stack::open_mrs(&state.pool, repo_id)
         .await
         .unwrap_or_default();
-    let mr_items: Vec<String> = mrs
-        .iter()
-        .map(|mr| {
-            format!(
-                "<li><a href=\"/{owner}/{name}/merge-requests/{change}\">{change}</a></li>",
-                owner = owner,
-                name = name,
-                change = mr.change_id
-            )
-        })
-        .collect();
-    let mr_section = if mr_items.is_empty() {
-        "<p>No open merge requests — push a change to open one.</p>".to_string()
-    } else {
-        format!("<ul>{}</ul>", mr_items.join("\n"))
-    };
+    let mr_ids: Vec<String> = mrs.iter().map(|mr| mr.change_id.clone()).collect();
 
     // story: Browse files — kata's browse view through the auth proxy;
     // same metadata guard as review links (no dead links, ever)
@@ -462,57 +412,36 @@ pub async fn repo_page(
         // the trunk head so it opens on the current revision's detail,
         // not an arbitrary log position
         let bare = domain::storage_path(&state.storage_root, &owner, &name);
-        let pinned = crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
+        crate::stack::ref_commit(&bare, &format!("refs/heads/{trunk}"))
             .map(|sha| format!("{link}?commit={sha}"))
-            .unwrap_or(link);
-        format!(" · <a href=\"{pinned}\">Browse (kata)</a>")
+            .unwrap_or(link)
     })
     .unwrap_or_default();
     // story: e07s01 — native tree view; only when the repo has commits
     let bare_for_files = domain::storage_path(&state.storage_root, &owner, &name);
-    let files_link =
-        if crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some() {
-            format!(
-                " · <a href=\"/{owner}/{name}/tree\">Files</a>",
-                owner = owner,
-                name = name
-            )
-        } else {
-            String::new()
-        };
+    let has_files =
+        crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some();
 
     // story: e02s03 — the viewer's own token lands in the snippet via the
     // one-time cookie; everyone else keeps the placeholder
     let clone_token = jar
         .get("new_token")
-        .map(|c| crate::stack::html_escape(c.value()))
-        .unwrap_or_else(|| "&lt;TOKEN&gt;".to_string());
-    let generate_form = viewer.as_ref().map(|_| {
-        format!(
-            r#"<form method="post" action="/{owner}/{name}/tokens">
-<input type="hidden" name="label" value="clone-{owner}/{name}">
-<input type="hidden" name="_csrf" value="{csrf}">
-<button type="submit">Generate token</button>
-</form>"#
-        )
-    });
-    let generate_form = generate_form.unwrap_or_default();
+        .map(|c| c.value().to_string())
+        .unwrap_or_else(|| "<TOKEN>".to_string());
+    let generate = viewer.is_some();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name}</h1>
-<p>{visibility} — trunk: {trunk}</p>
-{nav}<p>{browse}{files_link}</p><h2>Open merge requests</h2>
-{mr_section}
-<p><a href="/{owner}/{name}/merge-requests">All merge requests</a>{browse}</p>
-<h2>Add this repository</h2>
-<p>Clone: <code>http://{host}/git/{owner}/{name}.git</code></p>
-{generate_form}
-<pre>jj git remote add origin "http://x-access-token:{clone_token}@{host}/git/{owner}/{name}.git"
-jj git push --all</pre>
-</body></html>"#
-    ))
-    .into_response()
+    let mut context = page_context(viewer.as_deref(), &csrf);
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("visibility", &visibility);
+    context.insert("trunk", &trunk);
+    context.insert("browse_href", &browse);
+    context.insert("files", &has_files);
+    context.insert("mrs", &mr_ids);
+    context.insert("host", &host);
+    context.insert("clone_token", &clone_token);
+    context.insert("generate", &generate);
+    Html(crate::render::render("repo.html", &context)).into_response()
 }
 
 #[derive(Deserialize)]
@@ -1161,18 +1090,18 @@ pub async fn manage_collaborators(
 }
 
 // story: e06s01 — shared nav: brand + (when authed) Repos, Settings and
-// a CSRF-protected Log out button.
+// a CSRF-protected Log out button. Body lives in templates/nav.html.
 pub fn nav_html(user_handle: Option<&str>, csrf: &str) -> String {
-    match user_handle {
-        Some(handle) => format!(
-            "<nav><a href=\"/\">jjhub</a> <a href=\"/\">Repos</a> \
-             <a href=\"/settings\">Settings</a> <span>{handle}</span> \
-             <form method=\"post\" action=\"/logout\" style=\"display:inline\">\
-             <input type=\"hidden\" name=\"_csrf\" value=\"{csrf}\">\
-             <button type=\"submit\">Log out</button></form></nav>"
-        ),
-        None => r#"<nav><a href="/">jjhub</a> <a href="/login">Log in</a></nav>"#.to_string(),
-    }
+    crate::render::render("nav.html", &page_context(user_handle, csrf))
+}
+
+// story: e15s02 — the context every page template builds on: viewer
+// handle (empty for visitors) and the session-derived CSRF token
+fn page_context(user_handle: Option<&str>, csrf: &str) -> tera::Context {
+    let mut context = tera::Context::new();
+    context.insert("user_handle", &user_handle.unwrap_or_default());
+    context.insert("csrf", csrf);
+    context
 }
 
 async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
@@ -1190,16 +1119,9 @@ async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
 // users (create form + owned repos).
 pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
     let Some(handle) = viewer_handle(&state, &jar).await else {
-        return Html(format!(
-            r#"<!doctype html><html><body>
-{}
-<h1>jjhub</h1>
-<p>Forge-style hosting for Jujutsu repositories.</p>
-<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
-</body></html>"#,
-            nav_html(None, "")
-        ))
-        .into_response();
+        let mut context = page_context(None, "");
+        context.insert("repos", &Vec::<serde_json::Value>::new());
+        return Html(crate::render::render("home.html", &context)).into_response();
     };
 
     let csrf = jar
@@ -1214,38 +1136,20 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
     .fetch_all(&state.pool)
     .await
     .unwrap_or_default();
-    let repo_items: Vec<String> = repos
+    let repo_items: Vec<serde_json::Value> = repos
         .iter()
         .map(|(name, visibility)| {
-            format!(
-                "<li><a href=\"/{handle}/{name}\">{handle}/{name}</a> <small>{visibility}</small></li>",
-                handle = handle,
-                name = name,
-                visibility = visibility
-            )
+            serde_json::json!({
+                "owner": handle,
+                "name": name,
+                "visibility": visibility
+            })
         })
         .collect();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-{}
-<h1>jjhub</h1>
-<h2>Create repository</h2>
-<form method="post" action="/repos">
-<input type="hidden" name="_csrf" value="{csrf}">
-<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
-<label><input type="radio" name="visibility" value="public" checked> public</label>
-<label><input type="radio" name="visibility" value="private"> private</label>
-<button type="submit">Create</button>
-</form>
-<h2>Your repositories</h2>
-<ul>{repos}</ul>
-</body></html>"#,
-        nav_html(Some(&handle), &csrf),
-        csrf = csrf,
-        repos = repo_items.join("\n")
-    ))
-    .into_response()
+    let mut context = page_context(Some(&handle), &csrf);
+    context.insert("repos", &repo_items);
+    Html(crate::render::render("home.html", &context)).into_response()
 }
 
 // story: e07s01 — default tree route: trunk view rendered directly.
@@ -1293,11 +1197,10 @@ async fn render_tree(
     };
 
     // breadcrumbs: repo root, then each ancestor of the current path
-    let mut crumbs = vec![format!(
-        "<a href=\"/{owner}/{name}/tree\">{owner}/{name}</a>",
-        owner = owner,
-        name = name
-    )];
+    let mut crumbs = vec![serde_json::json!({
+        "href": format!("/{owner}/{name}/tree"),
+        "label": format!("{owner}/{name}")
+    })];
     let mut acc = String::new();
     for part in path.split('/').filter(|p| !p.is_empty()) {
         acc = if acc.is_empty() {
@@ -1305,73 +1208,41 @@ async fn render_tree(
         } else {
             format!("{acc}/{part}")
         };
-        crumbs.push(format!(
-            "<a href=\"/{owner}/{name}/tree/{git_ref}/{acc}\">{part}</a>",
-            owner = owner,
-            name = name,
-            git_ref = git_ref,
-            acc = acc,
-            part = crate::stack::html_escape(part)
-        ));
+        crumbs.push(serde_json::json!({
+            "href": format!("/{owner}/{name}/tree/{git_ref}/{acc}"),
+            "label": part
+        }));
     }
 
-    let items: Vec<String> = entries
+    let items: Vec<serde_json::Value> = entries
         .iter()
         .map(|(entry_name, is_dir)| {
-            let escaped = crate::stack::html_escape(entry_name);
-            if *is_dir {
-                let target = if path.is_empty() {
-                    format!("/{owner}/{name}/tree/{git_ref}/{n}", n = entry_name)
-                } else {
-                    format!(
-                        "/{owner}/{name}/tree/{git_ref}/{p}/{n}",
-                        p = path,
-                        n = entry_name
-                    )
-                };
-                format!(
-                    "<li>📁 <a href=\"{target}\">{escaped}/</a></li>",
-                    target = target,
-                    escaped = escaped
-                )
+            let kind = if *is_dir { "tree" } else { "blob" };
+            let base = if path.is_empty() {
+                String::new()
             } else {
-                let target = if path.is_empty() {
-                    format!("/{owner}/{name}/blob/{git_ref}/{n}", n = entry_name)
-                } else {
-                    format!(
-                        "/{owner}/{name}/blob/{git_ref}/{p}/{n}",
-                        p = path,
-                        n = entry_name
-                    )
-                };
-                format!(
-                    "<li>📄 <a href=\"{target}\">{escaped}</a></li>",
-                    target = target,
-                    escaped = escaped
-                )
-            }
+                format!("/{path}")
+            };
+            serde_json::json!({
+                "is_dir": is_dir,
+                "href": format!("/{owner}/{name}/{kind}/{git_ref}{base}/{entry_name}"),
+                "label": entry_name
+            })
         })
         .collect();
 
-    Html(format!(
-        r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path_label}</h1>
-<p>{crumbs}</p>
-<ul>
-{items}
-</ul>
-</body></html>"#,
-        owner = owner,
-        name = name,
-        path_label = if path.is_empty() {
-            "/".to_string()
-        } else {
-            crate::stack::html_escape(&path)
-        },
-        crumbs = crumbs.join(" / "),
-        items = items.join("\n")
-    ))
-    .into_response()
+    let path_label = if path.is_empty() {
+        "/".to_string()
+    } else {
+        path.clone()
+    };
+    let mut context = page_context(None, "");
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("path_label", &path_label);
+    context.insert("crumbs", &crumbs);
+    context.insert("items", &items);
+    Html(crate::render::render("tree.html", &context)).into_response()
 }
 
 // story: e07s01 — file contents at ref+path, line-numbered and escaped.
@@ -1407,38 +1278,37 @@ pub async fn blob_page(
     };
     match crate::browse::read_blob(&bare, &git_ref, &path) {
         Ok(crate::browse::Blob::Text(text)) => {
-            let numbered: Vec<String> = text
+            let lines: Vec<serde_json::Value> = text
                 .lines()
                 .enumerate()
-                .map(|(i, line)| format!("{:>4} {}", i + 1, crate::stack::html_escape(line)))
+                .map(|(i, line)| {
+                    serde_json::json!({
+                        "number": format!("{:>4}", i + 1),
+                        "text": line
+                    })
+                })
                 .collect();
-            Html(format!(
-                r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path}</h1>
-<p><a href="{back}">back</a></p>
-<pre>{numbered}</pre>
-</body></html>"#,
-                owner = owner,
-                name = name,
-                path = crate::stack::html_escape(&path),
-                back = back,
-                numbered = numbered.join("\n")
-            ))
-            .into_response()
+            let mut context = page_context(None, "");
+            context.insert("owner", &owner);
+            context.insert("name", &name);
+            context.insert("path", &path);
+            context.insert("back", &back);
+            context.insert("binary", &false);
+            context.insert("len", &0);
+            context.insert("lines", &lines);
+            Html(crate::render::render("blob.html", &context)).into_response()
         }
-        Ok(crate::browse::Blob::Binary { len }) => Html(format!(
-            r#"<!doctype html><html><body>
-<h1>{owner}/{name} — {path}</h1>
-<p><a href="{back}">back</a></p>
-<p>{len} bytes (binary file — not shown)</p>
-</body></html>"#,
-            owner = owner,
-            name = name,
-            path = crate::stack::html_escape(&path),
-            back = back,
-            len = len
-        ))
-        .into_response(),
+        Ok(crate::browse::Blob::Binary { len }) => {
+            let mut context = page_context(None, "");
+            context.insert("owner", &owner);
+            context.insert("name", &name);
+            context.insert("path", &path);
+            context.insert("back", &back);
+            context.insert("binary", &true);
+            context.insert("len", &len);
+            context.insert("lines", &Vec::<serde_json::Value>::new());
+            Html(crate::render::render("blob.html", &context)).into_response()
+        }
         Err(_) => (StatusCode::NOT_FOUND, "no such file").into_response(),
     }
 }

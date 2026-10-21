@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}jjhub{% endblock %}
+{% block body %}
+{% include "nav.html" %}
+<h1>jjhub</h1>
+{% if user_handle %}
+<h2>Create repository</h2>
+<form method="post" action="/repos">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
+<label><input type="radio" name="visibility" value="public" checked> public</label>
+<label><input type="radio" name="visibility" value="private"> private</label>
+<button type="submit">Create</button>
+</form>
+<h2>Your repositories</h2>
+<ul>
+{% for repo in repos %}<li><a href="/{{ repo.owner }}/{{ repo.name }}">{{ repo.owner }}/{{ repo.name }}</a> <small>{{ repo.visibility }}</small></li>
+{% endfor %}</ul>
+{% else %}
+<p>Forge-style hosting for Jujutsu repositories.</p>
+<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
+{% endif %}
+{% endblock %}
