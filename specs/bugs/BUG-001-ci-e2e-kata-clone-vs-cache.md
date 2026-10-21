@@ -1,6 +1,6 @@
 ---
 bug_id: BUG-001
-status: open
+status: fixed
 severity: high
 scope: ci
 title: e2e job fails — kata clone collides with rust-cache-restored workspace dir

@@ -1,0 +1,18 @@
+epic: e08
+slug: conflict-hosting
+title: "Conflict-tolerant hosting — serve and display conflicted states"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e08s01
+    title: "Clone and serve repos containing conflicted commits"
+    bcps: 5
+    delta: ADDED
+  - id: e08s02
+    title: "Conflict-aware blob and tree browsing"
+    bcps: 3
+    delta: ADDED
+  - id: e08s03
+    title: "Conflict state in trunk resolution and MR views"
+    bcps: 3
+    delta: ADDED

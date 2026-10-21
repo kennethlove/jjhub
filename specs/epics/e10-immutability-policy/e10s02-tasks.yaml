@@ -1,0 +1,9 @@
+story_id: e10s02
+title: "Protection rules visible in repo settings"
+status: todo
+bcps: 3
+tasks:
+  - id: e10s02t1
+    description: "settings page lists protected refs"
+    verify: "cargo test -p server protect_page"
+    status: todo

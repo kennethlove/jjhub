@@ -1,0 +1,13 @@
+story_id: e13s02
+title: "Landing tree navigation and empty state"
+status: todo
+bcps: 2
+tasks:
+  - id: e13s02t1
+    description: "tree entries link to blob pages"
+    verify: "cargo test -p server landing_links"
+    status: todo
+  - id: e13s02t2
+    description: "empty repo shows onboarding state"
+    verify: "cargo test -p server landing_empty"
+    status: todo

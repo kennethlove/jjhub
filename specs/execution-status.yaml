@@ -40,3 +40,47 @@ epics:
     status: passing
     stories:
       e07s01: passing
+  e08-conflict-hosting:
+    status: todo
+    stories:
+      e08s01: todo
+      e08s02: todo
+      e08s03: todo
+  e09-oplog-audit:
+    status: todo
+    stories:
+      e09s01: todo
+      e09s02: todo
+  e10-immutability-policy:
+    status: todo
+    stories:
+      e10s01: todo
+      e10s02: todo
+      e10s03: todo
+  e11-revset-search:
+    status: todo
+    stories:
+      e11s01: todo
+      e11s02: todo
+  e12-design-system:
+    status: todo
+    stories:
+      e12s01: todo
+      e12s02: todo
+      e12s03: todo
+  e13-landing-tree:
+    status: todo
+    stories:
+      e13s01: todo
+      e13s02: todo
+  e14-kata-embed:
+    status: todo
+    stories:
+      e14s01: todo
+      e14s02: todo
+  e15-templates:
+    status: todo
+    stories:
+      e15s01: todo
+      e15s02: todo
+      e15s03: todo

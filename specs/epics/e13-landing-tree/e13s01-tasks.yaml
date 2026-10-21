@@ -1,0 +1,9 @@
+story_id: e13s01
+title: "Root file tree on the landing page"
+status: todo
+bcps: 3
+tasks:
+  - id: e13s01t1
+    description: "landing page renders list_tree at root"
+    verify: "cargo test -p server landing_tree"
+    status: todo

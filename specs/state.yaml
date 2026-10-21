@@ -1,12 +1,12 @@
 workflow_mode: solo-git
-active_flow: release
+active_flow: planning
 vcs:
   kind: jj
   repo: colocated-git
   remote: origin
 session:
   started: "2026-10-19T00:00:00Z"
-  active_epic_id: null
-  active_story_id: null
+  active_epic_id: e12-design-system
+  active_story_id: e12s01
 handoff:
-  next_skill: release-branch
+  next_skill: kickoff-branch
