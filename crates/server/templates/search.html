@@ -1,0 +1,25 @@
+{# story: e11s02 — repository-scoped revset search page #}
+{% extends "base.html" %}
+{% block title %}Search · {{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }}</h1>
+{% include "nav.html" %}
+<form method="get" action="/{{ owner }}/{{ name }}/search">
+<label>Revset <input type="search" name="q" value="{{ query }}"></label>
+<button type="submit">Search</button>
+</form>
+{% if error %}
+<p role="alert">Cannot run <code>{{ query }}</code>: {{ error }}</p>
+{% endif %}
+{% if hits %}
+<ul>
+{% for hit in hits %}
+<li>{% if hit.mr %}<a href="{{ hit.mr | safe }}">{{ hit.change_id }}</a>{% else %}{{ hit.change_id }}{% endif %} <code>{{ hit.commit_id }}</code> {{ hit.description }}</li>
+{% endfor %}
+</ul>
+{% if at_cap %}<p>Showing the first 50 matches — a narrower query shows more.</p>{% endif %}
+{% elif not error %}
+{# story: e11s02 — a zero-match query gets a dedicated empty state, never a bare table #}
+<p>No revisions match <code>{{ query }}</code> — try a broader query such as <code>all()</code>.</p>
+{% endif %}
+{% endblock %}

@@ -15,3 +15,15 @@ locks:
   locked_by: 'agent: e15s03'
   locked_at: '2026-10-20T22:57:42Z'
   files_touched: []
+- story_id: e11s02
+  locked_by: 'agent: e11s02'
+  locked_at: '2026-10-20T23:43:01Z'
+  files_touched:
+  - crates/server/src/revsets.rs
+  - crates/server/src/routes.rs
+  - crates/server/src/render.rs
+  - crates/server/src/lib.rs
+  - crates/server/templates/search.html
+  - crates/server/templates/repo.html
+  - crates/server/tests/revset_ui.rs
+  - crates/server/tests/revset_default.rs
