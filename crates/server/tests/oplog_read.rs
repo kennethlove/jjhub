@@ -104,6 +104,10 @@ fn jj_settings() -> jj_lib::settings::UserSettings {
     let mut identity = ConfigLayer::empty(ConfigSource::Default);
     identity.set_value("user.name", "op-tester").ok();
     identity.set_value("user.email", "op-tester@invalid").ok();
+    // jj defaults operation identity to empty; populate it so the audit
+    // fields have something to read.
+    identity.set_value("operation.username", "op-tester").ok();
+    identity.set_value("operation.hostname", "op-host").ok();
     config.add_layer(identity);
     jj_lib::settings::UserSettings::from_config(config).expect("jj settings")
 }
