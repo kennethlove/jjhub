@@ -59,3 +59,10 @@ locks:
   - crates/server/templates/repo.html
   - crates/server/tests/oplog_read.rs
   - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
+- story_id: e10s02
+  locked_by: 'agent-e10s02'
+  locked_at: '2026-10-21T20:34:05Z'
+  files_touched:
+    - crates/server/templates/repo.html
+    - crates/server/src/routes.rs
+    - crates/server/tests/protect_page.rs
