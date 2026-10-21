@@ -39,11 +39,7 @@ mod conflict_fixture {
             .find_map(|line| line.strip_prefix("jj:trees "))
             .expect("jj:trees commit header");
         let hexes: Vec<&str> = trees.split_whitespace().collect();
-        assert_eq!(
-            hexes.len(),
-            3,
-            "one base term and two side terms: {trees}"
-        );
+        assert_eq!(hexes.len(), 3, "one base term and two side terms: {trees}");
         for hex in &hexes {
             assert_eq!(git(dir.path(), &["cat-file", "-t", hex]).trim(), "tree");
             let entries = git(dir.path(), &["ls-tree", hex]);
@@ -86,7 +82,10 @@ mod conflict_fixture {
         let term = |name: &str| {
             git(
                 dir.path(),
-                &["show", &format!("{}:{name}/conflict.txt", fixture.conflicted)],
+                &[
+                    "show",
+                    &format!("{}:{name}/conflict.txt", fixture.conflicted),
+                ],
             )
         };
         assert_eq!(term(".jjconflict-base-0"), "base\n");
@@ -99,7 +98,10 @@ mod conflict_fixture {
         assert_eq!(plain, "base\n", "plain-git view is the first term");
         let readme = git(
             dir.path(),
-            &["show", &format!("{}:JJ-CONFLICT-README", fixture.conflicted)],
+            &[
+                "show",
+                &format!("{}:JJ-CONFLICT-README", fixture.conflicted),
+            ],
         );
         assert!(
             readme.contains(".jjconflict-* directories represent the different inputs"),

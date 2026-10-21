@@ -83,11 +83,10 @@ mod conflict_refs {
     }
 
     async fn alice_token(pool: &sqlx::PgPool) -> String {
-        let alice: (uuid::Uuid,) =
-            sqlx::query_as("SELECT id FROM users WHERE handle = 'alice'")
-                .fetch_one(pool)
-                .await
-                .expect("alice row");
+        let alice: (uuid::Uuid,) = sqlx::query_as("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(pool)
+            .await
+            .expect("alice row");
         server::token::create(pool, alice.0, "e08s01")
             .await
             .plaintext
@@ -214,11 +213,7 @@ mod conflict_refs {
             let clone = clone.path().to_path_buf();
             move || {
                 std::process::Command::new("git")
-                    .args([
-                        "fetch",
-                        "origin",
-                        "+refs/jj/keep/*:refs/jj/keep/*",
-                    ])
+                    .args(["fetch", "origin", "+refs/jj/keep/*:refs/jj/keep/*"])
                     .current_dir(clone)
                     .env("GIT_CONFIG_GLOBAL", "/dev/null")
                     .env("GIT_CONFIG_SYSTEM", "/dev/null")
@@ -272,9 +267,7 @@ mod conflict_refs {
             axum::serve(listener, router).await.unwrap();
         });
 
-        let url = format!(
-            "http://x-access-token:{token}@{addr}/git/alice/demo.git"
-        );
+        let url = format!("http://x-access-token:{token}@{addr}/git/alice/demo.git");
         let source_path = source.path().to_path_buf();
         let out = tokio::task::spawn_blocking(move || {
             std::process::Command::new("git")
@@ -397,14 +390,10 @@ mod conflict_refs {
             new: fixture.conflicted.clone(),
             ref_name: "refs/heads/trunk".to_string(),
         }];
-        let rejections = server::receive_guard::admit_push(
-            &pool,
-            repo_id,
-            &updates,
-            owner_dir.path(),
-        )
-        .await
-        .unwrap();
+        let rejections =
+            server::receive_guard::admit_push(&pool, repo_id, &updates, owner_dir.path())
+                .await
+                .unwrap();
         assert!(
             rejections.is_empty(),
             "conflicted push under the owner's identity admits: {rejections:?}"

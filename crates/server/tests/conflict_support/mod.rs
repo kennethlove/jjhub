@@ -1,10 +1,10 @@
-#![allow(dead_code)] // each test binary uses a subset of the helper API
 // story: e08s01 — git-plumbing builder for jj's git conflict representation,
 // so transport tests need no jj CLI binary. Mirrors jj-lib 0.41's git
 // backend: two term trees merged under `.jjconflict-base-N` /
 // `.jjconflict-side-N`, a `JJ-CONFLICT-README` blob, a `jj:trees` commit
 // header naming the term root trees, and `refs/jj/keep/*` refs pinning
 // every commit's objects.
+#![allow(dead_code)] // each test binary uses a subset of the helper API
 
 use std::io::Write;
 use std::path::Path;
@@ -47,10 +47,7 @@ pub fn ensure_bare(dir: &Path) {
     if dir.join("HEAD").exists() {
         return;
     }
-    git(
-        dir,
-        &["init", "--bare", "--initial-branch=trunk", "."],
-    );
+    git(dir, &["init", "--bare", "--initial-branch=trunk", "."]);
 }
 
 /// Build the fixture with the default pushing identity (alice) — the
@@ -69,9 +66,7 @@ pub fn build_as(dir: &Path, name: &str, email: &str, change_id: &str) -> Fixture
     let base_blob = hash_object(dir, "blob", "base\n");
     let side0_blob = hash_object(dir, "blob", "side0\n");
     let side1_blob = hash_object(dir, "blob", "side1\n");
-    let term_tree = |blob: &str| {
-        mktree(dir, &[format!("100644 blob {blob}\tconflict.txt\n")])
-    };
+    let term_tree = |blob: &str| mktree(dir, &[format!("100644 blob {blob}\tconflict.txt\n")]);
     let base_tree = term_tree(&base_blob);
     let side0_tree = term_tree(&side0_blob);
     let side1_tree = term_tree(&side1_blob);
@@ -155,15 +150,13 @@ fn git_with_stdin(dir: &Path, args: &[&str], input: &str) -> String {
         "git {args:?}: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    String::from_utf8_lossy(&output.stdout).trim_end().to_string()
+    String::from_utf8_lossy(&output.stdout)
+        .trim_end()
+        .to_string()
 }
 
 fn hash_object(dir: &Path, kind: &str, content: &str) -> String {
-    git_with_stdin(
-        dir,
-        &["hash-object", "-t", kind, "-w", "--stdin"],
-        content,
-    )
+    git_with_stdin(dir, &["hash-object", "-t", kind, "-w", "--stdin"], content)
 }
 
 fn mktree(dir: &Path, entries: &[String]) -> String {
