@@ -7,26 +7,6 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
-fn git(args: &[&str], cwd: Option<&std::path::Path>) {
-    let mut cmd = std::process::Command::new("git");
-    cmd.args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .env("GIT_CONFIG_SYSTEM", "/dev/null")
-        .env("GIT_AUTHOR_NAME", "Test")
-        .env("GIT_AUTHOR_EMAIL", "test@example.com")
-        .env("GIT_COMMITTER_NAME", "Test")
-        .env("GIT_COMMITTER_EMAIL", "test@example.com");
-    if let Some(dir) = cwd {
-        cmd.current_dir(dir);
-    }
-    let out = cmd.output().unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 fn app(pool: sqlx::PgPool, root: &tempfile::TempDir) -> axum::Router {
     server::app_with_storage(pool, root.path().to_str().unwrap().to_string())
 }
@@ -128,7 +108,7 @@ async fn record_operations(meta: &std::path::Path, descriptions: &[&str]) {
             .load_at_head()
             .await
             .expect("load_at_head");
-        let mut tx = repo.start_transaction();
+        let tx = repo.start_transaction();
         tx.commit(format!("jjhub-test: {description}"))
             .await
             .expect("commit operation");
@@ -152,8 +132,11 @@ async fn oplog_read_helper_reads_newest_first_with_metadata(pool: sqlx::PgPool) 
         .map(|entry| entry.description.as_str())
         .collect();
     assert!(
-        descriptions
-            .starts_with(&["jjhub-test: gamma op", "jjhub-test: beta op", "jjhub-test: alpha op"]),
+        descriptions.starts_with(&[
+            "jjhub-test: gamma op",
+            "jjhub-test: beta op",
+            "jjhub-test: alpha op"
+        ]),
         "newest first: {descriptions:?}"
     );
     let newest = &entries[0];

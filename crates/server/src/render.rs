@@ -44,6 +44,11 @@ fn engine() -> &'static Tera {
             ),
             // story: e11s02 — repository-scoped revset search page
             ("search.html", include_str!("../templates/search.html")),
+            // story: e09s01 — the per-repository operation log page
+            (
+                "operations.html",
+                include_str!("../templates/operations.html"),
+            ),
         ] {
             tera.add_raw_template(name, source)
                 .unwrap_or_else(|err| panic!("load {name}: {err}"));

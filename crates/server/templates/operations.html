@@ -1,0 +1,19 @@
+{# story: e09s01 — the per-repository operation log: newest-first rows
+from jj's own .meta store; missing log data is a visible empty state #}
+{% extends "base.html" %}
+{% block title %}Operations · {{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }}</h1>
+{% include "nav.html" %}
+<h2>Operations</h2>
+{% if has_log %}
+<ol class="op-log">
+{% for op in operations %}
+<li class="op-row"><time>{{ op.time }}</time> <span class="op-identity">{{ op.username }}@{{ op.hostname }}</span> <a href="/{{ owner }}/{{ name }}/operations/{{ op.id }}">{{ op.description }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+{# story: e09s01 — no .meta store is a state of the repository, not a failure #}
+<p>This repository has <strong>no operation log</strong> yet.</p>
+{% endif %}
+{% endblock %}

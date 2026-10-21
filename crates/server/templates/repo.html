@@ -4,7 +4,7 @@
 <h1>{{ owner }}/{{ name }}</h1>
 <p>{{ visibility }} — trunk: {{ trunk }}</p>
 {% include "nav.html" %}
-<p>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}{% if files %} · <a href="/{{ owner }}/{{ name }}/tree">Files</a>{% endif %}{# story: e11s02 — search entry point next to Files #} · <a href="/{{ owner }}/{{ name }}/search">Search</a></p>
+<p>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}{% if files %} · <a href="/{{ owner }}/{{ name }}/tree">Files</a>{% endif %}{# story: e11s02 — search entry point next to Files #} · <a href="/{{ owner }}/{{ name }}/search">Search</a>{# story: e09s01 — the operation log entry in the repo nav #} · <a href="/{{ owner }}/{{ name }}/operations">Operations</a></p>
 <h2>Open merge requests</h2>
 <ul class="mr-list">
 {% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a></li>

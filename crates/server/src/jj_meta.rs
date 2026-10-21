@@ -219,7 +219,7 @@ fn settings() -> jj_lib::settings::UserSettings {
     identity
         .set_value(
             "operation.hostname",
-            &std::env::var("HOSTNAME").unwrap_or_else(|_| "jjhub".to_string()),
+            std::env::var("HOSTNAME").unwrap_or_else(|_| "jjhub".to_string()),
         )
         .ok();
     config.add_layer(identity);
