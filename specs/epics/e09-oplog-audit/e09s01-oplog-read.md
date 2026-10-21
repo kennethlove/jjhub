@@ -134,17 +134,17 @@ audit, any write path.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server oplog_read` — helper reads the fixture
+- [x] `cargo test -p server oplog_read` — helper reads the fixture
       `.meta` store: operations newest-first with time, username,
       hostname, description populated from `OperationMetadata`.
-      (e09s01t1)
-- [ ] `cargo test -p server oplog_page` — list page renders newest-first
+      (e09s01t1) — 1 passed.
+- [x] `cargo test -p server oplog_page` — list page renders newest-first
       rows capped at 50, escaped descriptions, private-repo 404 for
-      unauthorized viewers. (e09s01t2)
-- [ ] `cargo test -p server oplog_missing` — repo without `.meta` renders
+      unauthorized viewers. (e09s01t2) — 2 passed.
+- [x] `cargo test -p server oplog_missing` — repo without `.meta` renders
       the "no operation log" empty state with 200, no jj-lib error text.
-      (e09s01t3)
-- [ ] `cargo test --workspace` green.
+      (e09s01t3) — 1 passed.
+- [x] `cargo test --workspace` green. — preflight PASS at the integration tip.
 
 ## 18. Test scenarios (Gherkin)
 

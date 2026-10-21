@@ -94,10 +94,10 @@ audit history (e10s03).
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server protect_page` — settings surface lists
+- [x] `cargo test -p server protect_page` — settings surface lists
       `refs/heads/{trunk}` and `refs/tags/*` for a seeded repo; a repo
-      with a custom trunk lists its own branch. (e10s02t1)
-- [ ] `cargo test --workspace` green.
+      with a custom trunk lists its own branch. (e10s02t1) — 2 passed.
+- [x] `cargo test --workspace` green. — preflight PASS at the integration tip.
 
 ## 18. Test scenarios (Gherkin)
 
