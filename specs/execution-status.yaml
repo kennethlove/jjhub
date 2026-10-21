@@ -58,14 +58,14 @@ epics:
       e10s02: todo
       e10s03: todo
   e11-revset-search:
-    status: todo
+    status: in_progress
     stories:
-      e11s01: todo
+      e11s01: passing
       e11s02: todo
   e12-design-system:
-    status: todo
+    status: in_progress
     stories:
-      e12s01: todo
+      e12s01: passing
       e12s02: todo
       e12s03: todo
   e13-landing-tree:
@@ -79,8 +79,8 @@ epics:
       e14s01: todo
       e14s02: todo
   e15-templates:
-    status: todo
+    status: in_progress
     stories:
-      e15s01: todo
+      e15s01: passing
       e15s02: todo
       e15s03: todo
