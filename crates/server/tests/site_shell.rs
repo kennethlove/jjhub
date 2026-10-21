@@ -190,10 +190,7 @@ mod site_shell_css {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(&pool, &root).await;
         let html = get(&pool, &root, "/settings", Some(&cookie)).await;
-        assert!(
-            html.contains(LINK),
-            "stylesheet link on /settings: {html}"
-        );
+        assert!(html.contains(LINK), "stylesheet link on /settings: {html}");
     }
 }
 
@@ -258,14 +255,16 @@ mod site_repo_token_pages {
             .unwrap();
     }
 
-    async fn get(pool: &sqlx::PgPool, root: &tempfile::TempDir, path: &str) -> (StatusCode, String) {
-        let response = server::app_with_storage(
-            pool.clone(),
-            root.path().to_str().unwrap().to_string(),
-        )
-        .oneshot(Request::get(path).body(Body::empty()).unwrap())
-        .await
-        .unwrap();
+    async fn get(
+        pool: &sqlx::PgPool,
+        root: &tempfile::TempDir,
+        path: &str,
+    ) -> (StatusCode, String) {
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
         let status = response.status();
         let body =
             String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
@@ -308,10 +307,7 @@ mod site_repo_token_pages {
         let (status, list) = get(&pool, &root, "/alice/demo/merge-requests").await;
         assert_eq!(status, StatusCode::OK);
         assert!(list.contains(LINK), "MR list link: {list}");
-        assert!(
-            list.contains("class=\"mr-stack\""),
-            "MR stack list: {list}"
-        );
+        assert!(list.contains("class=\"mr-stack\""), "MR stack list: {list}");
 
         let mut context = tera::Context::new();
         context.insert("owner", "alice");
