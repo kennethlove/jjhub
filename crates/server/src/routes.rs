@@ -400,6 +400,12 @@ pub async fn repo_page(
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
 
+    // story: e10s02 — the settings listing shares the push gate's resolver;
+    // display and enforcement can never diverge
+    let protected = crate::receive_guard::protected_refs(&state.pool, repo_id)
+        .await
+        .unwrap_or_default();
+
     // story: repo dashboard — the page surfaces open changes, not just
     // clone instructions
     let mrs = crate::stack::open_mrs(&state.pool, repo_id)
@@ -444,6 +450,7 @@ pub async fn repo_page(
     context.insert("name", &name);
     context.insert("visibility", &visibility);
     context.insert("trunk", &trunk);
+    context.insert("protected_refs", &protected);
     context.insert("browse_href", &browse);
     context.insert("files", &has_files);
     context.insert("mrs", &mr_ids);
