@@ -134,6 +134,138 @@ pub async fn check_push(
         .collect())
 }
 
+/// story: e10s01 — the protected set for one repo, derived from
+/// `repositories.trunk` plus `refs/tags/*`. Not user-configurable in 0.2.0.
+/// e10s02 reuses this resolver for display.
+pub async fn protected_refs(
+    pool: &PgPool,
+    repo_id: uuid::Uuid,
+) -> Result<Vec<String>, sqlx::Error> {
+    let trunk: String = sqlx::query_scalar("SELECT trunk FROM repositories WHERE id = $1")
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await?;
+    Ok(vec![
+        format!("refs/heads/{trunk}"),
+        "refs/tags/*".to_string(),
+    ])
+}
+
+/// story: e10s01 — match a ref name against the protected set: an exact
+/// match (trunk branch) or a `*`-suffix prefix match (`refs/tags/*`).
+pub fn ref_is_protected(ref_name: &str, protected: &[String]) -> bool {
+    protected
+        .iter()
+        .any(|pattern| match pattern.strip_suffix('*') {
+            Some(prefix) => ref_name.starts_with(prefix),
+            None => ref_name == pattern,
+        })
+}
+
+/// story: e10s01 — push-admission rule: refuse any update that
+/// rewrites a protected ref (non-fast-forward advance or deletion) before
+/// any ref moves. Creation (old = zeros) and fast-forward advances pass;
+/// unprotected refs are never examined. Returns human-readable reasons;
+/// empty = allow. `git_dir` is the bare repo (hook cwd) where ancestry is
+/// checked with argv-only `git merge-base --is-ancestor <old> <new>`.
+pub async fn check_protected_refs(
+    pool: &PgPool,
+    repo_id: uuid::Uuid,
+    updates: &[PushedRef],
+    git_dir: &std::path::Path,
+) -> Result<Vec<String>, sqlx::Error> {
+    let protected = protected_refs(pool, repo_id).await?;
+    let mut rejections = Vec::new();
+    for update in updates {
+        if !ref_is_protected(&update.ref_name, &protected) {
+            continue;
+        }
+        if update.new.chars().all(|c| c == '0') {
+            rejections.push(format!(
+                "refusing to delete protected ref {}: its history is immutable",
+                update.ref_name
+            ));
+        } else if !update.is_create() && !is_ancestor(git_dir, &update.old, &update.new) {
+            rejections.push(format!(
+                "refusing non-fast-forward update of protected ref {}: new head does not contain the recorded head",
+                update.ref_name
+            ));
+        }
+    }
+    Ok(rejections)
+}
+
+/// story: e10s01 — ancestry inside `git_dir` via argv-only git, same
+/// subprocess pattern (and quarantine visibility) as the hook's
+/// `git cat-file`. Fails closed: an error resolving either oid counts as
+/// "not an ancestor" and rejects.
+fn is_ancestor(git_dir: &std::path::Path, old: &str, new: &str) -> bool {
+    std::process::Command::new("git")
+        .args(["merge-base", "--is-ancestor", old, new])
+        .current_dir(git_dir)
+        // never leak git's own diagnostics into the hook's stderr — the
+        // pusher only sees our reasons
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+/// story: e03s01, e10s01 — identity extraction, moved out of the
+/// hook body so the whole admission path is testable: for each branch
+/// create/advance, read the new head's identity from the (quarantined)
+/// object store of `git_dir` via argv-only `git cat-file`.
+pub fn pushed_commits(updates: &[PushedRef], git_dir: &std::path::Path) -> Vec<PushedCommit> {
+    let mut pushed = Vec::new();
+    for update in updates {
+        // identity rule covers branch updates only; tags and deletes are
+        // the protected-ref rule's job
+        if !update.ref_name.starts_with("refs/heads/") || update.new.chars().all(|c| c == '0') {
+            continue;
+        }
+        let Ok(output) = std::process::Command::new("git")
+            .args(["cat-file", "commit", &update.new])
+            .current_dir(git_dir)
+            .output()
+        else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        let Some(identity) = parse_commit_identity(&String::from_utf8_lossy(&output.stdout)) else {
+            continue;
+        };
+        pushed.push(PushedCommit {
+            ref_name: update.ref_name.clone(),
+            old: update.old.clone(),
+            new: update.new.clone(),
+            change_id: Some(identity.change_id),
+            author_email: identity.author_email,
+            committer_email: identity.committer_email,
+        });
+    }
+    pushed
+}
+
+/// story: e10s01 — push admission: both guard rules over one push —
+/// protected-ref rewrites (this story) and foreign-identity rewrites of
+/// open-MR changes (e03s01). Reasons; empty = allow. The hook exits 1 on
+/// any reason before any ref moves.
+pub async fn admit_push(
+    pool: &PgPool,
+    repo_id: uuid::Uuid,
+    updates: &[PushedRef],
+    git_dir: &std::path::Path,
+) -> Result<Vec<String>, sqlx::Error> {
+    let mut reasons = check_protected_refs(pool, repo_id, updates, git_dir).await?;
+    let pushed = pushed_commits(updates, git_dir);
+    if !pushed.is_empty() {
+        reasons.extend(check_push(pool, repo_id, pushed).await?);
+    }
+    Ok(reasons)
+}
+
 /// story: e03s01 — parse the pkt-line command list of a receive-pack POST:
 /// `<4-hex-len><old> <new> <ref>\n` frames, terminated by flush-pkt.
 pub fn parse_push_commands(pkt_bytes: &[u8]) -> Vec<PushedRef> {
