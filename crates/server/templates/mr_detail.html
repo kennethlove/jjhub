@@ -1,4 +1,4 @@
-<!doctype html><html><body>
+<!doctype html><html><head><link rel="stylesheet" href="/assets/app.css"></head><body>
 <h1>{{ owner | safe }}/{{ name | safe }} — {{ change_id | safe }} ({{ mr_state | safe }})</h1>
 {% if badges %}<p class="statuses">{{ badges | join(sep=" ") | safe }}</p>{% endif %}
 {{ sections | join(sep="\n") | safe }}
