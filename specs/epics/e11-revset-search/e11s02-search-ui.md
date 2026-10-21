@@ -113,12 +113,12 @@ autocomplete, recent-queries history, pagination beyond the fixed cap.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server revset_ui` — search page renders with query
+- [x] `cargo test -p server revset_ui` — search page renders with query
       box and result rows; results link to open MRs; query text is
       escaped. (e11s02t1)
-- [ ] `cargo test -p server revset_default` — empty `q` runs `open()`;
+- [x] `cargo test -p server revset_default` — empty `q` runs `open()`;
       zero matches render the empty state. (e11s02t2)
-- [ ] `cargo test --workspace` green.
+- [x] `cargo test --workspace` green.
 
 ## 18. Test scenarios (Gherkin)
 
