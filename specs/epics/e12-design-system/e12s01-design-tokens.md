@@ -94,9 +94,9 @@ redesign, dark-mode toggle.
 
 ## 17. Acceptance criteria
 
-- [ ] `DESIGN.md` exists at repo root with required sections.
-- [ ] `npx @google/design.md lint DESIGN.md` exits 0.
-- [ ] State contract and reduced-motion fallback are documented.
+- [x] `DESIGN.md` exists at repo root with required sections.
+- [x] `npx @google/design.md lint DESIGN.md` exits 0.
+- [x] State contract and reduced-motion fallback are documented.
 
 ## 18. Test scenarios (Gherkin)
 
