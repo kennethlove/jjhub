@@ -107,6 +107,15 @@ ol {
 
 a {
   color: var(--color-tertiary-hover);
+  transition: color 120ms ease-out;
+}
+
+a:hover {
+  color: var(--color-tertiary-pressed);
+}
+
+a:active {
+  color: var(--color-primary);
 }
 
 code,
@@ -118,4 +127,49 @@ pre {
 
 pre {
   overflow-x: auto;
+}
+
+/* components — DESIGN.md token values */
+button {
+  font-family: var(--font-sans);
+  font-size: var(--text-label-md);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-on-accent);
+  background-color: var(--color-tertiary);
+  border: 0;
+  border-radius: var(--radius-md);
+  min-height: 40px;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+
+button:hover {
+  background-color: var(--color-tertiary-hover);
+}
+
+button:active {
+  background-color: var(--color-tertiary-pressed);
+}
+
+button:disabled {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-secondary);
+  cursor: not-allowed;
+}
+
+/* states — DESIGN.md state contract */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a,
+  button {
+    transition: none;
+  }
 }
