@@ -92,6 +92,11 @@ mod extract_browse {
         expected.insert("name", "demo");
         expected.insert("visibility", "public");
         expected.insert("trunk", "trunk");
+        // story: e10s02 — settings block lists the push gate's protected set
+        expected.insert(
+            "protected_refs",
+            &["refs/heads/trunk".to_string(), "refs/tags/*".to_string()],
+        );
         expected.insert("browse_href", "");
         expected.insert("files", &true);
         expected.insert("mrs", &Vec::<String>::new());
