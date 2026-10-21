@@ -47,3 +47,15 @@ locks:
   - crates/server/tests/conflict_refs.rs
   - crates/server/tests/conflict_support/mod.rs
   - scripts/e2e-clone.sh
+- story_id: e09s01
+  locked_by: 'agent-e09s01'
+  locked_at: '2026-10-21T20:34:33Z'
+  files_touched:
+  - crates/server/src/jj_meta.rs
+  - crates/server/src/routes.rs
+  - crates/server/src/lib.rs
+  - crates/server/src/render.rs
+  - crates/server/templates/operations.html
+  - crates/server/templates/repo.html
+  - crates/server/tests/oplog_read.rs
+  - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
