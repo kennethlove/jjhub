@@ -39,4 +39,23 @@ mod site_css {
         );
         assert!(!body.is_empty(), "stylesheet body must not be empty");
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn site_css_stylesheet_declares_token_base(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let (_, _, body) = get_stylesheet(&pool, &root).await;
+        assert!(body.contains(":root"), "token block missing: {body}");
+        assert!(
+            body.contains("--color-tertiary: #157F52"),
+            "tertiary token from DESIGN.md missing"
+        );
+        assert!(
+            body.contains("--space-sm: 16px"),
+            "spacing token from DESIGN.md missing"
+        );
+        assert!(
+            body.contains("IBM Plex Sans"),
+            "base type must use the DESIGN.md typeface: {body}"
+        );
+    }
 }
