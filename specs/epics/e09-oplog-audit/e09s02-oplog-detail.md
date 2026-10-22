@@ -122,12 +122,12 @@ cross-repo audit views, any write path.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server oplog_detail` — detail page shows timestamp,
+- [x] `cargo test -p server oplog_detail` — detail page shows timestamp,
       actor, description, linked parents, and the ref-change table with
       prior → new ids from `added_ids()`/`removed_ids()`; conflicted
       targets flagged; unknown operation id → 404; missing `.meta` →
-      empty state. (e09s02t1)
-- [ ] `cargo test --workspace` green.
+      empty state. (e09s02t1) — 5/5 pass, run 2026-10-22, evidence: handler `operation_detail_page` + `ref_changes()`/`load_operation_detail` in jj_meta.rs + `templates/operation_detail.html` + `tests/oplog_detail.rs`
+- [x] `cargo test --workspace` green. (214/0 after git-config fix 62b88453)
 
 ## 18. Test scenarios (Gherkin)
 

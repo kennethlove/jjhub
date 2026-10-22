@@ -108,7 +108,9 @@ Implement ONLY these categories:
 
 `DESIGN.md` at the project root is the single source of truth for design tokens (color, type, spacing, radius, elevation). UI work derives its values from it and from no other source.
 
-Any change that touches UI must pass the stylesheet audit gate before it is considered done — the gate checks token coverage, APCA contrast, interaction states, and reduced-motion fallback. A screen is not "done" until that audit passes; handoff is blocked on failure.
+Any change that touches UI must pass the design audit — the stylesheet audit gate — before it is considered done: token coverage, APCA contrast, interaction states, and reduced-motion fallback. A screen is not "done" until the design audit passes; handoff is blocked on failure.
+
+<!-- // story: e12s03 -->
 
 ## Structure
 

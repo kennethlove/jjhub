@@ -73,7 +73,7 @@ Editing AGENTS.md (managed block), changing the cargo Preflight chain.
 
 ## 17. Acceptance criteria
 
-- [ ] CONVENTIONS.md references DESIGN.md and the audit step.
+- [x] CONVENTIONS.md references DESIGN.md and the audit step. (2026-10-22 — section "Design System & Audit"; greps `grep -q 'DESIGN.md'` and `grep -qi 'design audit'` both pass; `// story: e12s03` trace present)
 
 ## 18. Test scenarios (Gherkin)
 

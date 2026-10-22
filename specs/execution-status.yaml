@@ -50,7 +50,7 @@ epics:
     status: todo
     stories:
       e09s01: passing
-      e09s02: todo
+      e09s02: passing
   e10-immutability-policy:
     status: in_progress
     stories:
@@ -67,7 +67,7 @@ epics:
     stories:
       e12s01: passing
       e12s02: passing
-      e12s03: todo
+      e12s03: passing
   e13-landing-tree:
     status: todo
     stories:
@@ -77,7 +77,7 @@ epics:
     status: todo
     stories:
       e14s01: passing
-      e14s02: todo
+      e14s02: passing
   e15-templates:
     status: in_progress
     stories:
