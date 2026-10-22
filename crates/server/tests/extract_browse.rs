@@ -99,6 +99,14 @@ mod extract_browse {
         );
         expected.insert("browse_href", "");
         expected.insert("files", &true);
+        // story: e13s01 — the landing page carries the root file tree
+        expected.insert(
+            "tree",
+            &vec![
+                serde_json::json!({"is_dir": false, "label": "README.md"}),
+                serde_json::json!({"is_dir": true, "label": "docs"}),
+            ],
+        );
         expected.insert("mrs", &Vec::<String>::new());
         expected.insert("host", "localhost:3000");
         expected.insert("clone_token", "<TOKEN>");
