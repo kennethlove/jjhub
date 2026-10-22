@@ -5,6 +5,12 @@
 <p><a href="{{ back | safe }}">back</a></p>
 {% if binary %}
 <p>{{ len }} bytes (binary file — not shown)</p>
+{% elif conflict %}
+{% for part in parts %}
+<pre class="code-block">{{ part.glyph | safe }}{{ part.label }}
+{% for line in part.lines %}{{ line.number }} {{ line.text }}
+{% endfor %}</pre>
+{% endfor %}
 {% else %}
 <pre class="code-block">{% for line in lines %}{{ line.number }} {{ line.text }}
 {% endfor %}</pre>
