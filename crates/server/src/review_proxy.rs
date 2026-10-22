@@ -223,7 +223,7 @@ pub fn review_link(
     if !meta.join(".jj").exists() {
         return None;
     }
-    // story: kata links — the SPA is served at jjhub's origin (/r/…) with
+    // story: kata links — the SPA is served at jjhub's origin (/r/...) with
     // identity injected per request; same origin, so routing, assets, and
     // API all resolve (the loopback shortcut dead-ended in kata's
     // unauthenticated /auth/login redirect loop).
@@ -333,11 +333,31 @@ async fn forward_to_kata(state: &AppState, user: uuid::Uuid, request: Request) -
     response
 }
 
-/// story: kata at jjhub origin — the SPA's own path (`/r/{repo}/…`). The
+/// story: e14s01 — frame policy for the embed: only same-origin documents
+/// may frame the forwarder's responses; direct navigation is unaffected.
+fn with_frame_policy(mut response: Response) -> Response {
+    response.headers_mut().insert(
+        axum::http::header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("frame-ancestors 'self'"),
+    );
+    response
+}
+
+/// story: kata at jjhub origin — the SPA's own path (`/r/{repo}/...`). The
 /// first segment is the flattened `{owner}__{name}` repo id.
 pub async fn spa_route(
     State(state): State<AppState>,
     axum::extract::Path(rest): axum::extract::Path<String>,
+    headers: HeaderMap,
+    request: Request,
+) -> Response {
+    // story: e14s01 — every embed response carries the frame policy
+    with_frame_policy(spa_route_inner(state, rest, headers, request).await)
+}
+
+async fn spa_route_inner(
+    state: AppState,
+    rest: String,
     headers: HeaderMap,
     request: Request,
 ) -> Response {
@@ -355,11 +375,21 @@ pub async fn spa_route(
 }
 
 /// story: kata at jjhub origin — the SPA's API. Repo-scoped paths
-/// (`/api/repos/{owner}__{name}/…`) get invariant-6 authz; the rest
+/// (`/api/repos/{owner}__{name}/...`) get invariant-6 authz; the rest
 /// (whoami, events) needs any session.
 pub async fn api_route(
     State(state): State<AppState>,
     axum::extract::Path(rest): axum::extract::Path<String>,
+    headers: HeaderMap,
+    request: Request,
+) -> Response {
+    // story: e14s01 — every embed response carries the frame policy
+    with_frame_policy(api_route_inner(state, rest, headers, request).await)
+}
+
+async fn api_route_inner(
+    state: AppState,
+    rest: String,
     headers: HeaderMap,
     request: Request,
 ) -> Response {
@@ -384,7 +414,8 @@ pub async fn api_route(
 /// story: kata at jjhub origin — static assets. No session: they carry no
 /// repository data and the SPA page that requests them is already authed.
 pub async fn assets_route(State(state): State<AppState>, request: Request) -> Response {
-    forward_anonymous(&state, request).await
+    // story: e14s01 — every embed response carries the frame policy
+    with_frame_policy(forward_anonymous(&state, request).await)
 }
 
 async fn forward_anonymous(state: &AppState, request: Request) -> Response {

@@ -120,13 +120,13 @@ iframe messaging, comment-count badges from kata, bidirectional links
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server embed_iframe` — MR detail page renders an
+- [x] `cargo test -p server embed_iframe` — MR detail page renders an
       iframe whose src is the same-origin forwarder URL for the MR's
       change; the HTML contains no upstream host. (e14s01t1)
-- [ ] `cargo test -p server embed_csp` — the embed route's response
+- [x] `cargo test -p server embed_csp` — the embed route's response
       carries `frame-ancestors 'self'`; other jjhub routes are unchanged.
       (e14s01t2)
-- [ ] `cargo test --workspace` green.
+- [x] `cargo test --workspace` green. (203 passed / 0 failed, 2026-10-22)
 
 ## 18. Test scenarios (Gherkin)
 

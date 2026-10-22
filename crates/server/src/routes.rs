@@ -1212,22 +1212,58 @@ async fn render_tree(
         }));
     }
 
-    let items: Vec<serde_json::Value> = entries
-        .iter()
-        .map(|(entry_name, is_dir)| {
+    let items: Vec<serde_json::Value> = {
+        // story: e08s02 — group jj's .jjconflict* dirs into one conflict
+        // entry; ordinary entries render unchanged
+        let mut grouped: Vec<serde_json::Value> = Vec::new();
+        let mut conflict_emitted = false;
+        for (entry_name, is_dir) in entries.iter() {
             let kind = if *is_dir { "tree" } else { "blob" };
             let base = if path.is_empty() {
                 String::new()
             } else {
                 format!("/{path}")
             };
-            serde_json::json!({
-                "is_dir": is_dir,
-                "href": format!("/{owner}/{name}/{kind}/{git_ref}{base}/{entry_name}"),
-                "label": entry_name
-            })
-        })
-        .collect();
+            let item = |extra: serde_json::Value| {
+                let mut value = serde_json::json!({
+                    "is_dir": is_dir,
+                    "href": format!("/{owner}/{name}/{kind}/{git_ref}{base}/{entry_name}"),
+                    "label": entry_name
+                });
+                if let Some(map) = value.as_object_mut() {
+                    for (key, value) in extra.as_object().unwrap().iter() {
+                        map.insert(key.clone(), value.clone());
+                    }
+                }
+                value
+            };
+            if *is_dir && entry_name.starts_with(".jjconflict-") {
+                if !conflict_emitted {
+                    conflict_emitted = true;
+                    let mut bases = 0usize;
+                    let mut sides = 0usize;
+                    for (name, _) in entries.iter() {
+                        if name.starts_with(".jjconflict-base-") {
+                            bases += 1;
+                        } else if name.starts_with(".jjconflict-side-") {
+                            sides += 1;
+                        }
+                    }
+                    grouped.push(item(serde_json::json!({
+                        "is_conflict": true,
+                        "summary": format!(
+                            "conflict ({bases} base{} + {sides} side{})",
+                            if bases == 1 { "" } else { "s" },
+                            if sides == 1 { "" } else { "s" }
+                        )
+                    })));
+                }
+            } else {
+                grouped.push(item(serde_json::json!({})));
+            }
+        }
+        grouped
+    };
 
     let path_label = if path.is_empty() {
         "/".to_string()
@@ -1276,24 +1312,35 @@ pub async fn blob_page(
     };
     match crate::browse::read_blob(&bare, &git_ref, &path) {
         Ok(crate::browse::Blob::Text(text)) => {
-            let lines: Vec<serde_json::Value> = text
-                .lines()
-                .enumerate()
-                .map(|(i, line)| {
-                    serde_json::json!({
-                        "number": format!("{:>4}", i + 1),
-                        "text": line
-                    })
-                })
-                .collect();
             let mut context = page_context(None, "");
             context.insert("owner", &owner);
             context.insert("name", &name);
             context.insert("path", &path);
             context.insert("back", &back);
-            context.insert("binary", &false);
-            context.insert("len", &0);
-            context.insert("lines", &lines);
+            // story: e08s02 — a conflicted path renders all terms with
+            // markers instead of one side's content
+            if let Some(conflict) = crate::browse::read_conflict(&bare, &git_ref, &path) {
+                context.insert("conflict", &true);
+                context.insert("parts", &conflict_parts(&conflict));
+                context.insert("binary", &false);
+                context.insert("len", &0);
+                context.insert("lines", &Vec::<serde_json::Value>::new());
+            } else {
+                let lines: Vec<serde_json::Value> = text
+                    .lines()
+                    .enumerate()
+                    .map(|(i, line)| {
+                        serde_json::json!({
+                            "number": format!("{:>4}", i + 1),
+                            "text": line
+                        })
+                    })
+                    .collect();
+                context.insert("conflict", &false);
+                context.insert("binary", &false);
+                context.insert("len", &0);
+                context.insert("lines", &lines);
+            }
             Html(crate::render::render("blob.html", &context)).into_response()
         }
         Ok(crate::browse::Blob::Binary { len }) => {
@@ -1302,6 +1349,7 @@ pub async fn blob_page(
             context.insert("name", &name);
             context.insert("path", &path);
             context.insert("back", &back);
+            context.insert("conflict", &false);
             context.insert("binary", &true);
             context.insert("len", &len);
             context.insert("lines", &Vec::<serde_json::Value>::new());
@@ -1309,6 +1357,76 @@ pub async fn blob_page(
         }
         Err(_) => (StatusCode::NOT_FOUND, "no such file").into_response(),
     }
+}
+
+// story: e08s02 — flatten a conflict into template parts: side-0 first,
+// then every base, then the remaining sides, then the closing marker.
+// Glyphs are constants here so the template can emit them raw; labels and
+// content go through Tera's autoescape.
+fn conflict_parts(conflict: &crate::browse::Conflict) -> Vec<serde_json::Value> {
+    use crate::browse::Side;
+    fn side_lines(side: &Side) -> Vec<serde_json::Value> {
+        match side {
+            Side::Text { text, .. } => text
+                .lines()
+                .enumerate()
+                .map(|(i, line)| {
+                    serde_json::json!({
+                        "number": format!("{:>4}", i + 1),
+                        "text": line
+                    })
+                })
+                .collect(),
+            Side::Binary { len } => vec![serde_json::json!({
+                "number": "",
+                "text": format!("{len} bytes (binary file — not shown)")
+            })],
+            Side::Missing => vec![serde_json::json!({
+                "number": "",
+                "text": "(not present in this side)"
+            })],
+        }
+    }
+    fn part(glyph: &str, label: &str, lines: &[&crate::browse::Side]) -> serde_json::Value {
+        let merged: Vec<serde_json::Value> =
+            lines.iter().flat_map(|side| side_lines(side)).collect();
+        serde_json::json!({ "glyph": glyph, "label": label, "lines": merged })
+    }
+
+    let mut parts = vec![part(
+        "<<<<<<< ",
+        conflict
+            .side_labels
+            .first()
+            .map(String::as_str)
+            .unwrap_or("side-0"),
+        &[&conflict.sides[0]],
+    )];
+    for (index, base) in conflict.bases.iter().enumerate() {
+        let label = conflict
+            .base_labels
+            .get(index)
+            .map(String::as_str)
+            .unwrap_or("base");
+        parts.push(part("||||||| ", label, &[base]));
+    }
+    for (index, side) in conflict.sides.iter().enumerate().skip(1) {
+        let label = conflict
+            .side_labels
+            .get(index)
+            .map(String::as_str)
+            .unwrap_or("side");
+        parts.push(part("======= ", label, &[side]));
+    }
+    if let Some(last) = conflict.sides.last() {
+        let label = conflict
+            .side_labels
+            .last()
+            .map(String::as_str)
+            .unwrap_or("side");
+        parts.push(part(">>>>>>> ", label, &[last]));
+    }
+    parts
 }
 
 /// story: e09s01 — server-side cap on rendered operations.

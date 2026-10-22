@@ -1,8 +1,8 @@
 locks:
-- files_touched: []
-  locked_at: '2026-10-15T18:20:38Z'
+- story_id: e01s01
   locked_by: 'agent: develop-tdd'
-  story_id: e01s01
+  locked_at: '2026-10-15T18:20:38Z'
+  files_touched: []
 - story_id: e15s02
   locked_by: 'agent: e15s02'
   locked_at: '2026-10-20T21:21:31Z'
@@ -40,7 +40,7 @@ locks:
   locked_at: '2026-10-21T00:54:01Z'
   files_touched: []
 - story_id: e08s01
-  locked_by: 'agent-e08s01'
+  locked_by: agent-e08s01
   locked_at: '2026-10-21T20:48:30Z'
   files_touched:
   - crates/server/tests/conflict_fixture.rs
@@ -48,7 +48,7 @@ locks:
   - crates/server/tests/conflict_support/mod.rs
   - scripts/e2e-clone.sh
 - story_id: e09s01
-  locked_by: 'agent-e09s01'
+  locked_by: agent-e09s01
   locked_at: '2026-10-21T20:34:33Z'
   files_touched:
   - crates/server/src/jj_meta.rs
@@ -60,9 +60,40 @@ locks:
   - crates/server/tests/oplog_read.rs
   - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
 - story_id: e10s02
-  locked_by: 'agent-e10s02'
+  locked_by: agent-e10s02
   locked_at: '2026-10-21T20:34:05Z'
   files_touched:
-    - crates/server/templates/repo.html
-    - crates/server/src/routes.rs
-    - crates/server/tests/protect_page.rs
+  - crates/server/templates/repo.html
+  - crates/server/src/routes.rs
+  - crates/server/tests/protect_page.rs
+- story_id: e14s01
+  locked_by: agent-e14s01
+  locked_at: '2026-10-22T00:11:46Z'
+  files_touched:
+  - crates/server/src/review_proxy.rs
+  - crates/server/templates/mr_detail.html
+  - crates/server/tests/embed_iframe.rs
+  - specs/agent-locks.yaml
+  - specs/epics/e14-kata-embed/e14s01-kata-embed.md
+  - specs/epics/e14-kata-embed/e14s01-tasks.yaml
+- story_id: e08s02
+  locked_by: agent-e08s02
+  locked_at: '2026-10-22T01:05:00Z'
+  files_touched:
+  - crates/server/src/browse.rs
+  - crates/server/src/routes.rs
+  - crates/server/templates/blob.html
+  - crates/server/templates/tree.html
+  - crates/server/tests/conflict_browse.rs
+  - crates/server/tests/conflict_tree.rs
+  - crates/server/tests/conflict_support/mod.rs
+- story_id: e13s01
+  locked_by: agent-e13s01
+  locked_at: '2026-10-22T19:31:49Z'
+  files_touched:
+  - crates/server/src/routes.rs
+  - crates/server/templates/repo.html
+  - crates/server/tests/landing_tree.rs
+  - specs/agent-locks.yaml
+  - specs/epics/e13-landing-tree/e13s01-landing-tree.md
+  - specs/epics/e13-landing-tree/e13s01-tasks.yaml

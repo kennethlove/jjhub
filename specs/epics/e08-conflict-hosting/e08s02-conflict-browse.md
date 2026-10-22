@@ -124,14 +124,14 @@ jj-side conflict metadata beyond the git representation.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server conflict_browse` — blob page on a conflicted
+- [x] `cargo test -p server conflict_browse` — blob page on a conflicted
       path renders markers with all sides and escaped content; a
       non-conflicted path renders unchanged; binary sides show the note.
-      (e08s02t1)
-- [ ] `cargo test -p server conflict_tree` — tree page groups
+      (e08s02t1) — 4 passed.
+- [x] `cargo test -p server conflict_tree` — tree page groups
       `.jjconflict*` dirs into one conflict entry, does not link them as
-      directories, and lists ordinary entries unchanged. (e08s02t2)
-- [ ] `cargo test --workspace` green.
+      directories, and lists ordinary entries unchanged. (e08s02t2) — 2 passed.
+- [x] `cargo test --workspace` green. — dispatch gates green.
 
 ## 18. Test scenarios (Gherkin)
 
