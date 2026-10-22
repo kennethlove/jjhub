@@ -11,6 +11,13 @@
 </ul>
 {% include "nav.html" %}
 <p>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}{% if files %} · <a href="/{{ owner }}/{{ name }}/tree">Files</a>{% endif %}{# story: e11s02 — search entry point next to Files #} · <a href="/{{ owner }}/{{ name }}/search">Search</a>{# story: e09s01 — the operation log entry in the repo nav #} · <a href="/{{ owner }}/{{ name }}/operations">Operations</a></p>
+{# story: e13s01 — root file tree at the trunk revision; entry links land in e13s02 #}
+<h2>Files</h2>
+<ul class="file-list">
+{% for entry in tree %}<li>{% if entry.is_dir %}📁 {% endif %}{{ entry.label | safe }}</li>
+{% endfor %}
+{% if not tree %}<li>No files at this revision yet.</li>{% endif %}
+</ul>
 <h2>Open merge requests</h2>
 <ul class="mr-list">
 {% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a></li>
