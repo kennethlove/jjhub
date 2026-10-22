@@ -107,3 +107,13 @@ locks:
   - crates/server/src/render.rs
   - crates/server/templates/operation_detail.html
   - crates/server/tests/oplog_detail.rs
+- story_id: e14s02
+  locked_by: agent-e14s02
+  locked_at: '2026-10-22T22:52:29Z'
+  files_touched:
+  - crates/server/templates/mr_detail.html
+  - crates/server/assets/app.css
+  - crates/server/tests/embed_states.rs
+  - specs/agent-locks.yaml
+  - specs/epics/e14-kata-embed/e14s02-embed-states.md
+  - specs/epics/e14-kata-embed/e14s02-tasks.yaml
