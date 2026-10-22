@@ -158,7 +158,7 @@ pub struct Conflict {
 /// story: e08s02 — parse a multi-line git commit header body (continuation
 /// lines start with a space, per git header folding). jj headers may live
 /// in the commit header block or in the message.
-fn header_value<'a>(headers: &'a str, name: &str) -> Option<String> {
+fn header_value(headers: &str, name: &str) -> Option<String> {
     let mut lines = headers.lines();
     let first = lines.find(|line| line.starts_with(&format!("{name} ")))?;
     let mut value = first.strip_prefix(&format!("{name} "))?.to_string();
@@ -217,11 +217,13 @@ pub fn read_conflict(bare: &Path, git_ref: &str, path: &str) -> Option<Conflict>
     // a jj-conflicted commit records one tree per term, add first: an odd
     // count of 40-hex values. clean commits have no such header at all.
     let terms: Vec<&str> = trees_value.split_whitespace().collect();
-    if terms.len() < 3 || terms.len() % 2 == 0 || terms.len() > MAX_CONFLICT_TERMS {
+    if terms.len() < 3 || terms.len().is_multiple_of(2) || terms.len() > MAX_CONFLICT_TERMS {
         return None;
     }
     if !terms.iter().all(|t| {
-        t.len() == 40 && t.bytes().all(|b| b.is_ascii_hexdigit() || b.is_ascii_uppercase())
+        t.len() == 40
+            && t.bytes()
+                .all(|b| b.is_ascii_hexdigit() || b.is_ascii_uppercase())
     }) {
         return None;
     }
@@ -309,7 +311,11 @@ pub fn read_conflict(bare: &Path, git_ref: &str, path: &str) -> Option<Conflict>
         term_bytes.push(term_file_bytes(bare, sha, path));
     }
     match term_bytes.first() {
-        Some(Some(first)) if term_bytes.iter().all(|t| t.as_deref() == Some(first.as_slice())) => {
+        Some(Some(first))
+            if term_bytes
+                .iter()
+                .all(|t| t.as_deref() == Some(first.as_slice())) =>
+        {
             return None;
         }
         None => return None,
@@ -317,9 +323,9 @@ pub fn read_conflict(bare: &Path, git_ref: &str, path: &str) -> Option<Conflict>
     }
     let render = |bytes: Option<Vec<u8>>| match bytes {
         None => Side::Missing,
-        Some(bytes) if bytes[..bytes.len().min(8000)].contains(&0) => Side::Binary {
-            len: bytes.len(),
-        },
+        Some(bytes) if bytes[..bytes.len().min(8000)].contains(&0) => {
+            Side::Binary { len: bytes.len() }
+        }
         Some(bytes) => {
             let text = String::from_utf8_lossy(&bytes).into_owned();
             let truncated = text.len() > SIDE_RENDER_CAP;
@@ -343,12 +349,7 @@ pub fn read_conflict(bare: &Path, git_ref: &str, path: &str) -> Option<Conflict>
         sides.push(render(bytes));
     }
     let mut bases = Vec::new();
-    for bytes in term_bytes
-        .iter()
-        .skip(side_count)
-        .take(base_count)
-        .cloned()
-    {
+    for bytes in term_bytes.iter().skip(side_count).take(base_count).cloned() {
         bases.push(render(bytes));
     }
     Some(Conflict {

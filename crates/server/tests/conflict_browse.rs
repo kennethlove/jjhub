@@ -91,7 +91,10 @@ mod conflict_browse {
         )
         .await;
         assert!(html.contains("base"), "clean content: {html}");
-        assert!(!html.contains("<<<<<<<"), "no markers on clean commit: {html}");
+        assert!(
+            !html.contains("<<<<<<<"),
+            "no markers on clean commit: {html}"
+        );
 
         // conflicted commit, path identical in every term: plain rendering
         let html = get(&pool, root.path(), "/alice/demo/blob/trunk/same.txt").await;

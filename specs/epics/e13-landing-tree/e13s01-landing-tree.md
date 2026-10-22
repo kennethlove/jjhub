@@ -105,10 +105,10 @@ contents, sorting beyond `list_tree` order, tree-page changes.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server landing_tree` — seeded repo: the landing page
+- [x] `cargo test -p server landing_tree` — seeded repo: the landing page
       lists root entries (directories and files) at the trunk revision,
-      with escaped names. (e13s01t1)
-- [ ] `cargo test --workspace` green.
+      with escaped names. (e13s01t1) — 3 passed.
+- [x] `cargo test --workspace` green. — dispatch gates green.
 
 ## 18. Test scenarios (Gherkin)
 

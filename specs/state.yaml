@@ -7,37 +7,34 @@ vcs:
 session:
   started: "2026-10-19T00:00:00Z"
   active_epic_id: e08-conflict-hosting
-  active_story_id: e08s02
+  active_story_id: e08s03
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 waves 1-5 merged to trunk c49530cc; wave 6 integrated
-    locally (not yet pushed) session 2026-10-21/22.
-    WAVE 6 = 3 parallel dispatches in jj workspaces: e08s01 conflict
-    storage/transport, e09s01 oplog read, e10s02 protection
-    settings. Integration chain: trunk c49530cc -> c683ae1b
-    handoff -> e08s01 chain -> e09s01 chain -> e10s02 chain ->
-    integration node (3 spec acceptance blocks + 2 task files +
-    execution-status rolled up). Preflight PASS + all 5 e2e scripts
-    PASS locally (env: `eval "$(grep '^export ' /tmp/preflight-seg.sh)"`
-    + PATH=/tmp/e2e-bin:/tmp/kata/target/debug:$PATH; container
-    jjhub-pg-e15s02 on host port 5437).
-    PUSH STEPS: bookmark the tip, `jj git push`, gh pr create base
-    trunk (env -u GITHUB_TOKEN), body via /tmp/prN.body (write tool),
-    then forget+rm the 3 dispatch workspaces. Remaining after this
-    wave: e08s02 e08s03 e09s02 e12s03 e13s01 e13s02 e14s01 e14s02.
-    LESSONS: parallel dispatches must NOT share
-    CARGO_TARGET_DIR=/tmp/jjhub-segtarget — sibling builds overwrite
-    each other's artifacts (phantom E0425 / stale include_str
-    failures); give each workspace a private target dir.
-    /tmp/union_locks.py corrupts jj 3-side lock conflicts (raw
-    theirs lines carry no diff prefix; it swallowed e09s01's entry)
-    — hand-union: ours after `+++++++`, theirs after the `\\` block,
-    strip one + from theirs lines, validate with yaml.safe_load +
-    len(locks). e2e scripts default to the CI DB :5432 — without
-    the eval'd DATABASE_URL they die at register (rc 7).
-    GH: gh needs `env -u GITHUB_TOKEN`.
-    PRIOR LESSONS: RTK mangles jj template + concat — use
-    `separate(" ", ...)` only; abandons take whole descendant
-    subtrees; trunk is append-only (e10s01): never amend after
-    first push.
+    v0.2.0 waves 1-6 merged (PR #46 squash = trunk 57f8491a).
+    WAVE 7 = 3 parallel dispatches (e08s02 conflict browse,
+    e13s01 landing tree, e14s01 kata embed) + e13s01-run3 extras
+    incl. the protected_refs GIT_CONFIG_GLOBAL fix (jjhub-0xk).
+    Integration chain: trunk 57f8491a -> e14s01 -> e13s01-extra ->
+    e13s01 -> e08s02 -> integration node (locks union 13 entries,
+    spec ticks + tasks + execution-status rollup in it).
+    PUSH STEPS: bookmark tip v020-w7, jj git push, gh pr create
+    base trunk (env -u GITHUB_TOKEN, body via write tool to
+    /tmp/prN.body), then forget+rm ../jjhub-e13s01 workspace.
+    REMAINING after wave 7: e08s03 (needs e08s02 helper - shipped),
+    e09s02 (needs e08s03 flag), e12s03, e13s02 (needs e13s01 -
+    shipped), e14s02 (needs e14s01 - shipped).
+    DB: container jjhub-pg-e15s02 port 5437; preflight
+    /tmp/preflight-seg.sh <name> <tip>; e2e needs eval'd
+    DATABASE_URL + PATH=/tmp/e2e-bin:/tmp/kata/target/debug.
+    LESSONS (wave 7): pi dispatch logs buffer (0B) until exit -
+    judge liveness by commits in its workspace, not log size;
+    dispatch cd failures leave pi running in the WRONG workspace -
+    always verify `jj -R <ws> log -r @` after launch; agents commit
+    WC checkpoints as undescribed in-stack commits - describe or
+    abandon before push; `jj rebase -s` of a subtree containing
+    workspaces' interleaved commits can duplicate story copies -
+    diff each suspected dup before abandoning; locks union across
+    3 stories needs indent-preserving strip + per-entry parse
+    (/tmp/ul.py pattern); RTK mangles concatenated jj templates -
+    use separate(" ", ...) and single-commit probes.

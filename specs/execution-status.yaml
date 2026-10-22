@@ -44,7 +44,7 @@ epics:
     status: todo
     stories:
       e08s01: passing
-      e08s02: todo
+      e08s02: passing
       e08s03: todo
   e09-oplog-audit:
     status: todo
@@ -71,12 +71,12 @@ epics:
   e13-landing-tree:
     status: todo
     stories:
-      e13s01: todo
+      e13s01: passing
       e13s02: todo
   e14-kata-embed:
     status: todo
     stories:
-      e14s01: todo
+      e14s01: passing
       e14s02: todo
   e15-templates:
     status: in_progress

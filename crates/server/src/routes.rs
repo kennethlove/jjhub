@@ -1388,10 +1388,8 @@ fn conflict_parts(conflict: &crate::browse::Conflict) -> Vec<serde_json::Value> 
         }
     }
     fn part(glyph: &str, label: &str, lines: &[&crate::browse::Side]) -> serde_json::Value {
-        let merged: Vec<serde_json::Value> = lines
-            .iter()
-            .flat_map(|side| side_lines(side))
-            .collect();
+        let merged: Vec<serde_json::Value> =
+            lines.iter().flat_map(|side| side_lines(side)).collect();
         serde_json::json!({ "glyph": glyph, "label": label, "lines": merged })
     }
 

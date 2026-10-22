@@ -1,13 +1,13 @@
 story_id: e14s01
 title: "Inline kata embed on merge request pages"
-status: done
+status: passing
 bcps: 3
 tasks:
   - id: e14s01t1
     description: "iframe served same-origin"
     verify: "cargo test -p server embed_iframe"
-    status: done
+    status: passing
   - id: e14s01t2
     description: "frame policy header set on embed"
     verify: "cargo test -p server embed_csp"
-    status: done
+    status: passing
