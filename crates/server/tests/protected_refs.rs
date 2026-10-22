@@ -87,6 +87,7 @@ mod protect_reject {
                 .args(args)
                 .current_dir(dir.path())
                 .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
                 .output()
                 .unwrap();
             assert!(
@@ -190,6 +191,7 @@ mod protect_allow {
                 .args(args)
                 .current_dir(dir.path())
                 .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
                 .output()
                 .unwrap();
             assert!(
@@ -289,7 +291,8 @@ mod admit {
             let mut cmd = std::process::Command::new("git");
             cmd.args(args)
                 .current_dir(dir.path())
-                .env("GIT_CONFIG_NOSYSTEM", "1");
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_CONFIG_GLOBAL", "/dev/null");
             if let Some(input) = input {
                 use std::io::Write;
                 let mut child = cmd
