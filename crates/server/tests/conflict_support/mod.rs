@@ -59,14 +59,39 @@ pub fn build(dir: &Path) -> Fixture {
 /// Build the fixture with an explicit identity and conflicted-commit
 /// change-id: the identity test pushes a foreign author's conflicted commit.
 pub fn build_as(dir: &Path, name: &str, email: &str, change_id: &str) -> Fixture {
+    build_terms(dir, name, email, change_id, "base\n", "side0\n", "side1\n")
+}
+
+/// story: e08s02 — build with explicit contents for the conflicted file's
+/// three terms; the browse tests need HTML-special and binary sides. A
+/// `same.txt` file identical in every term comes along, so the tests can
+/// prove conflict rendering is per-path.
+pub fn build_terms(
+    dir: &Path,
+    name: &str,
+    email: &str,
+    change_id: &str,
+    base: &str,
+    side0: &str,
+    side1: &str,
+) -> Fixture {
     ensure_bare(dir);
     let signature = format!("{name} <{email}> {TIMESTAMP}");
 
-    // one file with three different contents = the conflict's three terms
-    let base_blob = hash_object(dir, "blob", "base\n");
-    let side0_blob = hash_object(dir, "blob", "side0\n");
-    let side1_blob = hash_object(dir, "blob", "side1\n");
-    let term_tree = |blob: &str| mktree(dir, &[format!("100644 blob {blob}\tconflict.txt\n")]);
+    // two files per term: the conflicted one and one identical in every term
+    let base_blob = hash_object(dir, "blob", base);
+    let side0_blob = hash_object(dir, "blob", side0);
+    let side1_blob = hash_object(dir, "blob", side1);
+    let same_blob = hash_object(dir, "blob", "same\n");
+    let term_tree = |blob: &str| {
+        mktree(
+            dir,
+            &[
+                format!("100644 blob {blob}\tconflict.txt\n"),
+                format!("100644 blob {same_blob}\tsame.txt\n"),
+            ],
+        )
+    };
     let base_tree = term_tree(&base_blob);
     let side0_tree = term_tree(&side0_blob);
     let side1_tree = term_tree(&side1_blob);
@@ -82,6 +107,7 @@ pub fn build_as(dir: &Path, name: &str, email: &str, change_id: &str) -> Fixture
             format!("040000 tree {side1_tree}\t.jjconflict-side-1\n"),
             format!("100644 blob {readme}\tJJ-CONFLICT-README\n"),
             format!("100644 blob {base_blob}\tconflict.txt\n"),
+            format!("100644 blob {same_blob}\tsame.txt\n"),
         ],
     );
 
