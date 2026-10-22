@@ -97,3 +97,13 @@ locks:
   - specs/agent-locks.yaml
   - specs/epics/e13-landing-tree/e13s01-landing-tree.md
   - specs/epics/e13-landing-tree/e13s01-tasks.yaml
+- story_id: e09s02
+  locked_by: agent-e09s02
+  locked_at: '2026-10-22T22:56:00Z'
+  files_touched:
+  - crates/server/src/jj_meta.rs
+  - crates/server/src/routes.rs
+  - crates/server/src/lib.rs
+  - crates/server/src/render.rs
+  - crates/server/templates/operation_detail.html
+  - crates/server/tests/oplog_detail.rs

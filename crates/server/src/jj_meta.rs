@@ -420,3 +420,142 @@ pub async fn load_trunk_file_names(meta_path: &Path) -> Result<Vec<String>, Stri
         })
         .collect())
 }
+
+// story: e09s02
+/// One ref that changed in an operation's view: the ref's name plus the
+/// prior (removed) and new (added) commit ids jj recorded for it.
+#[derive(Debug, serde::Serialize)]
+pub struct RefChange {
+    pub name: String,
+    pub prior: Vec<String>,
+    pub new: Vec<String>,
+    pub conflicted: bool,
+}
+
+// story: e09s02
+/// One operation rendered in full: the `OperationMetadata` fields plus the
+/// parent operations, the view's head ids, and the refs that changed.
+#[derive(Debug, serde::Serialize)]
+pub struct OpDetail {
+    pub id: String,
+    pub time: String,
+    pub username: String,
+    pub hostname: String,
+    pub description: String,
+    pub parents: Vec<String>,
+    pub head_ids: Vec<String>,
+    pub ref_changes: Vec<RefChange>,
+}
+
+// story: e09s02
+/// Outcome of a detail read: the operation, a repo with no readable
+/// `.meta` store, or an id that does not resolve.
+pub enum OpDetailOutcome {
+    Found(Box<OpDetail>),
+    NoLog,
+    NotFound,
+}
+
+// story: e09s02
+/// Collect every ref that changed in `view` — local bookmarks, remote
+/// bookmarks, git refs, and git head — as prior -> new commit id deltas
+/// from jj's own `RefTarget`. Refs whose target carries no ids are
+/// unchanged and omitted; conflicted targets are flagged so callers
+/// render the one conflict marker.
+pub fn ref_changes(view: &jj_lib::op_store::View) -> Vec<RefChange> {
+    use jj_lib::object_id::ObjectId;
+    use jj_lib::op_store::RefTarget;
+
+    fn push(out: &mut Vec<RefChange>, name: String, target: &RefTarget) {
+        let prior: Vec<String> = target.removed_ids().map(|id| id.hex()).collect();
+        let new: Vec<String> = target.added_ids().map(|id| id.hex()).collect();
+        if prior.is_empty() && new.is_empty() {
+            return;
+        }
+        out.push(RefChange {
+            name,
+            prior,
+            new,
+            conflicted: target.has_conflict(),
+        });
+    }
+
+    let mut out = Vec::new();
+    for (name, target) in &view.local_bookmarks {
+        push(&mut out, format!("local: {}", name.as_str()), target);
+    }
+    for (remote, remote_view) in &view.remote_views {
+        for (name, remote_ref) in &remote_view.bookmarks {
+            push(
+                &mut out,
+                format!("{}@{}", name.as_str(), remote.as_str()),
+                &remote_ref.target,
+            );
+        }
+    }
+    for (name, target) in &view.git_refs {
+        push(&mut out, name.as_str().to_owned(), target);
+    }
+    push(&mut out, "git head".to_owned(), &view.git_head);
+    out
+}
+
+// story: e09s02
+/// Read one operation — metadata, parents, and its view's ref changes —
+/// from the meta workspace's `.meta` store. Read-only: one `read_view`
+/// per call, no transaction, no operation replay. A `.meta` store that
+/// will not load is `NoLog` (the audit pages show their empty state, not
+/// an error); an id the store does not carry is `NotFound`.
+pub async fn load_operation_detail(
+    meta_path: &Path,
+    operation_id: &str,
+) -> Result<OpDetailOutcome, String> {
+    use jj_lib::object_id::ObjectId;
+    use jj_lib::repo::StoreFactories;
+    use jj_lib::workspace::default_working_copy_factories;
+
+    let Some(op_id) = jj_lib::op_store::OperationId::try_from_hex(operation_id) else {
+        return Ok(OpDetailOutcome::NotFound);
+    };
+    let meta = meta_path.to_owned();
+    tokio::task::spawn_blocking(move || -> Result<OpDetailOutcome, String> {
+        let rt = tokio::runtime::Handle::current();
+        let workspace = jj_lib::workspace::Workspace::load(
+            &settings(),
+            &meta,
+            &StoreFactories::default(),
+            &default_working_copy_factories(),
+        )
+        .map_err(|_| "workspace load".to_string())?;
+        let loader = workspace.repo_loader();
+        let op = match rt.block_on(loader.load_operation(&op_id)) {
+            Ok(op) => op,
+            Err(_) => return Ok(OpDetailOutcome::NotFound),
+        };
+        let metadata = op.metadata();
+        // one read_view per render: the operation's own view is the audit
+        // record of what its refs did.
+        let view = rt
+            .block_on(loader.op_store().read_view(op.view_id()))
+            .map_err(|_| "view load".to_string())?;
+        let mut head_ids: Vec<String> = view.head_ids.iter().map(|id| id.hex()).collect();
+        head_ids.sort();
+        Ok(OpDetailOutcome::Found(Box::new(OpDetail {
+            id: op_id.hex(),
+            time: metadata
+                .time
+                .start
+                .to_datetime()
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_default(),
+            username: metadata.username.clone(),
+            hostname: metadata.hostname.clone(),
+            description: metadata.description.clone(),
+            parents: op.parent_ids().iter().map(|id| id.hex()).collect(),
+            head_ids,
+            ref_changes: ref_changes(&view),
+        })))
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
+}

@@ -1464,3 +1464,52 @@ pub async fn operations_page(
     context.insert("has_log", &!operations.is_empty());
     Html(crate::render::render("operations.html", &context)).into_response()
 }
+
+// story: e09s02 — one operation in the audit log: who did what to which
+// ref. Same read rules as the list page; an id that does not resolve in
+// the .meta store is a 404; a missing .meta store is the list page's
+// "no operation log" empty state, never a 500.
+pub async fn operation_detail_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name, operation_id)): axum::extract::Path<(String, String, String)>,
+    jar: CookieJar,
+) -> Response {
+    if crate::revsets::visible_repo(&state, &owner, &name, &jar)
+        .await
+        .is_none()
+    {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
+
+    let meta = domain::meta_path(&state.storage_root, &owner, &name);
+    let detail = match crate::jj_meta::load_operation_detail(&meta, &operation_id).await {
+        Ok(detail) => detail,
+        // story: e09s01 defensive rule — degraded data renders the
+        // placeholder, not a failure.
+        Err(_) => crate::jj_meta::OpDetailOutcome::NoLog,
+    };
+
+    let viewer = viewer_handle(&state, &jar).await;
+    let csrf = jar
+        .get(SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let mut context = page_context(viewer.as_deref(), &csrf);
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    match detail {
+        crate::jj_meta::OpDetailOutcome::Found(op) => {
+            context.insert("op", &op);
+            Html(crate::render::render("operation_detail.html", &context)).into_response()
+        }
+        crate::jj_meta::OpDetailOutcome::NoLog => {
+            // story: e09s02 — the list page's empty state, unchanged.
+            context.insert("operations", &Vec::<crate::jj_meta::OpLogEntry>::new());
+            context.insert("has_log", &false);
+            Html(crate::render::render("operations.html", &context)).into_response()
+        }
+        crate::jj_meta::OpDetailOutcome::NotFound => {
+            (StatusCode::NOT_FOUND, "operation not found").into_response()
+        }
+    }
+}

@@ -1,0 +1,37 @@
+{# story: e09s02 — one operation from the audit log: who did what to
+which ref. Metadata from OperationMetadata; ref deltas from the
+operation's view; conflicted targets carry the conflict flag. #}
+{% extends "base.html" %}
+{% block title %}Operation {{ op.id | truncate(length=12, end="") }} · {{ owner }}/{{ name }} · jjhub{% endblock %}
+{% block body %}
+<h1>{{ owner }}/{{ name }}</h1>
+{% include "nav.html" %}
+<h2>Operation</h2>
+<p><time>{{ op.time }}</time> <span class="op-identity">{{ op.username }}@{{ op.hostname }}</span></p>
+<p class="op-description">{{ op.description }}</p>
+<p>Operation <code>{{ op.id }}</code></p>
+{% if op.parents %}
+<p>Parents: {% for parent in op.parents %}<a href="/{{ owner }}/{{ name }}/operations/{{ parent }}">{{ parent | truncate(length=12, end="") }}</a> {% endfor %}</p>
+{% endif %}
+<h3>Heads</h3>
+<ul class="op-heads">{% for head in op.head_ids %}
+<li><code>{{ head }}</code></li>
+{% endfor %}</ul>
+<h3>Ref changes</h3>
+{% if op.ref_changes %}
+<table class="ref-changes">
+<thead><tr><th>Ref</th><th>Prior</th><th>New</th></tr></thead>
+<tbody>
+{% for ref in op.ref_changes %}
+<tr class="ref-row"><td>{{ ref.name }}{% if ref.conflicted %} <span class="conflict-flag">🔀 conflicted</span>{% endif %}</td>
+<td>{% for id in ref.prior %}<code>{{ id }}</code> {% endfor %}</td>
+<td>{% for id in ref.new %}<code>{{ id }}</code> {% endfor %}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+{# story: e09s02 — no ref moved in this operation; a state of the
+operation, not a failure #}
+<p>No refs changed in this operation.</p>
+{% endif %}
+{% endblock %}
