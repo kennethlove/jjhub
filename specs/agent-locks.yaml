@@ -66,3 +66,13 @@ locks:
     - crates/server/templates/repo.html
     - crates/server/src/routes.rs
     - crates/server/tests/protect_page.rs
+- story_id: e14s01
+  locked_by: 'agent-e14s01'
+  locked_at: '2026-10-22T00:11:46Z'
+  files_touched:
+    - crates/server/src/review_proxy.rs
+    - crates/server/templates/mr_detail.html
+    - crates/server/tests/embed_iframe.rs
+    - specs/agent-locks.yaml
+    - specs/epics/e14-kata-embed/e14s01-kata-embed.md
+    - specs/epics/e14-kata-embed/e14s01-tasks.yaml
