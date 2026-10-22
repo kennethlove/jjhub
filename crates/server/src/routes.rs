@@ -437,6 +437,19 @@ pub async fn repo_page(
     let has_files =
         crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some();
 
+    // story: e13s01 — the landing page's root file tree at the trunk
+    // revision; one list_tree subprocess per render, names escaped (XSS)
+    let tree: Vec<serde_json::Value> = crate::browse::list_tree(&bare_for_files, &trunk, "")
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(entry_name, is_dir)| {
+            serde_json::json!({
+                "is_dir": is_dir,
+                "label": crate::stack::html_escape(&entry_name),
+            })
+        })
+        .collect();
+
     // story: e02s03 — the viewer's own token lands in the snippet via the
     // one-time cookie; everyone else keeps the placeholder
     let clone_token = jar
@@ -453,6 +466,7 @@ pub async fn repo_page(
     context.insert("protected_refs", &protected);
     context.insert("browse_href", &browse);
     context.insert("files", &has_files);
+    context.insert("tree", &tree);
     context.insert("mrs", &mr_ids);
     context.insert("host", &host);
     context.insert("clone_token", &clone_token);
