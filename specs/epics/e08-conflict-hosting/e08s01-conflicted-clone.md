@@ -137,17 +137,17 @@ diff UI.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server conflict_fixture` — fixture repo exists with a
+- [x] `cargo test -p server conflict_fixture` — fixture repo exists with a
       jj-conflicted commit: `jj:trees` header parses, `.jjconflict-base-0`
       and `.jjconflict-side-0` trees present, `refs/jj/keep/*` ref resolves.
-      (e08s01t1)
-- [ ] `cargo test -p server conflict_refs` — smart-http upload-pack over
+      (e08s01t1) — 3 passed.
+- [x] `cargo test -p server conflict_refs` — smart-http upload-pack over
       the fixture advertises `refs/jj/keep/*`; receive-pack accepts a push
       containing a conflicted commit; existing identity rejections still
-      fire. (e08s01t2)
-- [ ] `bash scripts/e2e-clone.sh` — e2e clone of the conflicted fixture
-      through the running server; clone passes `git fsck`. (e08s01t3)
-- [ ] `cargo test --workspace` green.
+      fire. (e08s01t2) — 4 passed.
+- [x] `bash scripts/e2e-clone.sh` — e2e clone of the conflicted fixture
+      through the running server; clone passes `git fsck`. (e08s01t3) — rc=0.
+- [x] `cargo test --workspace` green. — preflight PASS at the integration tip.
 
 ## 18. Test scenarios (Gherkin)
 

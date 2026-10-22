@@ -6,37 +6,38 @@ vcs:
   remote: origin
 session:
   started: "2026-10-19T00:00:00Z"
-  active_epic_id: e12-design-system
-  active_story_id: e12s02
+  active_epic_id: e08-conflict-hosting
+  active_story_id: e08s02
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 build wave 8 integrated locally, not yet pushed
-    (session 2026-10-22).
-    STACK: PR 37 closed, replaced by stacked PRs #38-#43
-    (v020-s1..s6, merge in order; retarget each base to trunk after
-    a merge). origin/v020-build 85833b4d is stale — never PR it.
-    CHAIN @ = 2c62137f3d01 "integrate build wave 5 — e10s03 +
-    e12s02" on top of v020-s6/467b919f81bb: fix restore e10s01
-    push gate (817a40bc5538), e10s03 RED/GREEN/closeout, e12s02
-    11-commit chain, zero conflicts, zero divergence.
-    RESUME STEPS:
-    1. Preflight at @ (DATABASE_URL=
-       postgres://postgres:jjhub@localhost:5437/jjhub_test, container
-       jjhub-pg-e15s02). Then roll up execution-status.yaml:
-       e10s03+e12s02 -> passing; e10, e12 -> in_progress.
-    2. `jj bookmark create v020-s7 -r @`, `jj git push -b v020-s7`,
-       open PR base v020-s6 (gh needs `env -u GITHUB_TOKEN`). Close
-       the finish-wave-8 task.
-    3. Remaining 11 stories: e08x3, e09x2, e10s02, e12s03, e13x2,
-       e14x2. 2-parallel waves; main ws = integration owner.
-    4. Cleanup: docker rm -f jjhub-pg-e15s02 after wave tests done.
-    LESSONS: RTK mangles jj template strings with + concat — use
-    `separate(" ", ...)` only; `jj rebase -s` can behave as -r and
-    fork originals — verify parent map after every rebase; abandons
-    take whole descendant subtrees — check what still hangs off a
-    commit before `jj abandon <id>`; both-append files (agent-locks)
-    conflict at every parallel integration — union-resolve with
-    /tmp/union_locks.py pattern (strip diff prefixes, dedupe entries
-    by story_id, canonical render, yaml validate); gh needs
-    `env -u GITHUB_TOKEN`.
+    v0.2.0 waves 1-5 merged to trunk c49530cc; wave 6 integrated
+    locally (not yet pushed) session 2026-10-21/22.
+    WAVE 6 = 3 parallel dispatches in jj workspaces: e08s01 conflict
+    storage/transport, e09s01 oplog read, e10s02 protection
+    settings. Integration chain: trunk c49530cc -> c683ae1b
+    handoff -> e08s01 chain -> e09s01 chain -> e10s02 chain ->
+    integration node (3 spec acceptance blocks + 2 task files +
+    execution-status rolled up). Preflight PASS + all 5 e2e scripts
+    PASS locally (env: `eval "$(grep '^export ' /tmp/preflight-seg.sh)"`
+    + PATH=/tmp/e2e-bin:/tmp/kata/target/debug:$PATH; container
+    jjhub-pg-e15s02 on host port 5437).
+    PUSH STEPS: bookmark the tip, `jj git push`, gh pr create base
+    trunk (env -u GITHUB_TOKEN), body via /tmp/prN.body (write tool),
+    then forget+rm the 3 dispatch workspaces. Remaining after this
+    wave: e08s02 e08s03 e09s02 e12s03 e13s01 e13s02 e14s01 e14s02.
+    LESSONS: parallel dispatches must NOT share
+    CARGO_TARGET_DIR=/tmp/jjhub-segtarget — sibling builds overwrite
+    each other's artifacts (phantom E0425 / stale include_str
+    failures); give each workspace a private target dir.
+    /tmp/union_locks.py corrupts jj 3-side lock conflicts (raw
+    theirs lines carry no diff prefix; it swallowed e09s01's entry)
+    — hand-union: ours after `+++++++`, theirs after the `\\` block,
+    strip one + from theirs lines, validate with yaml.safe_load +
+    len(locks). e2e scripts default to the CI DB :5432 — without
+    the eval'd DATABASE_URL they die at register (rc 7).
+    GH: gh needs `env -u GITHUB_TOKEN`.
+    PRIOR LESSONS: RTK mangles jj template + concat — use
+    `separate(" ", ...)` only; abandons take whole descendant
+    subtrees; trunk is append-only (e10s01): never amend after
+    first push.

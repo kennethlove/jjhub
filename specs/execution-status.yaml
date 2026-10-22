@@ -43,19 +43,19 @@ epics:
   e08-conflict-hosting:
     status: todo
     stories:
-      e08s01: todo
+      e08s01: passing
       e08s02: todo
       e08s03: todo
   e09-oplog-audit:
     status: todo
     stories:
-      e09s01: todo
+      e09s01: passing
       e09s02: todo
   e10-immutability-policy:
     status: in_progress
     stories:
       e10s01: passing
-      e10s02: todo
+      e10s02: passing
       e10s03: passing
   e11-revset-search:
     status: passing

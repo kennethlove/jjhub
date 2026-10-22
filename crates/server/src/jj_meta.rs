@@ -213,6 +213,15 @@ fn settings() -> jj_lib::settings::UserSettings {
     // read-only usage: identity would only land in commits we never write
     identity.set_value("user.name", "jjhub").ok();
     identity.set_value("user.email", "jjhub@invalid").ok();
+    // story: e09s01 — jj defaults operation identity to empty; the audit
+    // log should name the actor for operations the server records.
+    identity.set_value("operation.username", "jjhub").ok();
+    identity
+        .set_value(
+            "operation.hostname",
+            std::env::var("HOSTNAME").unwrap_or_else(|_| "jjhub".to_string()),
+        )
+        .ok();
     config.add_layer(identity);
     jj_lib::settings::UserSettings::from_config(config).expect("jj settings")
 }
@@ -285,6 +294,74 @@ pub async fn sync_refs(meta_path: &Path) -> Result<(), String> {
             .map_err(|e| format!("tx commit: {e}"))?;
         drop(workspace);
         Ok(())
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking: {e}"))?
+}
+
+// story: e09s01
+/// One operation from a repo's jj operation log: identity plus the
+/// `OperationMetadata` the audit page renders.
+#[derive(Debug, serde::Serialize)]
+pub struct OpLogEntry {
+    pub id: String,
+    pub time: String,
+    pub username: String,
+    pub hostname: String,
+    pub description: String,
+}
+
+// story: e09s01
+/// Read up to `limit` operations from the meta workspace's `.meta` store,
+/// newest first along the operation parent chain that starts at the head
+/// operation. Read-only: the OpStore is jj's own audit trail.
+pub async fn load_operations(meta_path: &Path, limit: usize) -> Result<Vec<OpLogEntry>, String> {
+    use jj_lib::object_id::ObjectId;
+    use jj_lib::repo::StoreFactories;
+    use jj_lib::workspace::default_working_copy_factories;
+
+    let meta = meta_path.to_owned();
+    tokio::task::spawn_blocking(move || -> Result<Vec<OpLogEntry>, String> {
+        let rt = tokio::runtime::Handle::current();
+        let workspace = jj_lib::workspace::Workspace::load(
+            &settings(),
+            &meta,
+            &StoreFactories::default(),
+            &default_working_copy_factories(),
+        )
+        .map_err(|e| format!("workspace load: {e}"))?;
+        let repo = rt
+            .block_on(workspace.repo_loader().load_at_head())
+            .map_err(|e| format!("load_at_head: {e}"))?;
+
+        // newest first: walk the parent chain from the head operation,
+        // deduplicating so a merge op can't loop the walk.
+        let mut next = Some(repo.operation().id().clone());
+        let mut visited = std::collections::HashSet::new();
+        let mut entries = Vec::new();
+        while let Some(id) = next {
+            if entries.len() >= limit || !visited.insert(id.clone()) {
+                break;
+            }
+            let op = rt
+                .block_on(workspace.repo_loader().load_operation(&id))
+                .map_err(|e| format!("read operation: {e}"))?;
+            let metadata = op.metadata();
+            entries.push(OpLogEntry {
+                id: id.hex(),
+                time: metadata
+                    .time
+                    .start
+                    .to_datetime()
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or_default(),
+                username: metadata.username.clone(),
+                hostname: metadata.hostname.clone(),
+                description: metadata.description.clone(),
+            });
+            next = op.parent_ids().first().cloned();
+        }
+        Ok(entries)
     })
     .await
     .map_err(|e| format!("spawn_blocking: {e}"))?

@@ -39,3 +39,30 @@ locks:
   locked_by: 'agent: e12s02'
   locked_at: '2026-10-21T00:54:01Z'
   files_touched: []
+- story_id: e08s01
+  locked_by: 'agent-e08s01'
+  locked_at: '2026-10-21T20:48:30Z'
+  files_touched:
+  - crates/server/tests/conflict_fixture.rs
+  - crates/server/tests/conflict_refs.rs
+  - crates/server/tests/conflict_support/mod.rs
+  - scripts/e2e-clone.sh
+- story_id: e09s01
+  locked_by: 'agent-e09s01'
+  locked_at: '2026-10-21T20:34:33Z'
+  files_touched:
+  - crates/server/src/jj_meta.rs
+  - crates/server/src/routes.rs
+  - crates/server/src/lib.rs
+  - crates/server/src/render.rs
+  - crates/server/templates/operations.html
+  - crates/server/templates/repo.html
+  - crates/server/tests/oplog_read.rs
+  - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
+- story_id: e10s02
+  locked_by: 'agent-e10s02'
+  locked_at: '2026-10-21T20:34:05Z'
+  files_touched:
+    - crates/server/templates/repo.html
+    - crates/server/src/routes.rs
+    - crates/server/tests/protect_page.rs

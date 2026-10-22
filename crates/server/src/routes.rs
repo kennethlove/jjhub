@@ -400,6 +400,12 @@ pub async fn repo_page(
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
 
+    // story: e10s02 — the settings listing shares the push gate's resolver;
+    // display and enforcement can never diverge
+    let protected = crate::receive_guard::protected_refs(&state.pool, repo_id)
+        .await
+        .unwrap_or_default();
+
     // story: repo dashboard — the page surfaces open changes, not just
     // clone instructions
     let mrs = crate::stack::open_mrs(&state.pool, repo_id)
@@ -444,6 +450,7 @@ pub async fn repo_page(
     context.insert("name", &name);
     context.insert("visibility", &visibility);
     context.insert("trunk", &trunk);
+    context.insert("protected_refs", &protected);
     context.insert("browse_href", &browse);
     context.insert("files", &has_files);
     context.insert("mrs", &mr_ids);
@@ -1302,4 +1309,40 @@ pub async fn blob_page(
         }
         Err(_) => (StatusCode::NOT_FOUND, "no such file").into_response(),
     }
+}
+
+/// story: e09s01 — server-side cap on rendered operations.
+const OP_LOG_CAP: usize = 50;
+
+// story: e09s01 — the per-repository operation log, newest first, from
+// jj's own .meta store. Repo read rules apply; a missing or unreadable
+// .meta store is a visible "no operation log" state, never a failure.
+pub async fn operations_page(
+    State(state): State<AppState>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    jar: CookieJar,
+) -> Response {
+    if crate::revsets::visible_repo(&state, &owner, &name, &jar)
+        .await
+        .is_none()
+    {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
+
+    let meta = domain::meta_path(&state.storage_root, &owner, &name);
+    let operations = crate::jj_meta::load_operations(&meta, OP_LOG_CAP)
+        .await
+        .unwrap_or_default();
+
+    let viewer = viewer_handle(&state, &jar).await;
+    let csrf = jar
+        .get(SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let mut context = page_context(viewer.as_deref(), &csrf);
+    context.insert("owner", &owner);
+    context.insert("name", &name);
+    context.insert("operations", &operations);
+    context.insert("has_log", &!operations.is_empty());
+    Html(crate::render::render("operations.html", &context)).into_response()
 }

@@ -66,4 +66,58 @@ grep -q "hello jjhub" "$TMP/clone/hello.txt"
 echo "== anonymous clone of public repo =="
 jj git clone "$BASE/git/${OWNER_NAME}.git" "$TMP/anon-clone" >/dev/null
 
+# story: e08s01 — build jj's git conflict representation into the same bare
+# repo with plain git plumbing (no jj CLI needed), then clone the conflicted
+# branch through the running server and prove the objects survive.
+echo "== conflicted fixture clone =="
+BARE="$TMP/repos/${OWNER_NAME:?repo redirect}.git"
+# plumbing only: never let user git config touch the fixture
+fg() { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$BARE" "$@"; }
+blob() { printf '%s\n' "$1" | fg hash-object -t blob -w --stdin; }
+term_tree() { printf '100644 blob %s\tconflict.txt\n' "$1" | fg mktree; }
+
+base_blob=$(blob base)
+side0_blob=$(blob side0)
+side1_blob=$(blob side1)
+base_tree=$(term_tree "$base_blob")
+side0_tree=$(term_tree "$side0_blob")
+side1_tree=$(term_tree "$side1_blob")
+readme=$(fg hash-object -t blob -w --stdin <<'EOF'
+This commit was made by jj, https://jj-vcs.dev/.
+The commit contains file conflicts, and therefore looks wrong when used with
+plain Git or other tools that are unfamiliar with jj.
+
+The .jjconflict-* directories represent the different inputs to the conflict.
+For details, see
+https://docs.jj-vcs.dev/latest/git-compatibility/#format-mapping-details
+
+If you see this file in your working copy, it probably means that you used a
+regular `git` command to check out a conflicted commit. Use `jj abandon` to
+recover.
+EOF
+)
+conflict_tree=$(printf '040000 tree %s\t.jjconflict-base-0\n040000 tree %s\t.jjconflict-side-0\n040000 tree %s\t.jjconflict-side-1\n100644 blob %s\tJJ-CONFLICT-README\n100644 blob %s\tconflict.txt\n' \
+  "$base_tree" "$side0_tree" "$side1_tree" "$readme" "$base_blob" | fg mktree)
+sig="e2e <e2e@example.com> 1700000000 +0000"
+parent=$(printf 'tree %s\nauthor %s\ncommitter %s\nchange-id 9a8b7c6d5e4f30211203f4e5d6c7b8a9\n\ne08s01 parent commit\n' \
+  "$base_tree" "$sig" "$sig" | fg hash-object -t commit -w --stdin)
+conflicted=$(printf 'tree %s\nparent %s\nauthor %s\ncommitter %s\njj:trees %s %s %s\nchange-id 0e1f2d3c4b5a69788796a5b4c3d2e1f0\n\ne08s01 conflicted commit\n' \
+  "$conflict_tree" "$parent" "$sig" "$sig" "$base_tree" "$side0_tree" "$side1_tree" \
+  | fg hash-object -t commit -w --stdin)
+fg update-ref refs/heads/conflicted "$conflicted"
+fg update-ref "refs/jj/keep/$parent" "$parent"
+fg update-ref "refs/jj/keep/$conflicted" "$conflicted"
+
+echo "== ls-remote advertises refs/jj/keep/* =="
+git ls-remote "$BASE/git/${OWNER_NAME}.git" | grep -q "refs/jj/keep/$conflicted" \
+  || { echo "keep ref not advertised"; exit 1; }
+
+echo "== clone the conflicted branch and fsck =="
+git clone --branch conflicted "$BASE/git/${OWNER_NAME}.git" "$TMP/conflict-clone" >/dev/null
+git -C "$TMP/conflict-clone" fsck
+git -C "$TMP/conflict-clone" cat-file commit HEAD | grep -q '^jj:trees '
+git -C "$TMP/conflict-clone" ls-tree HEAD | grep -q '.jjconflict-base-0'
+git -C "$TMP/conflict-clone" fetch origin '+refs/jj/keep/*:refs/jj/keep/*' >/dev/null
+git -C "$TMP/conflict-clone" rev-parse "refs/jj/keep/$conflicted" | grep -q "$conflicted"
+
 echo "E2E PASS"
