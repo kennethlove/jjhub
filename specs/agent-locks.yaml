@@ -117,3 +117,13 @@ locks:
   - specs/agent-locks.yaml
   - specs/epics/e14-kata-embed/e14s02-embed-states.md
   - specs/epics/e14-kata-embed/e14s02-tasks.yaml
+- story_id: e13s02
+  locked_by: agent-e13s02
+  locked_at: '2026-10-23T00:29:16Z'
+  files_touched:
+  - crates/server/templates/repo.html
+  - crates/server/tests/landing_links.rs
+  - crates/server/tests/landing_empty.rs
+  - specs/agent-locks.yaml
+  - specs/epics/e13-landing-tree/e13s02-tree-navigation.md
+  - specs/epics/e13-landing-tree/e13s02-tasks.yaml

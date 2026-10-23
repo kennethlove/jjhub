@@ -11,41 +11,43 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 waves 1-7 merged (PR #47 squash = trunk 050e47e0).
-    WAVE 8 = my e12s03 docs section in CONVENTIONS.md (design audit
-    gate, verify greps pass, trace filed) + 2 parallel dispatches:
-    e09s02 oplog detail (handler operation_detail_page, ref_changes
-    in jj_meta.rs, operation_detail.html, tests/oplog_detail 5/5)
-    and e14s02 embed states (mr_detail placeholder+noscript, app.css
-    reduced-motion rule, tests/embed_states 2/2).
-    Integration chain: trunk 050e47e0 -> da5bf48d (docs) ->
-    0431eee7 (e09s02) -> 336ab2b8 (e14s02 feat, locks resolved in
-    place) -> 9ba15d40 (ticks) -> 79b8a742 (beads) -> 62b88453
-    (protected_refs git-config fix) -> integration node @ (locks
-    union 15 entries; e12s03 + e09s02 + e14s02 spec ticks, tasks,
-    execution-status rollup all in it).
-    PUSH STEPS: preflight /tmp/preflight-seg.sh w8 <short-tip>;
-    e2e x5 with eval'd DATABASE_URL + PATH=/tmp/e2e-bin:/tmp/kata/
-    target/debug; bookmark v020-w8; jj git push -b v020-w8; gh pr
-    create base trunk (env -u GITHUB_TOKEN, body via write tool to
-    /tmp/pr9.body); forget+rm ../jjhub-e09s02 and
-    ../jjhub-e14s02 workspaces; progress comment on jjhub-kju;
-    tick e14s02 AC3 if workspace green comes back clean.
-    REMAINING after wave 8: e08s03 (needs e08s02 helper -
-    shipped; conflict-flag helper for e09s02 absorbed inline),
-    e13s02 (needs e13s01 - shipped). Both are the LAST 2.
-    DB: container jjhub-pg-e15s02 port 5437; preflight
-    /tmp/preflight-seg.sh <name> <tip>; e2e needs eval'd
-    DATABASE_URL + PATH=/tmp/e2e-bin:/tmp/kata/target/debug.
-    LESSONS (wave 8): dispatch brief MUST say 'commit your work'
-    - e09s02 did everything green then exited leaving its WC
-    uncommitted (e14s02 committed unprompted); two pi per workspace
-    = duplicate-launch race - kill older pair, keep one; never
-    `jj commit` while a shared PR bookmark sits on @ - use
-    `jj describe -m` + `jj new`; `jj abandon` of a bookmarked
-    commit deletes the bookmark (recover with `jj bookmark
-    untrack X` then `jj bookmark set X -r <head>`); dispatch cd
-    target = SIBLING dirs (kennethlove/jjhub-eNNsNN, never
-    jjhub/jjhub-...); RTK mangles `+`-concat jj templates - use
-    separate(" ", ...) or plain log; `jj rebase -r` on this build
-    also moves/reports descendants - probe children first.
+    v0.2.0 waves 1-8 merged (PR #48, head 4ecc2d7d, includes the
+    wave-8 rollup files). WAVE 9 = stacked PRs (user reviews later):
+      #49 = e13s01-restore + e13s02, base v020-w8. Chain:
+        4ecc2d7d -> b738902b6841 (e13s01 CODE RESTORED: 2571b6e7
+        RED, 3e8f7817 feat, b738902b extract_browse tree key —
+        wave 7 shipped e13s01's spec ticks but LOST its code
+        commits; restored by rebase of the orphaned chain) ->
+        ab21264a (e13s02 lock) -> 306feea5 RED -> d2c76507 feat ->
+        413a3f9c fmt -> 2970a5f3 ticks -> 32e15700 -> integration
+        node @ 58c90c9d (execution-status e13s02 -> passing).
+      #50 = e08s03, base #49 head. Dispatch RUNNING in
+        ../jjhub-e08s03 (lock f58f6372; brief /tmp/brief-e08s03.md;
+        runs 1-3 hung on first model call = provider stall, run 4
+        alive and committing).
+    PUSH STEPS (per PR): preflight /tmp/preflight-seg.sh <name>
+    <tip>; e2e x5 (eval DATABASE_URL + PATH=/tmp/e2e-bin:
+    /tmp/kata/target/debug); bookmark v020-w9 -r @; jj git push -b
+    v020-w9; gh pr create --base v020-w8 (env -u GITHUB_TOKEN,
+    body via write tool /tmp/pr10.body). For #50: v020-w10 base
+    #49 head, /tmp/pr11.body. Forget+rm dispatch workspaces when
+    their PR ships.
+    REMAINING after #49: e08s03 only — jjhub-kju closes with it.
+    #49 PR body MUST note the e13s01 defect fix (PR #47 shipped
+    ticks without code; missing tests cannot fail, so preflight
+    stayed green).
+    e13s02 flags: ux_audit pre-existing button:disabled Lc 71.36
+    (DESIGN.md secondary #56635C on surface-sunken; candidate
+    #4A574F -> Lc 76.38; handle as quick-fix at closeout),
+    Gherkin deviation accepted (blob link asserted by navigation,
+    not from root landing).
+    DB: container jjhub-pg-e15s02 port 5437 — KEEP UP through
+    e08s03; preflight /tmp/preflight-seg.sh <name> <tip>.
+    LESSONS (wave 9): pi dispatch first model call can stall
+    nondeterministically (0B log, no session, ~0 CPU, no children;
+    kill + relaunch — fragment probes proved content-independent);
+    e13s01 lesson: after ANY chain repair, re-probe with
+    `ancestors(trunk)` — an orphaned chain passes preflight because
+    missing tests cannot fail; `jj new` from a dirty bookmarked @
+    snapshots edits INTO the bookmarked commit — verify with
+    `gh pr view <n> --json files` after any suspect jj op.
