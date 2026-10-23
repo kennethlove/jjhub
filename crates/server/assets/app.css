@@ -173,3 +173,54 @@ input:focus-visible {
     transition: none;
   }
 }
+
+/* story: e14s02 — embed states: loading placeholder under the frame,
+   reveal fade built from the e12 token system */
+.embed {
+  margin: 0 0 var(--space-sm);
+}
+
+.embed__frame {
+  position: relative;
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.embed__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-md);
+  color: var(--color-secondary);
+}
+
+.embed__frame iframe {
+  position: relative;
+  display: block;
+  background-color: var(--color-surface);
+  animation: embed-reveal 120ms ease-out;
+}
+
+@keyframes embed-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* story: e14s02 — reduced motion: the embed renders statically */
+@media (prefers-reduced-motion: reduce) {
+  .embed,
+  .embed__frame iframe {
+    animation: none;
+    transition: none;
+  }
+}

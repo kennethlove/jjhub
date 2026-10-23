@@ -1,9 +1,9 @@
 story_id: e09s02
 title: "Operation detail view with ref changes"
-status: todo
+status: passing
 bcps: 3
 tasks:
   - id: e09s02t1
     description: "detail view lists ref and commit changes"
     verify: "cargo test -p server oplog_detail"
-    status: todo
+    status: passing

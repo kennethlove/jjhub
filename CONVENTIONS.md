@@ -104,6 +104,14 @@ Implement ONLY these categories:
 - **Rate limit** — priority. Throttle inbound requests per user/IP on the axum server.
 - **Graceful degradation** — priority. Pages render with missing or slow repository data. A placeholder shows, not a 500.
 
+## Design System & Audit
+
+`DESIGN.md` at the project root is the single source of truth for design tokens (color, type, spacing, radius, elevation). UI work derives its values from it and from no other source.
+
+Any change that touches UI must pass the design audit — the stylesheet audit gate — before it is considered done: token coverage, APCA contrast, interaction states, and reduced-motion fallback. A screen is not "done" until the design audit passes; handoff is blocked on failure.
+
+<!-- // story: e12s03 -->
+
 ## Structure
 
 - Cargo workspace: `crates/` — one crate per bounded context (`server`, `domain`, `repo-store`, etc.).

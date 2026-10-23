@@ -109,11 +109,11 @@ telemetry, embed for non-MR pages, per-user preference storage.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server embed_states` — MR detail page renders the
+- [x] `cargo test -p server embed_states` — MR detail page renders the
       loading placeholder inside the embed container, keeps the e05s04
       Review link visible beside the container, and includes the
       `<noscript>` fallback link. (e14s02t1)
-- [ ] `verify-script: confirm prefers-reduced-motion disables embed animation`
+- [x] `verify-script: confirm prefers-reduced-motion disables embed animation`
       — the e12 stylesheet contains the embed transition rule and a
       `prefers-reduced-motion: reduce` rule that disables it.
       (e14s02t2)

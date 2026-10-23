@@ -1,13 +1,13 @@
 story_id: e14s02
 title: "Embed states, fallback, reduced motion"
-status: todo
+status: passing
 bcps: 2
 tasks:
   - id: e14s02t1
     description: "loading state and fallback link"
     verify: "cargo test -p server embed_states"
-    status: todo
+    status: passing
   - id: e14s02t2
     description: "embed motion honors reduced motion"
     verify: "verify-script: confirm prefers-reduced-motion disables embed animation"
-    status: todo
+    status: passing

@@ -3,7 +3,14 @@
 {% if badges %}<p class="statuses">{{ badges | join(sep=" ") | safe }}</p>{% endif %}
 {{ sections | join(sep="\n") | safe }}
 <!-- story: e14s01 — inline kata embed; the Review link below stays as the no-frame fallback -->
-{% if review_href %}<iframe src="{{ review_href | safe }}" title="Kata review for {{ change_id | safe }}" width="100%" height="800" loading="lazy"></iframe>{% endif %}
+<!-- story: e14s02 — embed states: announced loading placeholder inside the container, noscript fallback link, Review link always beside it -->
+{% if review_href %}<div class="embed">
+<div class="embed__frame">
+<p class="embed__placeholder" role="status">Loading kata review for {{ change_id | safe }}&hellip;</p>
+<iframe src="{{ review_href | safe }}" title="Kata review for {{ change_id | safe }}" width="100%" height="800" loading="lazy"></iframe>
+</div>
+<noscript><p><a href="{{ review_href | safe }}">Review in kata &rarr;</a></p></noscript>
+</div>{% endif %}
 {% if review_href %}<p><a href="{{ review_href | safe }}">Review in kata &rarr;</a></p>{% endif %}
 <form method="post" action="/{{ owner | safe }}/{{ name | safe }}/merge-requests/{{ change_id | safe }}/merge"><input type="hidden" name="_csrf" value="{{ csrf | safe }}"><button type="submit">Merge</button></form>
 <form method="post" action="/{{ owner | safe }}/{{ name | safe }}/merge-requests/{{ change_id | safe }}/abandon"><input type="hidden" name="_csrf" value="{{ csrf | safe }}"><button type="submit">Abandon</button></form>

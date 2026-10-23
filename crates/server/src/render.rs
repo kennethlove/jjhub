@@ -49,6 +49,12 @@ fn engine() -> &'static Tera {
                 "operations.html",
                 include_str!("../templates/operations.html"),
             ),
+            // story: e09s02 — one operation in the audit log, with its
+            // view's ref changes
+            (
+                "operation_detail.html",
+                include_str!("../templates/operation_detail.html"),
+            ),
         ] {
             tera.add_raw_template(name, source)
                 .unwrap_or_else(|err| panic!("load {name}: {err}"));

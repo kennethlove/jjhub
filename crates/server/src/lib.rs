@@ -137,6 +137,12 @@ pub fn app_with_secret(
         .route("/{owner}/{name}/search", get(revsets::search_page))
         // story: e09s01 — the per-repository operation log
         .route("/{owner}/{name}/operations", get(routes::operations_page))
+        // story: e09s02 — one operation in the audit log, with its
+        // view's ref changes
+        .route(
+            "/{owner}/{name}/operations/{operation_id}",
+            get(routes::operation_detail_page),
+        )
         .route("/r/{*rest}", get(review_proxy::spa_route))
         .route("/api/{*rest}", get(review_proxy::api_route))
         // story: e12s02 — the site stylesheet shadows the kata asset proxy

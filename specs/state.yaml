@@ -11,30 +11,41 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 waves 1-6 merged (PR #46 squash = trunk 57f8491a).
-    WAVE 7 = 3 parallel dispatches (e08s02 conflict browse,
-    e13s01 landing tree, e14s01 kata embed) + e13s01-run3 extras
-    incl. the protected_refs GIT_CONFIG_GLOBAL fix (jjhub-0xk).
-    Integration chain: trunk 57f8491a -> e14s01 -> e13s01-extra ->
-    e13s01 -> e08s02 -> integration node (locks union 13 entries,
-    spec ticks + tasks + execution-status rollup in it).
-    PUSH STEPS: bookmark tip v020-w7, jj git push, gh pr create
-    base trunk (env -u GITHUB_TOKEN, body via write tool to
-    /tmp/prN.body), then forget+rm ../jjhub-e13s01 workspace.
-    REMAINING after wave 7: e08s03 (needs e08s02 helper - shipped),
-    e09s02 (needs e08s03 flag), e12s03, e13s02 (needs e13s01 -
-    shipped), e14s02 (needs e14s01 - shipped).
+    v0.2.0 waves 1-7 merged (PR #47 squash = trunk 050e47e0).
+    WAVE 8 = my e12s03 docs section in CONVENTIONS.md (design audit
+    gate, verify greps pass, trace filed) + 2 parallel dispatches:
+    e09s02 oplog detail (handler operation_detail_page, ref_changes
+    in jj_meta.rs, operation_detail.html, tests/oplog_detail 5/5)
+    and e14s02 embed states (mr_detail placeholder+noscript, app.css
+    reduced-motion rule, tests/embed_states 2/2).
+    Integration chain: trunk 050e47e0 -> da5bf48d (docs) ->
+    0431eee7 (e09s02) -> 336ab2b8 (e14s02 feat, locks resolved in
+    place) -> 9ba15d40 (ticks) -> 79b8a742 (beads) -> 62b88453
+    (protected_refs git-config fix) -> integration node @ (locks
+    union 15 entries; e12s03 + e09s02 + e14s02 spec ticks, tasks,
+    execution-status rollup all in it).
+    PUSH STEPS: preflight /tmp/preflight-seg.sh w8 <short-tip>;
+    e2e x5 with eval'd DATABASE_URL + PATH=/tmp/e2e-bin:/tmp/kata/
+    target/debug; bookmark v020-w8; jj git push -b v020-w8; gh pr
+    create base trunk (env -u GITHUB_TOKEN, body via write tool to
+    /tmp/pr9.body); forget+rm ../jjhub-e09s02 and
+    ../jjhub-e14s02 workspaces; progress comment on jjhub-kju;
+    tick e14s02 AC3 if workspace green comes back clean.
+    REMAINING after wave 8: e08s03 (needs e08s02 helper -
+    shipped; conflict-flag helper for e09s02 absorbed inline),
+    e13s02 (needs e13s01 - shipped). Both are the LAST 2.
     DB: container jjhub-pg-e15s02 port 5437; preflight
     /tmp/preflight-seg.sh <name> <tip>; e2e needs eval'd
     DATABASE_URL + PATH=/tmp/e2e-bin:/tmp/kata/target/debug.
-    LESSONS (wave 7): pi dispatch logs buffer (0B) until exit -
-    judge liveness by commits in its workspace, not log size;
-    dispatch cd failures leave pi running in the WRONG workspace -
-    always verify `jj -R <ws> log -r @` after launch; agents commit
-    WC checkpoints as undescribed in-stack commits - describe or
-    abandon before push; `jj rebase -s` of a subtree containing
-    workspaces' interleaved commits can duplicate story copies -
-    diff each suspected dup before abandoning; locks union across
-    3 stories needs indent-preserving strip + per-entry parse
-    (/tmp/ul.py pattern); RTK mangles concatenated jj templates -
-    use separate(" ", ...) and single-commit probes.
+    LESSONS (wave 8): dispatch brief MUST say 'commit your work'
+    - e09s02 did everything green then exited leaving its WC
+    uncommitted (e14s02 committed unprompted); two pi per workspace
+    = duplicate-launch race - kill older pair, keep one; never
+    `jj commit` while a shared PR bookmark sits on @ - use
+    `jj describe -m` + `jj new`; `jj abandon` of a bookmarked
+    commit deletes the bookmark (recover with `jj bookmark
+    untrack X` then `jj bookmark set X -r <head>`); dispatch cd
+    target = SIBLING dirs (kennethlove/jjhub-eNNsNN, never
+    jjhub/jjhub-...); RTK mangles `+`-concat jj templates - use
+    separate(" ", ...) or plain log; `jj rebase -r` on this build
+    also moves/reports descendants - probe children first.
