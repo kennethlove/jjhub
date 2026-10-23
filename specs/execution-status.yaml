@@ -41,18 +41,18 @@ epics:
     stories:
       e07s01: passing
   e08-conflict-hosting:
-    status: todo
+    status: passing
     stories:
       e08s01: passing
       e08s02: passing
-      e08s03: todo
+      e08s03: passing
   e09-oplog-audit:
-    status: todo
+    status: passing
     stories:
       e09s01: passing
       e09s02: passing
   e10-immutability-policy:
-    status: in_progress
+    status: passing
     stories:
       e10s01: passing
       e10s02: passing
@@ -63,18 +63,18 @@ epics:
       e11s01: passing
       e11s02: passing
   e12-design-system:
-    status: in_progress
+    status: passing
     stories:
       e12s01: passing
       e12s02: passing
       e12s03: passing
   e13-landing-tree:
-    status: todo
+    status: passing
     stories:
       e13s01: passing
       e13s02: passing
   e14-kata-embed:
-    status: todo
+    status: passing
     stories:
       e14s01: passing
       e14s02: passing

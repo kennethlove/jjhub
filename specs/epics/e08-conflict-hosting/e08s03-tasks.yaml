@@ -1,13 +1,13 @@
 story_id: e08s03
 title: "Conflict state in trunk resolution and MR views"
-status: todo
+status: passing
 bcps: 3
 tasks:
   - id: e08s03t1
     description: "jj_meta handles conflicted trunk gracefully"
     verify: "cargo test -p server conflict_meta"
-    status: todo
+    status: passing
   - id: e08s03t2
     description: "MR and landing pages flag conflicted commits"
     verify: "cargo test -p server conflict_ui"
-    status: todo
+    status: passing
