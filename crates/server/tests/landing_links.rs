@@ -70,8 +70,16 @@ mod landing_links {
     }
 
     async fn get(pool: &sqlx::PgPool, root: &std::path::Path) -> (StatusCode, String) {
+        get_at(pool, root, "/alice/demo").await
+    }
+
+    async fn get_at(
+        pool: &sqlx::PgPool,
+        root: &std::path::Path,
+        path: &str,
+    ) -> (StatusCode, String) {
         let response = server::app_with_storage(pool.clone(), root.to_str().unwrap().to_string())
-            .oneshot(Request::get("/alice/demo").body(Body::empty()).unwrap())
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
             .await
             .unwrap();
         let status = response.status();
@@ -100,9 +108,13 @@ mod landing_links {
             html.contains(r#"href="/alice/demo/blob/trunk/README.md""#),
             "file entry links to the e07 blob route: {html}"
         );
+        // Gherkin: follow "docs" — the e07 tree page's file entry links
+        // to the blob route at trunk with the full nested path
+        let (status, tree_html) = get_at(&pool, root.path(), "/alice/demo/tree/trunk/docs").await;
+        assert_eq!(status, StatusCode::OK);
         assert!(
-            html.contains(r#"href="/alice/demo/blob/trunk/docs/guide.md""#),
-            "nested file links to the e07 blob route: {html}"
+            tree_html.contains(r#"href="/alice/demo/blob/trunk/docs/guide.md""#),
+            "guide.md links to the e07 blob route: {tree_html}"
         );
     }
 
