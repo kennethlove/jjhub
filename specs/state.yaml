@@ -15,9 +15,11 @@ handoff:
       #48 v020-w8 -> trunk (head 4ecc2d7d, rollup included, CI green)
       #49 v020-w9 -> v020-w8 (head 79b26fae: e13s01 CODE RESTORED
         + e13s02; chain 4ecc2d7d -> b738902b6841 -> ... -> 79b26fae)
-      #51 v020-w10 -> v020-w9 (head b86a8eee: e08s03 SOLO; chain
-        79b26fae -> 9d11e63c lock (17-entry union) -> 7ff76475 RED ->
-        f7cc7de3 feat -> b86a8eee closeout).
+      #52 v020-w10 -> trunk (head 0d66ac74: e08s03 SOLO; chain
+        trunk -> 46810efb lock (17-entry union) -> 05e20778 RED ->
+        0965cb5c feat -> 7efafa39 closeout -> 0d66ac74 handoff).
+        #51 was auto-closed when its base v020-w9 was deleted on
+        merge of #49; #52 re-files the same head+body onto trunk.
     e08s03 delivered: load_trunk_file_names defined states (conflicted
     root + skipped bookmark -> Ok([]), contract unchanged), shared
     conflict_terms() rule (e08s02 read_conflict + new commit_is_conflicted),
