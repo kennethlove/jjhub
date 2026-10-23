@@ -43,19 +43,20 @@ mod landing_empty {
         let root = tempfile::tempdir().unwrap();
         mount(&pool, &root).await;
 
-        let response = server::app_with_storage(
-            pool.clone(),
-            root.path().to_str().unwrap().to_string(),
-        )
-        .oneshot(Request::get("/alice/demo").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(Request::get("/alice/demo").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let html =
             String::from_utf8_lossy(&response.into_body().collect().await.unwrap().to_bytes())
                 .into_owned();
 
-        assert!(html.contains("<h2>Files</h2>"), "Files section kept: {html}");
+        assert!(
+            html.contains("<h2>Files</h2>"),
+            "Files section kept: {html}"
+        );
         assert!(
             html.contains("No files yet") && html.contains("push your first commit"),
             "onboarding block rendered: {html}"
