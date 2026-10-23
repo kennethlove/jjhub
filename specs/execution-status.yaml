@@ -79,8 +79,8 @@ epics:
       e14s01: passing
       e14s02: passing
   e15-templates:
-    status: in_progress
+    status: passing
     stories:
       e15s01: passing
       e15s02: passing
-      e15s03: todo
+      e15s03: passing
