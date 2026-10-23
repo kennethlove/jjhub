@@ -102,13 +102,14 @@ sorting, empty states for other sections, tree-page changes.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server landing_links` — seeded nested repo: directory
+- [x] `cargo test -p server landing_links` — seeded nested repo: directory
       entry links to the tree route at trunk, file entry links to the blob
-      route; link text and hrefs escaped. (e13s02t1)
-- [ ] `cargo test -p server landing_empty` — repo with no commits: the
+      route; link text and hrefs escaped. (e13s02t1) — 2026-10-23 — 2 passed.
+- [x] `cargo test -p server landing_empty` — repo with no commits: the
       landing page renders the onboarding block, lists no entries, and
-      contains no tree/blob links. (e13s02t2)
-- [ ] `cargo test --workspace` green.
+      contains no tree/blob links. (e13s02t2) — 2026-10-23 — 1 passed.
+- [x] `cargo test --workspace` green. — 2026-10-23 — 212 passed, 0 failed;
+      fmt, clippy -D warnings, and build green.
 
 ## 18. Test scenarios (Gherkin)
 
