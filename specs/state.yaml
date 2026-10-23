@@ -11,36 +11,30 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
-    NEXT CYCLE (2026-10-23): v0.3.0 planned and ready — scope
-    (specs/product/SCOPE_LATEST.yaml), release index (e16 divergence
-    visible WSJF 16, e17 ssh transport WSJF 14), capsules
-    specs/epics/e16-* + e17-* with 5 countable stories + tasks.yaml
-    (verify commands). v0.2.0 RELEASED: tag v0.2.0 = b722bea, GitHub
-    release published, changelog updated, beads epic closed, test DB
-    removed. Next action: plan-work/dispatch e16s01 first.
-    ALL 11 STORIES DONE. Stacked open PRs for review (merge in order):
-      #48 v020-w8 -> trunk (head 4ecc2d7d, rollup included, CI green)
-      #49 v020-w9 -> v020-w8 (head 79b26fae: e13s01 CODE RESTORED
-        + e13s02; chain 4ecc2d7d -> b738902b6841 -> ... -> 79b26fae)
-      #52 v020-w10 -> trunk (head 0d66ac74: e08s03 SOLO; chain
-        trunk -> 46810efb lock (17-entry union) -> 05e20778 RED ->
-        0965cb5c feat -> 7efafa39 closeout -> 0d66ac74 handoff).
-        #51 was auto-closed when its base v020-w9 was deleted on
-        merge of #49; #52 re-files the same head+body onto trunk.
-    e08s03 delivered: load_trunk_file_names defined states (conflicted
-    root + skipped bookmark -> Ok([]), contract unchanged), shared
-    conflict_terms() rule (e08s02 read_conflict + new commit_is_conflicted),
-    .conflict-flag on landing Files + MR revision sections (app.css error
-    tokens); --color-secondary #56635C -> #4A574F in app.css AND DESIGN.md
-    (fixes pre-existing button:disabled APCA 71.36 -> 76.38; ux_audit now
-    PASSES). Gates: conflict_meta 3/3, conflict_ui 4/4, workspace 72/72,
-    preflight PASS at b86a8eee, e2e x5 PASS.
-    execution-status: e09/e10/e12/e13/e14 epics flipped passing; e15 epics
-    stays in_progress (e15s03 story todo — extraction shipped in #42 but
-    its spec was never ticked; OPEN QUESTION for the user).
-    After #48+#49+#51 merge: re-check trunk, next = e15s03 verification or
-    remaining epic rollups; DB container jjhub-pg-e15s02 (port 5437) can
-    then be removed (docker rm -f).
+    v0.2.0 SHIPPED (tag v0.2.0 = b722bea, released; #38-#53 all merged).
+    v0.3.0 PLANNED: e16 divergence-visible WSJF 16, e17 ssh-transport
+    WSJF 14 (capsules in specs/epics/e16-* + e17-*). Test DB = container
+    jjhub-pg on host port 5432 (jjhub_test); /tmp/preflight-seg.sh DATABASE_URL
+    already points there.
+    WAVE 1 (2026-10-24) = e16 DONE, stacked on trunk 5903ad1 as v030-w1:
+      trunk -> effd9f00 lock -> c61a4b5a RED -> c72a975d feat (helper:
+      server::divergence::divergent_heads(git_dir,&[String])->Vec<String>) ->
+      0e88b102 ticks -> bb32d511 lock -> 6ea75365 RED -> bcfa7490 feat
+      (MR detail + list, class `divergence-flag`, anchor id on mr_revision)
+      -> 04a295bb ticks -> dde42394 lock -> 70b6d4d0 RED -> f7f258b6 feat
+      (repo Open MRs mark) -> 5321f28a fix (comment_flow exact-match ->
+      prefix-match: e16s02 adds an anchor id to the section tag) ->
+      6392aef0 ticks -> c9aaf2c1 integration -> (rollup commit).
+      Locks union = 3 e16 entries; zero rebase conflicts. e16s03's agent
+      also carried its own copy of the seam (anchor + CSS) — resolved by
+      stacking on e16s02's tip, not by hand.
+    NEXT: e17s01 (russh listener + host keys + token auth + clone) then
+    e17s02 (SSH push through admit_push + ssh:// URL + e2e-ssh-push.sh);
+    bookmark e17 as v030-w2. e16 story ACs/tasks already ticked passing
+    inside their commits (verify with `jj diff -r <tick-commit>`, not the
+    working tree — dispatch workspaces leave stale snapshots on disk).
+    Remaining after v0.3.0: e15s03 OPEN QUESTION for the user (e15 epic
+    flipped passing in the rollup; spec was never ticked).
     LESSONS: pi long-prompt provider stall (content-independent; logs buffer
     to 0B always — judge liveness by commits; ONE pi per workspace; lsof
     cwd is the only reliable repo check); after ANY chain repair re-probe

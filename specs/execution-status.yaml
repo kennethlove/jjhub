@@ -85,11 +85,11 @@ epics:
       e15s02: passing
       e15s03: passing
   e16-divergence-visible:
-    status: in_progress
+    status: passing
     stories:
-      e16s01: todo
-      e16s02: todo
-      e16s03: todo
+      e16s01: passing
+      e16s02: passing
+      e16s03: passing
   e17-ssh-transport:
     status: in_progress
     stories:
