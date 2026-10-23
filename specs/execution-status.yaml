@@ -72,7 +72,7 @@ epics:
     status: todo
     stories:
       e13s01: passing
-      e13s02: todo
+      e13s02: passing
   e14-kata-embed:
     status: todo
     stories:
