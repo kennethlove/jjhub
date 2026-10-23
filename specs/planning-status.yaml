@@ -1,40 +1,47 @@
-# discover-phase checklist for the v0.2.0 planning cycle — run-planning
+# discover-phase checklist for the v0.3.0 planning cycle — run-planning
 context_capsule:
-  written_at: "2026-10-19"
+  written_at: "2026-10-23"
   written_by: elaborate-spec
-  feature_name: "jjhub v0.2.0"
+  feature_name: "jjhub v0.3.0"
 workflows:
   survey-context:
     required: true
     status: done
+    note: >
+      v0.2.0 shipped (#38-#52, released); vision items 8 and 9 were
+      the only unshipped post-MVP entries.
   scope-work:
     required: true
     status: done
+    note: >
+      Interview with the user chose MR+repo divergence surfaces and a
+      built-in sshd; SCOPE_v0.2.0 snapshotted before rewrite.
   research-first:
     required: true
     status: done
     note: >
-      Prior Art appended to specs/product/SCOPE_LATEST.yaml —
-      adopt: jj-lib 0.41 revset/ops APIs, DESIGN.md standard;
-      extend: jj git conflict repr, receive_guard, browse tree,
-      kata forwarder
+      Prior Art appended to SCOPE_LATEST.yaml — adopt: russh 0.64.1
+      (tokio SSH server, Apache-2.0), jj divergence semantics over the
+      pushed graph, git-upload-pack binaries already on host; reject:
+      system-sshd forced commands, stored divergence columns.
   elaborate-spec:
     required: true
     status: done
     note: >
-      Capsule refreshed for v0.2.0 from the confirmed scope — prior
-      v0.1.0 capsule had no written_at; interview already ran inside
-      scope-work with the user's answers
+      Capsule refreshed for v0.3.0 from the confirmed scope — key
+      decisions recorded (compute-not-store, surfaces, russh listener).
   plan-release:
     required: true
     status: done
     note: >
-      v0.2.0 index written with 7 WSJF-ordered epics (e08-e14);
-      epic.yaml manifests stubbed with empty stories; BUG-001 marked
-      fixed in registry
+      v0.3.0 index written with 2 WSJF-ordered epics (e16 divergence
+      visible 16, e17 ssh transport 14); bug registry carried (1/1
+      fixed).
   slice-tasks:
     required: true
     status: done
     note: >
-      17 vertical slices across e08-e14: tasks.yaml with verify
-      commands, epic.yaml manifests, execution-status todos
+      5 vertical slices across e16-e17: tasks.yaml with verify
+      commands (e16s01 detect, e16s02 MR surfaces, e16s03 repo page,
+      e17s01 listener/clone, e17s02 push/url/e2e), epic.yaml
+      manifests, execution-status todos.

@@ -1,0 +1,13 @@
+story_id: e16s01
+title: "Divergence detection over pushed revisions"
+status: todo
+bcps: 2
+tasks:
+  - id: e16s01t1
+    description: "detection helper + fixtures (siblings, linear, missing)"
+    verify: "cargo test -p server divergence_detect"
+    status: todo
+  - id: e16s01t2
+    description: "workspace gates green"
+    verify: "cargo test --workspace"
+    status: todo

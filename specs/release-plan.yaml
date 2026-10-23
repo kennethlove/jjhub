@@ -1,59 +1,23 @@
-# specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.2.0
+# specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.3.0
 
-version: "0.2.0"
+version: "0.3.0"
 status: planning
 workflow_mode: solo-git
 
 # WSJF = (user value + time criticality + risk reduction) / job size, coarse
 # version is a non-authoritative mirror; the real tag is decided at release
 epics:
-  - id: e12
-    slug: design-system
-    title: "Site-wide design system (DESIGN.md, tokens, audit gate)"
-    wsjf: 17
+  - id: e16
+    slug: divergence-visible
+    title: "Divergence visible — flag same-change non-ancestor heads"
+    wsjf: 16
+    bcp_total: 8
+    delta: ADDED
+  - id: e17
+    slug: ssh-transport
+    title: "SSH transport — built-in listener, token auth, git pack protocol"
+    wsjf: 14
     bcp_total: 10
-    delta: ADDED
-  - id: e15
-    slug: templates
-    title: "Server-rendered Tera templates (page HTML out of Rust)"
-    wsjf: 16
-    bcp_total: 15
-    delta: ADDED
-  - id: e10
-    slug: immutability-policy
-    title: "Server-side immutability policy for protected refs"
-    wsjf: 16
-    bcp_total: 11
-    delta: ADDED
-  - id: e11
-    slug: revset-search
-    title: "Revset search — server-side jj query syntax"
-    wsjf: 14
-    bcp_total: 8
-    delta: ADDED
-  - id: e13
-    slug: landing-tree
-    title: "File tree on the repository landing page"
-    wsjf: 14
-    bcp_total: 5
-    delta: ADDED
-  - id: e14
-    slug: kata-embed
-    title: "Inline kata embed on merge request pages"
-    wsjf: 13
-    bcp_total: 5
-    delta: ADDED
-  - id: e08
-    slug: conflict-hosting
-    title: "Conflict-tolerant hosting — serve and display conflicted states"
-    wsjf: 12
-    bcp_total: 11
-    delta: ADDED
-  - id: e09
-    slug: oplog-audit
-    title: "Operation-log audit trail from the colocated .meta log"
-    wsjf: 11
-    bcp_total: 8
     delta: ADDED
 
 bugs:

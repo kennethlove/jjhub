@@ -1,0 +1,159 @@
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.2.0
+# v0.1.0 scope archived at specs/product/snapshots/SCOPE-v0.1.0-2026-10-19.yaml
+version: "0.2.0"
+feature_name: "jjhub"
+core_value: >
+  jjhub keeps hosting that matches the jj workflow: it survives
+  conflicts instead of rejecting them, audits its own operations,
+  enforces immutability server-side, answers revset queries, and
+  presents itself at daily-driver quality.
+summary: >
+  v0.2.0 has two halves. The first hardens the hosting model with the
+  four roadmap items deferred from the MVP: conflict-tolerant storage
+  and serving, an operation-log audit trail, a server-side immutability
+  policy, and revset search over history. The second raises the
+  presentation and its internals: page HTML moves out of Rust string
+  literals into Tera templates, a site-wide design system, the file
+  tree on the repo landing page, and the kata review UI embedded
+  inline on merge request pages. The audience stays solo self-hosters and jj
+  daily users; nothing about the stack or deployment story changes.
+in_scope:
+  - id: e08
+    title: "Conflict-tolerant hosting"
+    detail: >
+      Repos whose commits carry unresolved jj conflicts are stored and
+      served like any other; conflict state stops being a rejection
+      case for push, fetch, and pages.
+    why: >
+      jj conflict commits are first-class in jj's model; a forge that
+      rejects them cannot host the workflow it claims to support.
+  - id: e09
+    title: "Operation-log audit"
+    detail: >
+      The server exposes an auditable operation log per repository:
+      who did what to which ref, when, in jj's operation model.
+    why: >
+      Self-hosters need a trustworthy record of server-side and
+      client-side operations without shell access to the host.
+  - id: e10
+    title: "Server-side immutability policy"
+    detail: >
+      Protected refs and history rules are enforced on the server;
+      writes that violate policy are rejected before storage.
+    why: >
+      Trust boundaries live at the server; client-side politeness is
+      not a guarantee for shared hosting.
+  - id: e11
+    title: "Revset search"
+    detail: >
+      Revset expressions query repository history through the product
+      (API and pages), returning matching revisions.
+    why: >
+      jj users already think in revsets; history search in any other
+      dialect would be a second language to learn.
+  - id: e12
+    title: "Site-wide design system"
+    detail: >
+      One documented, token-driven visual system covering site shell,
+      repo pages, and merge request pages, with an audit gate for
+      contrast, tokens, and interaction states.
+    why: >
+      The MVP shipped page-by-page styling; consistency and
+      accessibility need a source of truth before more UI lands.
+  - id: e13
+    title: "File tree on the repo landing page"
+    detail: >
+      The repository landing page shows the file tree at the default
+      revision, linking into the existing tree and blob pages.
+    why: >
+      Landing on README-only hides the repository's shape; browsing
+      should start where the user arrives.
+  - id: e14
+    title: "Inline kata embed on MR pages"
+    detail: >
+      The kata review UI renders inline within merge request pages
+      instead of linking out to a separate surface.
+    why: >
+      Review context should not split across two navigations; the
+      sidecar is part of reviewing, not a destination.
+  - id: e15
+    title: "Server-rendered Tera templates"
+    detail: >
+      Page HTML moves out of routes.rs string literals into Tera
+      templates with a shared base layout; handlers pass context
+      only.
+    why: >
+      User-directed: templates join 0.2.0 for cleaner separation, and
+      the design system styles templates, not Rust string literals.
+      tera = "1" is already a workspace dependency.
+out_of_scope:
+  - item: "Issues tracker"
+    why: "Deferred — review model stays the product focus"
+  - item: "Organizations, teams, and user profiles beyond account"
+    why: "Deferred — solo self-hoster remains the target"
+  - item: "SSH transport, OIDC auth, CI runners"
+    why: "Deferred from MVP — unchanged for 0.2.0"
+  - item: "Full-text code search"
+    why: >
+      Revset search covers history, not blob content; a separate
+      indexer is a different product bet
+  - item: "Redesigning kata's own UI"
+    why: "We embed it — visual system covers jjhub surfaces only"
+  - item: "Commercial hosted service features (billing, orgs)"
+    why: "Deferred — self-host story ships first"
+constraints:
+  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
+  - "Public open source codebase; no external paid services"
+  - "Conventional Commits; TDD where possible; specs/ as planning SoT"
+  - "Preflight and CI stay green before forward work"
+  - "Every story carries at least one story: eNNsNN tag in code/tests"
+  - "Page HTML lives in Tera templates; routes.rs holds handlers only"
+  - >
+    UI work runs keystone render gates, impeccable live tools, and
+    the ux audit before handoff
+success_criteria:
+  - >
+    A repository containing a commit with unresolved conflicts clones,
+    fetches, and renders pages without error.
+  - >
+    The operation log shows an auditable, per-repository sequence of
+    ref operations with actor and time.
+  - >
+    A write against a protected ref is rejected server-side with a
+    test proving the rejection.
+  - >
+    A revset expression returns matching revisions through API and UI.
+  - >
+    A documented design system file exists and the site passes the
+    contrast, token, and interaction-state audit.
+  - >
+    Page HTML renders from Tera templates; no page-level doctype
+    strings remain in routes.rs.
+  - >
+    The repo landing page shows the file tree at the default revision.
+  - >
+    An MR page shows the kata review UI inline with no navigation
+    away from the MR.
+  - "Preflight and CI green; existing 134 tests keep passing."
+references:
+  - "specs/product/snapshots/SCOPE-v0.1.0-2026-10-19.yaml"
+  - "specs/planning-context.yaml"
+  - "specs/archive/spikes/SPIKE-kata-review-integration.md"
+  - "README.md — Post-MVP roadmap section"
+
+# ## Prior Art — research-first for v0.2.0 (2026-10-19)
+# | Candidate | Verdict | Evidence |
+# | jj-lib 0.41 revset | adopt | parse_program revset_parser.rs:447,
+# |   evaluate revset.rs:680; crate already a dep |
+# | jj-lib op log read | adopt | pub struct Operation op_store.rs:360,
+# |   trait OpStore op_store.rs:464 reads .meta |
+# | git conflict repr | extend | docs.jj-vcs.dev/conflicts + #7610:
+# |   .jjconflict-base/side dirs + jj:trees header; refs/jj GC refs |
+# | receive_guard check_push | extend | this repo receive_guard.rs:100
+# |   parses ref updates — immutability insertion point |
+# | browse list_tree/read_blob | extend | this repo browse.rs:54/95 (e07)
+# |   reused for landing tree |
+# | kata same-origin forwarder | extend | this repo PR #25 (/r /api /assets);
+# |   no CSP or frame headers exist yet — set on embed |
+# | DESIGN.md standard + ux audit | adopt | no DESIGN.md in repo; tokens
+# |   + audit gate is the e12 system |

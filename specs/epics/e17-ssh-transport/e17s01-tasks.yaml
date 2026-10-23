@@ -1,0 +1,21 @@
+story_id: e17s01
+title: "SSH listener, host keys, token auth, clone"
+status: todo
+bcps: 4
+tasks:
+  - id: e17s01t1
+    description: "token password auth; bad password/user/pubkey rejected"
+    verify: "cargo test -p server ssh_auth"
+    status: todo
+  - id: e17s01t2
+    description: "first-boot host key generation persists and reuses"
+    verify: "cargo test -p server ssh_host_keys"
+    status: todo
+  - id: e17s01t3
+    description: "e2e ssh clone equals http clone"
+    verify: "bash scripts/e2e-ssh-clone.sh"
+    status: todo
+  - id: e17s01t4
+    description: "workspace gates green"
+    verify: "cargo test --workspace"
+    status: todo

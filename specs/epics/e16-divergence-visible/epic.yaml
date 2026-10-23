@@ -1,0 +1,18 @@
+epic: e16
+slug: divergence-visible
+title: "Divergence visible — flag same-change non-ancestor heads"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e16s01
+    title: "Divergence detection over pushed revisions"
+    bcps: 2
+    delta: ADDED
+  - id: e16s02
+    title: "MR surfaces show divergent siblings"
+    bcps: 3
+    delta: ADDED
+  - id: e16s03
+    title: "Repo page marks divergent merge requests"
+    bcps: 3
+    delta: ADDED

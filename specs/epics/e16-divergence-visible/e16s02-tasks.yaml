@@ -1,0 +1,17 @@
+story_id: e16s02
+title: "MR surfaces show divergent siblings"
+status: todo
+bcps: 3
+tasks:
+  - id: e16s02t1
+    description: "MR detail divergence notice with both heads linked"
+    verify: "cargo test -p server divergence_mr_detail"
+    status: todo
+  - id: e16s02t2
+    description: "MR list divergence mark"
+    verify: "cargo test -p server divergence_mr_list"
+    status: todo
+  - id: e16s02t3
+    description: "workspace gates green + ux audit passes"
+    verify: "cargo test --workspace"
+    status: todo

@@ -1,0 +1,13 @@
+story_id: e16s03
+title: "Repo page marks divergent merge requests"
+status: todo
+bcps: 3
+tasks:
+  - id: e16s03t1
+    description: "repo page marks only divergent open MRs with shared class"
+    verify: "cargo test -p server divergence_repo_page"
+    status: todo
+  - id: e16s03t2
+    description: "workspace gates green + ux audit passes"
+    verify: "cargo test --workspace"
+    status: todo

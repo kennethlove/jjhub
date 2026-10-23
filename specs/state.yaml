@@ -11,6 +11,13 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
+    NEXT CYCLE (2026-10-23): v0.3.0 planned and ready — scope
+    (specs/product/SCOPE_LATEST.yaml), release index (e16 divergence
+    visible WSJF 16, e17 ssh transport WSJF 14), capsules
+    specs/epics/e16-* + e17-* with 5 countable stories + tasks.yaml
+    (verify commands). v0.2.0 RELEASED: tag v0.2.0 = b722bea, GitHub
+    release published, changelog updated, beads epic closed, test DB
+    removed. Next action: plan-work/dispatch e16s01 first.
     ALL 11 STORIES DONE. Stacked open PRs for review (merge in order):
       #48 v020-w8 -> trunk (head 4ecc2d7d, rollup included, CI green)
       #49 v020-w9 -> v020-w8 (head 79b26fae: e13s01 CODE RESTORED

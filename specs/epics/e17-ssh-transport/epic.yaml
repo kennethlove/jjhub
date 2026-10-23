@@ -1,0 +1,14 @@
+epic: e17
+slug: ssh-transport
+title: "SSH transport — built-in listener, token auth, git pack protocol"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e17s01
+    title: "SSH listener, host keys, token auth, clone"
+    bcps: 4
+    delta: ADDED
+  - id: e17s02
+    title: "SSH push through admission + ssh:// URL + e2e"
+    bcps: 6
+    delta: ADDED
