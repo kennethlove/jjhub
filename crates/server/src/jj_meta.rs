@@ -389,15 +389,16 @@ pub async fn load_trunk_file_names(meta_path: &Path) -> Result<Vec<String>, Stri
         .map_err(|e| format!("load_at_head: {e}"))?;
 
     // trunk bookmark -> commit id (skip conflicted bookmarks)
-    let trunk_id = repo
-        .view()
-        .local_bookmarks()
-        .find_map(|(name, target)| {
-            (name.as_str() == "trunk")
-                .then(|| target.as_normal().cloned())
-                .flatten()
-        })
-        .ok_or("trunk bookmark not found")?;
+    // story: e08s03 — a skipped trunk bookmark (conflicted target or
+    // missing ref) degrades to the defined empty state, never an error
+    // string, so pages render their existing empty state plus the flag
+    let Some(trunk_id) = repo.view().local_bookmarks().find_map(|(name, target)| {
+        (name.as_str() == "trunk")
+            .then(|| target.as_normal().cloned())
+            .flatten()
+    }) else {
+        return Ok(Vec::new());
+    };
 
     let commit = repo
         .store()
@@ -405,12 +406,20 @@ pub async fn load_trunk_file_names(meta_path: &Path) -> Result<Vec<String>, Stri
         .await
         .map_err(|e| format!("get_commit: {e}"))?;
 
-    let tree = commit
+    let trees = commit
         .tree()
         .trees()
         .await
         .map_err(|e| format!("trees: {e}"))?;
-    let resolved = tree.iter().next().ok_or("trunk root tree is a conflict")?;
+    // story: e08s03 — a conflicted trunk root degrades to the defined
+    // empty state: trunk is unavailable, and the UI carries the flag from
+    // the shared commit helper instead of failing the load
+    if !trees.is_resolved() {
+        return Ok(Vec::new());
+    }
+    let Some(resolved) = trees.iter().next() else {
+        return Ok(Vec::new());
+    };
 
     Ok(resolved
         .entries_non_recursive()

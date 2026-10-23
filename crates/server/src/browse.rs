@@ -174,6 +174,45 @@ fn header_value(headers: &str, name: &str) -> Option<String> {
     Some(value)
 }
 
+/// story: e08s03 — the shared conflict-flag rule, extracted so the trunk
+/// path, the landing flag, and every revision flag read one definition:/// a jj-conflicted commit records one tree per term, add first: an odd
+/// count of 40-hex values in `jj:trees`. Clean commits have no such header.
+fn conflict_terms(headers: &str) -> Option<Vec<String>> {
+    let trees_value = header_value(headers, "jj:trees")?;
+    let terms: Vec<String> = trees_value.split_whitespace().map(str::to_string).collect();
+    if terms.len() < 3 || terms.len().is_multiple_of(2) || terms.len() > MAX_CONFLICT_TERMS {
+        return None;
+    }
+    if !terms.iter().all(|t| {
+        t.len() == 40
+            && t.bytes()
+                .all(|b| b.is_ascii_hexdigit() || b.is_ascii_uppercase())
+    }) {
+        return None;
+    }
+    Some(terms)
+}
+
+/// story: e08s03 — presentation flag: does this commit carry jj's conflict
+/// representation? A pure read; conflict state alone is never a rejection.
+pub fn commit_is_conflicted(bare: &Path, commit: &str) -> bool {
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(bare)
+        .args(["cat-file", "commit", commit])
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .output();
+    let Ok(output) = output else {
+        return false;
+    };
+    if !output.status.success() {
+        return false;
+    }
+    let raw = String::from_utf8_lossy(&output.stdout);
+    conflict_terms(&raw).is_some()
+}
+
 /// story: e08s02 — classify a root-tree entry: (is_base, index) for
 /// `.jjconflict-base-N` / `.jjconflict-side-N`, else None.
 fn jjconflict_dir(name: &str) -> Option<(bool, usize)> {
@@ -213,20 +252,7 @@ pub fn read_conflict(bare: &Path, git_ref: &str, path: &str) -> Option<Conflict>
     // jj headers may sit in the commit header block or (as the test
     // fixtures do) in the message; scan the whole object
     let headers = raw.as_ref();
-    let trees_value = header_value(headers, "jj:trees")?;
-    // a jj-conflicted commit records one tree per term, add first: an odd
-    // count of 40-hex values. clean commits have no such header at all.
-    let terms: Vec<&str> = trees_value.split_whitespace().collect();
-    if terms.len() < 3 || terms.len().is_multiple_of(2) || terms.len() > MAX_CONFLICT_TERMS {
-        return None;
-    }
-    if !terms.iter().all(|t| {
-        t.len() == 40
-            && t.bytes()
-                .all(|b| b.is_ascii_hexdigit() || b.is_ascii_uppercase())
-    }) {
-        return None;
-    }
+    let terms = conflict_terms(headers)?;
 
     // labels: interleaved like trees, even = side, odd = base
     let mut side_labels = Vec::new();

@@ -434,8 +434,14 @@ pub async fn repo_page(
     .unwrap_or_default();
     // story: e07s01 — native tree view; only when the repo has commits
     let bare_for_files = domain::storage_path(&state.storage_root, &owner, &name);
-    let has_files =
-        crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}")).is_some();
+    let trunk_head = crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}"));
+    let has_files = trunk_head.is_some();
+    // story: e08s03 — the landing flag shares the commit-header rule with
+    // every other flag; presentation only, a conflicted trunk still 200s
+    let trunk_conflicted = trunk_head
+        .as_deref()
+        .map(|sha| crate::browse::commit_is_conflicted(&bare_for_files, sha))
+        .unwrap_or(false);
 
     // story: e13s01 — the landing page's root file tree at the trunk
     // revision; one list_tree subprocess per render, names escaped (XSS)
@@ -466,6 +472,7 @@ pub async fn repo_page(
     context.insert("protected_refs", &protected);
     context.insert("browse_href", &browse);
     context.insert("files", &has_files);
+    context.insert("trunk_conflicted", &trunk_conflicted);
     context.insert("tree", &tree);
     context.insert("mrs", &mr_ids);
     context.insert("host", &host);
@@ -707,6 +714,11 @@ pub async fn mr_detail_page(
             })
             .collect();
         let mut revision = tera::Context::new();
+        // story: e08s03 — presentation-only flag from the shared header rule
+        revision.insert(
+            "conflicted",
+            &crate::browse::commit_is_conflicted(&bare, commit),
+        );
         revision.insert("owner", &owner);
         revision.insert("name", &name);
         revision.insert("change_id", &change_id);
