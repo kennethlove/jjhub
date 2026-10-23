@@ -99,6 +99,17 @@ h4 {
   line-height: 1.4;
 }
 
+/* story: e08s03 — conflict flag: the one presentation of the shared
+   commit-header rule (trunk on the landing page, revisions on MR detail) */
+.conflict-flag {
+  display: inline-block;
+  color: var(--color-error);
+  background-color: var(--color-error-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-half) var(--space-xs);
+  font-size: var(--text-label-sm);
+}
+
 p,
 ul,
 ol {
