@@ -5,7 +5,7 @@
 :root {
   /* colors */
   --color-primary: #16211C;
-  --color-secondary: #56635C;
+  --color-secondary: #4A574F;
   --color-tertiary: #157F52;
   --color-tertiary-hover: #116944;
   --color-tertiary-pressed: #0D5436;
@@ -97,6 +97,17 @@ h3 {
 h4 {
   font-size: var(--text-body-lg);
   line-height: 1.4;
+}
+
+/* story: e08s03 — conflict flag: the one presentation of the shared
+   commit-header rule (trunk on the landing page, revisions on MR detail) */
+.conflict-flag {
+  display: inline-block;
+  color: var(--color-error);
+  background-color: var(--color-error-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-half) var(--space-xs);
+  font-size: var(--text-label-sm);
 }
 
 p,

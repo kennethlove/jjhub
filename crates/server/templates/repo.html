@@ -13,6 +13,8 @@
 <p>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}{% if files %} · <a href="/{{ owner }}/{{ name }}/tree">Files</a>{% endif %}{# story: e11s02 — search entry point next to Files #} · <a href="/{{ owner }}/{{ name }}/search">Search</a>{# story: e09s01 — the operation log entry in the repo nav #} · <a href="/{{ owner }}/{{ name }}/operations">Operations</a></p>
 {# story: e13s01 — root file tree at the trunk revision; story: e13s02 — entry links reuse e07's tree/blob URL shapes, names escaped #}
 <h2>Files</h2>
+{# story: e08s03 — conflicted trunk: the flag rides next to the tree or its onboarding state #}
+{% if trunk_conflicted %}<p class="conflict-flag" role="status">Trunk is in a conflict state.</p>{% endif %}
 {% if tree %}<ul class="file-list">
 {% for entry in tree %}<li>{% if entry.is_dir %}📁 {% endif %}<a href="/{{ owner }}/{{ name }}/{% if entry.is_dir %}tree{% else %}blob{% endif %}/{{ trunk }}/{{ entry.label | safe }}">{{ entry.label | safe }}</a></li>
 {% endfor %}
