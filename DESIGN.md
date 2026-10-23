@@ -4,7 +4,7 @@ name: jjhub Forge
 description: Site-wide design tokens for jjhub — the hosting forge for Jujutsu repositories.
 colors:
   primary: "#16211C"
-  secondary: "#56635C"
+  secondary: "#4A574F"
   tertiary: "#157F52"
   tertiary-hover: "#116944"
   tertiary-pressed: "#0D5436"
@@ -233,8 +233,8 @@ green hue that inks the page; no pure `#ffffff` or `#000000` appears anywhere.
 
 - **Primary (#16211C):** Green-black ink for headlines, body text, and the
   inverse band. Roughly 15:1 on paper.
-- **Secondary (#56635C):** Muted slate-green for metadata, captions, and
-  disabled text. Passes 4.5:1 on paper.
+- **Secondary (#4A574F):** Muted slate-green for metadata, captions, and
+  disabled text. Roughly 7:1 on paper.
 - **Tertiary (#157F52):** The single accent — status green. Exclusive driver
   of links, primary buttons, focus rings, and accent badges. Interaction
   states use darkened shades of the same accent (`tertiary-hover` for resting

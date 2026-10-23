@@ -125,14 +125,16 @@ checks; trunk auto-retargeting.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server conflict_meta` — conflicted trunk root tree
+- [x] `cargo test -p server conflict_meta` — conflicted trunk root tree
       returns the defined state (no error string, no 500); conflicted
       trunk bookmarks still skipped; clean repos resolve trunk exactly as
-      before. (e08s03t1)
-- [ ] `cargo test -p server conflict_ui` — landing page and MR detail
+      before. (e08s03t1) — 2026-10-23 — 3 passed, 0 failed.
+- [x] `cargo test -p server conflict_ui` — landing page and MR detail
       render the conflict flag on the conflicted commit; a repo with
-      conflicts renders all pages without error. (e08s03t2)
-- [ ] `cargo test --workspace` green.
+      conflicts renders all pages without error. (e08s03t2) — 2026-10-23 —
+      4 passed, 0 failed; landing + MR detail 200 with `conflict-flag`,
+      clean cases carry none.
+- [x] `cargo test --workspace` green. — 2026-10-23 — 72 suites, 0 failed.
 
 ## 18. Test scenarios (Gherkin)
 
