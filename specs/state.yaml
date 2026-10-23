@@ -11,67 +11,33 @@ session:
 handoff:
   next_skill: build-epic
   notes: |
-    v0.2.0 waves 1-8 merged (PR #48, head 4ecc2d7d, includes the
-    wave-8 rollup files). WAVE 9 = stacked PRs (user reviews later):
-      #49 = e13s01-restore + e13s02, base v020-w8. Chain:
-        4ecc2d7d -> b738902b6841 (e13s01 CODE RESTORED: 2571b6e7
-        RED, 3e8f7817 feat, b738902b extract_browse tree key —
-        wave 7 shipped e13s01's spec ticks but LOST its code
-        commits; restored by rebase of the orphaned chain) ->
-        ab21264a (e13s02 lock) -> 306feea5 RED -> d2c76507 feat ->
-        413a3f9c fmt -> 2970a5f3 ticks -> 32e15700 -> integration
-        node @ 79b26fae = v020-w9 = #49 head (execution-status
-        e13s02 -> passing; PR48 rollup scare resolved: all 7 files
-        on GitHub, heads identical 4ecc2d7d).
-      #50 = e08s03, base #49 head. SOLO by main agent — dispatch
-        dead: pi long-prompt provider stall (content-independent:
-        e13s02's brief now hangs >90s though it worked 2h earlier;
-        trivial prompt OK in 15s; xiaomi-token-plan-sgp degrades,
-        huggingface 402; logs buffer to 0B always — not a signal).
-        Chain: 79b26fae -> 9d11e63c (lock, 17 entries union) ->
-        faef8293 (RED, EMPTY — next: failing tests).
-        Code facts: load_trunk_file_names = jj_meta.rs:372 (only
-        caller = tests/jj_metadata.rs:87; Err("trunk root tree is
-        a conflict") = THE error string, uses MergedTree iter().next())
-        — spec claim 'pages call it' is STALE, pages use
-        crate::browse::list_tree (routes.rs:455 + e07 tree page);
-        shared helper to write = commit-level flag reusing
-        browse.rs::read_conflict/jj:trees read (browse.rs:193,
-        header_value:216, odd-terms rule:217); ref_changes
-        (jj_meta.rs:465) has its OWN bookmark-level
-        target.has_conflict() — different concept, absorbed how?
-        per spec Prior Art; repo_page (routes.rs:373) context:
-        files/tree/mrs — no commit list; mr_detail_page
-        (routes.rs:604) has revisions (commit_id) loop into
-        mr_revision.html sections = badge attach point;
-        repo.html sections: Protected refs / Files / Open MRs
-        / Add; mr_revision.html = per-revision block (commit,
-        diff, threads).
-    PUSH STEPS (per PR): preflight /tmp/preflight-seg.sh <name>
-    <tip>; e2e x5 (eval DATABASE_URL + PATH=/tmp/e2e-bin:
-    /tmp/kata/target/debug); bookmark v020-w9 -r @; jj git push -b
-    v020-w9; gh pr create --base v020-w8 (env -u GITHUB_TOKEN,
-    body via write tool /tmp/pr10.body). For #50: v020-w10 base
-    #49 head, /tmp/pr11.body. Forget+rm dispatch workspaces when
-    their PR ships.
-    REMAINING after #49: e08s03 only — jjhub-kju closes with it.
-    #49 PR body MUST note the e13s01 defect fix (PR #47 shipped
-    ticks without code; missing tests cannot fail, so preflight
-    stayed green).
-    e13s02 flags: ux_audit pre-existing button:disabled Lc 71.36
-    (DESIGN.md secondary #56635C on surface-sunken; candidate
-    #4A574F -> Lc 76.38; handle as quick-fix at closeout),
-    Gherkin deviation accepted (blob link asserted by navigation,
-    not from root landing).
-    DB: container jjhub-pg-e15s02 port 5437 — KEEP UP through
-    e08s03; preflight /tmp/preflight-seg.sh <name> <tip>.
-    LESSONS (wave 9): pi dispatch can stall on the first model
-    call (0B log, no session, ~0 CPU, no children; kill +
-    relaunch) — and long prompts can hang content-independently
-    when a provider degrades; always keep ONE pi per workspace
-    and verify cwd via lsof.
-    e13s01 lesson: after ANY chain repair, re-probe with
-    `ancestors(trunk)` — an orphaned chain passes preflight because
-    missing tests cannot fail; `jj new` from a dirty bookmarked @
-    snapshots edits INTO the bookmarked commit — verify with
-    `gh pr view <n> --json files` after any suspect jj op.
+    ALL 11 STORIES DONE. Stacked open PRs for review (merge in order):
+      #48 v020-w8 -> trunk (head 4ecc2d7d, rollup included, CI green)
+      #49 v020-w9 -> v020-w8 (head 79b26fae: e13s01 CODE RESTORED
+        + e13s02; chain 4ecc2d7d -> b738902b6841 -> ... -> 79b26fae)
+      #51 v020-w10 -> v020-w9 (head b86a8eee: e08s03 SOLO; chain
+        79b26fae -> 9d11e63c lock (17-entry union) -> 7ff76475 RED ->
+        f7cc7de3 feat -> b86a8eee closeout).
+    e08s03 delivered: load_trunk_file_names defined states (conflicted
+    root + skipped bookmark -> Ok([]), contract unchanged), shared
+    conflict_terms() rule (e08s02 read_conflict + new commit_is_conflicted),
+    .conflict-flag on landing Files + MR revision sections (app.css error
+    tokens); --color-secondary #56635C -> #4A574F in app.css AND DESIGN.md
+    (fixes pre-existing button:disabled APCA 71.36 -> 76.38; ux_audit now
+    PASSES). Gates: conflict_meta 3/3, conflict_ui 4/4, workspace 72/72,
+    preflight PASS at b86a8eee, e2e x5 PASS.
+    execution-status: e09/e10/e12/e13/e14 epics flipped passing; e15 epics
+    stays in_progress (e15s03 story todo — extraction shipped in #42 but
+    its spec was never ticked; OPEN QUESTION for the user).
+    After #48+#49+#51 merge: re-check trunk, next = e15s03 verification or
+    remaining epic rollups; DB container jjhub-pg-e15s02 (port 5437) can
+    then be removed (docker rm -f).
+    LESSONS: pi long-prompt provider stall (content-independent; logs buffer
+    to 0B always — judge liveness by commits; ONE pi per workspace; lsof
+    cwd is the only reliable repo check); after ANY chain repair re-probe
+    `ancestors(trunk)` (orphaned chains pass preflight — missing tests
+    cannot fail); never `jj commit` while a shared PR bookmark sits on @
+    (use describe + new); `jj abandon` of a bookmarked commit deletes the
+    bookmark; verify suspect jj ops with `gh pr view <n> --json files`;
+    never use perl exec wrappers to probe pi (mangles argv); RTK mangles
+    `+ "\n"` templates (use separate()).
