@@ -28,15 +28,15 @@ async fn main() {
         std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
     server::ensure_storage_layout(&storage_root).expect("create storage layout");
 
-    // story: e17s01 — SSH transport: binds before the HTTP listener so a
-    // port conflict fails boot loudly; gated on JJHUB_SSH_PORT so tests
-    // and HTTP-only deploys are untouched.
-    if let Ok(ssh_port) = std::env::var("JJHUB_SSH_PORT") {
-        let key_dir =
-            std::env::var("JJHUB_SSH_HOST_KEY_DIR").unwrap_or_else(|_| "./data/host-keys".into());
-        let ssh = server::ssh::SshListener::bind(
-            &ssh_port,
-            std::path::Path::new(&key_dir),
+    // story: e17s01 — SSH transport: one config source (from_env) shared
+    // with the template's ssh:// gate; binds before the HTTP listener so a
+    // port conflict fails boot loudly. JJHUB_SSH_ENABLED=0 is the
+    // HTTP-only opt-out.
+    let ssh_cfg = server::ssh::SshConfig::from_env();
+    if ssh_cfg.enabled {
+        let ssh = server::ssh::SshListener::bind_addr(
+            ssh_cfg.bind,
+            &ssh_cfg.host_key_dir,
             pool.clone(),
             storage_root.clone(),
         )

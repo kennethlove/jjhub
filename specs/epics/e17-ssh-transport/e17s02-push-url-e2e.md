@@ -114,14 +114,28 @@ management.
 
 ## 17. Acceptance criteria
 
-- [ ] `cargo test -p server ssh_push_admission` — push over the SSH
+- [x] `cargo test -p server ssh_push_admission` — push over the SSH
       exec path routes through admit_push: protected-ref violation
-      refused + recorded, identity rule holds. (e17s02t1)
-- [ ] `cargo test -p server ssh_url_snippet` — enabled listener
-      renders the ssh:// line; disabled renders none. (e17s02t2)
-- [ ] `bash scripts/e2e-ssh-push.sh` — full SSH suite green (clone,
-      push, refusal, re-push; MR revisions present). (e17s02t3)
-- [ ] `cargo test --workspace` green; ux audit passes. (e17s02t4)
+      refused + recorded, identity rule holds. (e17s02t1) — 2026-10-24 —
+      6 passed / 0 failed; `protected_and_identity_violations_refused_and_recorded`
+      drives a real receive-pack over the SSH exec path: `server pre-receive`
+      (same hook as HTTP) refuses the non-fast-forward trunk rewrite, both
+      reasons (`non-fast-forward`, `owner's identity`) land in
+      `push_rejections`, and the trunk ref stays put.
+- [x] `cargo test -p server ssh_url_snippet` — enabled listener
+      renders the ssh:// line; disabled renders none. (e17s02t2) — 2026-10-24 —
+      2 passed / 0 failed (`enabled_renders_ssh_url_with_ssh_port`,
+      `disabled_renders_no_ssh_url`).
+- [x] `bash scripts/e2e-ssh-push.sh` — full SSH suite green (clone,
+      push, refusal, re-push; MR revisions present). (e17s02t3) — 2026-10-24 —
+      E2E SSH PUSH PASS: token clone over ssh://127.0.0.1:2202, branch
+      push admitted (`HOOK: parsed 1 ref updates`), foreign rewrite refused
+      (`owner's identity` + push_rejections rows, trunk rev unchanged),
+      author re-push accepted and MR revisions incremented.
+- [x] `cargo test --workspace` green; ux audit passes. (e17s02t4) — 2026-10-24 —
+      cargo test 244 passed / 0 failed / 0 skipped; ux_audit on
+      crates/server/assets/app.css PASSED (contrast APCA, tokens, states,
+      slop tells all green; no stylesheet changes in this story).
 
 ## 18. Test scenarios (Gherkin)
 

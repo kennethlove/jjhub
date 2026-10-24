@@ -1,21 +1,21 @@
 story_id: e17s02
 title: "SSH push through admission + ssh:// URL + e2e"
-status: todo
+status: passing
 bcps: 6
 tasks:
   - id: e17s02t1
     description: "SSH push routes through admit_push; refusals recorded"
     verify: "cargo test -p server ssh_push_admission"
-    status: todo
+    status: passing
   - id: e17s02t2
     description: "clone block renders ssh:// only when enabled"
     verify: "cargo test -p server ssh_url_snippet"
-    status: todo
+    status: passing
   - id: e17s02t3
     description: "full e2e push suite over SSH"
     verify: "bash scripts/e2e-ssh-push.sh"
-    status: todo
+    status: passing
   - id: e17s02t4
     description: "workspace gates green + ux audit passes"
     verify: "cargo test --workspace"
-    status: todo
+    status: passing
