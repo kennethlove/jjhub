@@ -1,0 +1,10 @@
+epic: e18
+slug: coolify-deploy
+title: "Coolify-ready deployment — env-gated ports, healthcheck, docs"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e18s01
+    title: "Compose on Coolify — env-gated ports, healthcheck"
+    bcps: 4
+    delta: ADDED

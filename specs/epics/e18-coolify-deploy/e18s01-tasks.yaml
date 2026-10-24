@@ -1,0 +1,21 @@
+story_id: e18s01
+title: "Compose on Coolify — env-gated ports, healthcheck"
+status: passing
+bcps: 4
+tasks:
+  - id: e18s01t1
+    description: "no host ports published unless JJHUB_BIND_* set"
+    verify: "docker compose config"
+    status: passing
+  - id: e18s01t2
+    description: "stack up; app healthcheck green; host keys on volume"
+    verify: "docker compose up -d && docker compose ps"
+    status: passing
+  - id: e18s01t3
+    description: "README Coolify section; .env.example new vars"
+    verify: "grep JJHUB_BIND .env.example README.md"
+    status: passing
+  - id: e18s01t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    status: passing
