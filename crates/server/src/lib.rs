@@ -1,5 +1,6 @@
 // story: e01s01
 pub mod browse;
+pub mod divergence;
 pub mod jj_meta;
 pub mod merge;
 pub mod middleware;

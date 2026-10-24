@@ -436,6 +436,36 @@ pub async fn repo_page(
     let bare_for_files = domain::storage_path(&state.storage_root, &owner, &name);
     let trunk_head = crate::stack::ref_commit(&bare_for_files, &format!("refs/heads/{trunk}"));
     let has_files = trunk_head.is_some();
+
+    // story: e16s03 — the Open MRs list marks divergent changes with
+    // the shared divergence mark (e16s02's class); detection is bounded
+    // to the changes already listed here and checks every pushed
+    // revision of each against the bare graph via e16s01's helper
+    // (fail-safe empty — never a 500, linear lists stay unchanged)
+    let mr_revisions: Vec<(String, String)> = sqlx::query_as(
+        "SELECT mr.change_id, rev.commit_id FROM merge_requests mr JOIN revisions rev ON rev.mr_id = mr.id WHERE mr.repo_id = $1 AND mr.state = 'open'",
+    )
+    .bind(repo_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    let mut commits_by_change: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (change_id, commit_id) in mr_revisions {
+        commits_by_change
+            .entry(change_id)
+            .or_default()
+            .push(commit_id);
+    }
+    let divergent_mrs: Vec<String> = mr_ids
+        .iter()
+        .filter(|change| {
+            let none = Vec::new();
+            let commits = commits_by_change.get(*change).unwrap_or(&none);
+            !crate::divergence::divergent_heads(&bare_for_files, commits).is_empty()
+        })
+        .cloned()
+        .collect();
     // story: e08s03 — the landing flag shares the commit-header rule with
     // every other flag; presentation only, a conflicted trunk still 200s
     let trunk_conflicted = trunk_head
@@ -475,6 +505,7 @@ pub async fn repo_page(
     context.insert("trunk_conflicted", &trunk_conflicted);
     context.insert("tree", &tree);
     context.insert("mrs", &mr_ids);
+    context.insert("mr_divergent", &divergent_mrs); // story: e16s03
     context.insert("host", &host);
     context.insert("clone_token", &clone_token);
     context.insert("generate", &generate);
@@ -542,6 +573,14 @@ pub async fn create_token(
     (jar, Redirect::to("/settings")).into_response()
 }
 
+// story: e16s02 — the one seam MR surfaces use for divergence
+// detection. e16s01 owns the predicate: crate::divergence takes the
+// bare repo path plus the pushed commit ids of ONE change and returns
+// the diverging heads (empty = not divergent, fail-safe).
+fn divergent_heads(bare: &std::path::Path, commits: &[String]) -> Vec<String> {
+    crate::divergence::divergent_heads(bare, commits)
+}
+
 // story: e03s02 — MR list: open merge requests grouped into stacks, each
 // stack bottom-first (invariant 3: derived from commit parents at render
 // time, never stored).
@@ -584,6 +623,23 @@ pub async fn merge_requests_page(
             item.insert("owner", &owner);
             item.insert("name", &name);
             item.insert("change_id", change_id);
+            // story: e16s02 — divergence mark: one detection call per
+            // listed MR over its own pushed revisions (bounded by the
+            // page's MR count; empty heads render nothing)
+            let revision_commits: Vec<String> = sqlx::query_scalar(
+                "SELECT rev.commit_id FROM revisions rev \
+                 JOIN merge_requests mr ON mr.id = rev.mr_id \
+                 WHERE mr.repo_id = $1 AND mr.change_id = $2",
+            )
+            .bind(repo_id)
+            .bind(change_id)
+            .fetch_all(&state.pool)
+            .await
+            .unwrap_or_default();
+            item.insert(
+                "divergent",
+                &!divergent_heads(&bare, &revision_commits).is_empty(),
+            );
             item.insert("stack_idx", &stack_idx);
             item.insert("mr_idx", &mr_idx);
             item.insert(
@@ -691,6 +747,15 @@ pub async fn mr_detail_page(
         .collect();
 
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
+    // story: e16s02 — divergence notice: e16s01's helper over the MR's
+    // pushed revisions; empty for linear sets, so nothing renders
+    let divergent_heads = divergent_heads(
+        &bare,
+        &revisions
+            .iter()
+            .map(|(_, commit)| commit.clone())
+            .collect::<Vec<_>>(),
+    );
     let mut sections: Vec<String> = Vec::new();
     for (revision_id, commit) in &revisions {
         let diff = crate::stack::unified_diff(&bare, commit);
@@ -737,6 +802,8 @@ pub async fn mr_detail_page(
     context.insert("csrf", &csrf);
     context.insert("badges", &badges);
     context.insert("sections", &sections);
+    // story: e16s02 — both heads of a diverged change (empty = no notice)
+    context.insert("divergent_heads", &divergent_heads);
     context.insert(
         "review_href",
         &crate::review_proxy::review_link(

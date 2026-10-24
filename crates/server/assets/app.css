@@ -110,6 +110,24 @@ h4 {
   font-size: var(--text-label-sm);
 }
 
+/* story: e16s02 — divergence flag: the one presentation of a diverged
+   change (notice on MR detail, mark in the MR list). Not conflict
+   state — inverse-surface tokens, and the notice's links stay readable
+   on the flag background. */
+.divergence-flag {
+  display: inline-block;
+  color: var(--color-on-inverse);
+  background-color: var(--color-surface-inverse);
+  border-radius: var(--radius-sm);
+  padding: var(--space-half) var(--space-xs);
+  font-size: var(--text-label-sm);
+}
+
+.divergence-flag a {
+  color: var(--color-on-inverse);
+  text-decoration: underline;
+}
+
 p,
 ul,
 ol {

@@ -1,5 +1,7 @@
 <!doctype html><html><head><link rel="stylesheet" href="/assets/app.css"></head><body>
 <h1>{{ owner | safe }}/{{ name | safe }} — {{ change_id | safe }} ({{ mr_state | safe }})</h1>
+<!-- story: e16s02 — divergence notice above the revisions: both heads named, each linking its revision section -->
+{% if divergent_heads %}<p class="divergence-flag" role="status">This change has diverged: two heads exist and neither contains the other. Heads: {% for head in divergent_heads %}<a href="#rev-{{ head | safe }}">{{ head | truncate(length=12, end="") | safe }}</a>{% if not loop.last %} and {% endif %}{% endfor %} — reviewing one head misses the other.</p>{% endif %}
 {% if badges %}<p class="statuses">{{ badges | join(sep=" ") | safe }}</p>{% endif %}
 {{ sections | join(sep="\n") | safe }}
 <!-- story: e14s01 — inline kata embed; the Review link below stays as the no-frame fallback -->
