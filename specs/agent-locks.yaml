@@ -140,3 +140,31 @@ locks:
   locked_by: 'agent: e15s03'
   locked_at: '2026-10-20T22:57:42Z'
   files_touched: []
+- story_id: e17s01
+  locked_by: 'agent: e17s01'
+  locked_at: '2026-10-24T00:00:00Z'
+  files_touched:
+  - crates/server/src/ssh.rs
+  - crates/server/src/lib.rs
+  - crates/server/src/main.rs
+  - crates/server/src/transport.rs
+  - crates/server/tests/ssh_auth.rs
+  - crates/server/tests/ssh_host_keys.rs
+  - scripts/e2e-ssh-clone.sh
+  - specs/epics/e17-ssh-transport/e17s01-listener-clone.md
+  - specs/epics/e17-ssh-transport/e17s01-tasks.yaml
+  - specs/agent-locks.yaml
+- story_id: e17s02
+  locked_by: 'agent: e17s02'
+  locked_at: '2026-10-24T00:00:00Z'
+  files_touched:
+  - crates/server/src/ssh.rs
+  - crates/server/src/lib.rs
+  - crates/server/templates/repo.html
+  - crates/server/routes.rs
+  - crates/server/tests/ssh_push_admission.rs
+  - crates/server/tests/ssh_url_snippet.rs
+  - scripts/e2e-ssh-push.sh
+  - specs/epics/e17-ssh-transport/e17s02-push-url-e2e.md
+  - specs/epics/e17-ssh-transport/e17s02-tasks.yaml
+  - specs/agent-locks.yaml
