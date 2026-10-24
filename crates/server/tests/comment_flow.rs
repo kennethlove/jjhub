@@ -240,11 +240,13 @@ mod comment_flow {
         .await;
 
         // sections render newest-first: head section opens before trunk section
+        // (sections carry extra attributes, e.g. e16s02's anchor id — match the
+        // attribute, not the closing bracket)
         let head_pos = html
-            .find(&format!("<section data-revision=\"{head}\">"))
+            .find(&format!("<section data-revision=\"{head}\""))
             .expect("head section rendered");
         let trunk_pos = html
-            .find(&format!("<section data-revision=\"{trunk}\">"))
+            .find(&format!("<section data-revision=\"{trunk}\""))
             .expect("trunk section rendered");
         assert!(head_pos < trunk_pos, "newest first: {html}");
 

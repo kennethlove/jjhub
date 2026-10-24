@@ -24,7 +24,7 @@
 {% endif %}
 <h2>Open merge requests</h2>
 <ul class="mr-list">
-{% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a></li>
+{% for change in mrs %}{# story: e16s03 — divergent changes carry the shared mark; linear rows unchanged #}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a>{% if change in mr_divergent %} <span class="divergence-flag" title="Divergent change: two heads exist">diverged</span>{% endif %}</li>
 {% endfor %}
 {% if not mrs %}<li>No open merge requests — push a change to open one.</li>{% endif %}
 </ul>
