@@ -25,6 +25,7 @@ jj-lib = "0.41"
 axum-extra = { version = "0.10", features = ["cookie"] }
 base64 = "0.22"
 serde_json = "1"
+russh = "0.64.1"
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
