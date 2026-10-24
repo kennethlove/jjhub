@@ -95,7 +95,8 @@ jobs:
       - name: E2E suite
         run: |
           for s in e2e-clone e2e-mr-open e2e-cascade-merge \
-                   e2e-sidecar e2e-review-proxy; do
+                   e2e-sidecar e2e-review-proxy \
+                   e2e-ssh-push; do
             echo "== $s =="
             bash "scripts/$s.sh"
           done

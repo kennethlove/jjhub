@@ -494,6 +494,12 @@ pub async fn repo_page(
         .unwrap_or_else(|| "<TOKEN>".to_string());
     let generate = viewer.is_some();
 
+    // story: e17s02 — ssh:// rides the clone block only when the SSH
+    // listener is enabled; host keeps the hostname, port is the SSH port.
+    // Template carries the literal `ssh://`/`/` slashes (Tera escapes
+    // slash inside interpolated values).
+    let ssh_host = host.split(':').next().unwrap_or(host.as_str()).to_string();
+
     let mut context = page_context(viewer.as_deref(), &csrf);
     context.insert("owner", &owner);
     context.insert("name", &name);
@@ -509,6 +515,9 @@ pub async fn repo_page(
     context.insert("host", &host);
     context.insert("clone_token", &clone_token);
     context.insert("generate", &generate);
+    context.insert("ssh_enabled", &state.ssh.enabled);
+    context.insert("ssh_host", &ssh_host);
+    context.insert("ssh_port", &state.ssh.bind.port());
     Html(crate::render::render("repo.html", &context)).into_response()
 }
 

@@ -143,35 +143,58 @@ pub async fn smart_http(
     // successful receive-pack. A sync failure must not fail the push (the
     // objects are already durable).
     //
+    // story: e17s02 — HTTP and SSH run ONE post-receive pipeline.
+    if op == GitOp::ReceivePack && response.status().is_success() {
+        post_receive(
+            &state.pool,
+            &state.storage_root,
+            &owner,
+            &name,
+            user,
+            &body_bytes,
+        )
+        .await;
+    }
+    response
+}
+
+/// story: e03s01, e17s02 — the single post-receive pipeline: ref sync,
+/// delete-abandon, and MR upsert from the pkt-line push body. HTTP
+/// smart-http and the SSH receive-pack exec both call this (no second
+/// implementation).
+pub(crate) async fn post_receive(
+    pool: &sqlx::PgPool,
+    storage_root: &str,
+    owner: &str,
+    name: &str,
+    pusher: Option<uuid::Uuid>,
+    pkt_bytes: &[u8],
+) {
+    let meta = domain::meta_path(storage_root, owner, name);
+    if let Err(err) = crate::jj_meta::sync_refs(&meta).await {
+        tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
+    }
     // story: e03s01 — the same hook upserts merge requests from the pushed
     // change-ids (post-receive half of the review model; the pre-receive
     // half already refused foreign-author rewrites).
-    if op == GitOp::ReceivePack && response.status().is_success() {
-        let meta = domain::meta_path(&state.storage_root, &owner, &name);
-        if let Err(err) = crate::jj_meta::sync_refs(&meta).await {
-            tracing::warn!(%owner, %name, %err, "post-push ref sync failed");
-        }
-        if let Some(pusher) = user {
-            // story: e03s04 — deleted refs abandon their open MRs
-            for update in crate::receive_guard::parse_push_commands(&body_bytes) {
-                if update.new.chars().all(|c| c == '0')
-                    && update.ref_name.starts_with("refs/heads/")
-                {
-                    if let Err(err) = crate::mr::abandon_for_deleted_ref(
-                        &state.pool,
-                        repo_owner_id(&state, &owner, &name).await,
-                        &update.old,
-                    )
-                    .await
-                    {
-                        tracing::warn!(%err, "abandon-on-delete failed");
-                    }
-                }
+    let Some(pusher) = pusher else {
+        return;
+    };
+    // story: e03s04 — deleted refs abandon their open MRs
+    for update in crate::receive_guard::parse_push_commands(pkt_bytes) {
+        if update.new.chars().all(|c| c == '0') && update.ref_name.starts_with("refs/heads/") {
+            if let Err(err) = crate::mr::abandon_for_deleted_ref(
+                pool,
+                repo_owner_id(pool, owner, name).await,
+                &update.old,
+            )
+            .await
+            {
+                tracing::warn!(%err, "abandon-on-delete failed");
             }
-            upsert_mrs_after_push(&state, &owner, &name, pusher, &body_bytes).await;
         }
     }
-    response
+    upsert_mrs_after_push(pool, storage_root, owner, name, pusher, pkt_bytes).await;
 }
 
 /// story: e03s01 — walk the receive-pack command list, read each new head's
@@ -179,7 +202,8 @@ pub async fn smart_http(
 /// the push itself already succeeded and the pre-receive guard covered
 /// invariant 2.
 async fn upsert_mrs_after_push(
-    state: &AppState,
+    pool: &sqlx::PgPool,
+    storage_root: &str,
     owner: &str,
     name: &str,
     pusher: uuid::Uuid,
@@ -190,14 +214,14 @@ async fn upsert_mrs_after_push(
     )
     .bind(owner)
     .bind(name)
-    .fetch_optional(&state.pool)
+    .fetch_optional(pool)
     .await
     .ok()
     .flatten()
     else {
         return;
     };
-    let bare = domain::storage_path(&state.storage_root, owner, name);
+    let bare = domain::storage_path(storage_root, owner, name);
 
     let mut pushed = Vec::new();
     for update in crate::receive_guard::parse_push_commands(pkt_bytes) {
@@ -238,7 +262,7 @@ async fn upsert_mrs_after_push(
     if pushed.is_empty() {
         return;
     }
-    match crate::mr::upsert_after_push(&state.pool, repo_id, pusher, pushed).await {
+    match crate::mr::upsert_after_push(pool, repo_id, pusher, pushed).await {
         Ok(summary) => tracing::debug!(?summary, "mr upsert after push"),
         Err(err) => tracing::warn!(%err, "mr upsert failed"),
     }
@@ -344,7 +368,28 @@ pub async fn push_or_read_allowed(
 /// story: e02s02 — authz failure the smart_http handler renders.
 type AuthzError = (StatusCode, Vec<(header::HeaderName, &'static str)>);
 
-async fn authorize(
+/// story: e17s01 — (repo id, owner id, visibility) for an owner/name pair;
+/// shared by the HTTP smart transport and the SSH listener so both resolve
+/// repos identically.
+pub(crate) async fn lookup_repo(
+    pool: &sqlx::PgPool,
+    owner: &str,
+    name: &str,
+) -> Option<(uuid::Uuid, uuid::Uuid, String)> {
+    sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+}
+
+// WHY: pub(crate) — ssh.rs runs this exact chain for exec admission:
+// one admission decision for both transports, no SSH-specific bypass.
+pub(crate) async fn authorize(
     op: GitOp,
     user: Option<uuid::Uuid>,
     repo_owner: uuid::Uuid,
@@ -374,14 +419,14 @@ async fn authorize(
 }
 
 /// story: e03s04 — repository id for an owner/name pair.
-async fn repo_owner_id(state: &AppState, owner: &str, name: &str) -> uuid::Uuid {
+async fn repo_owner_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> uuid::Uuid {
     sqlx::query_scalar(
         "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
          WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(owner)
     .bind(name)
-    .fetch_optional(&state.pool)
+    .fetch_optional(pool)
     .await
     .ok()
     .flatten()

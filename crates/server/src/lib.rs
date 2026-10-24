@@ -31,6 +31,8 @@ pub struct AppState {
     pub kata_upstream: String,
     // story: kata links — loopback-published sidecar URL for browser links.
     pub kata_public_base: String,
+    // story: e17s02 — SSH listener config; gates the ssh:// clone line.
+    pub ssh: crate::ssh::SshConfig,
 }
 
 #[derive(Clone, Copy)]
@@ -79,12 +81,33 @@ pub fn app_with_secret(
     kata_upstream: String,
     kata_public_base: String,
 ) -> Router {
+    // story: e17s02 — default config from env; tests pin it explicitly.
+    app_with_ssh(
+        pool,
+        session_secret,
+        storage_root,
+        kata_upstream,
+        kata_public_base,
+        crate::ssh::SshConfig::from_env(),
+    )
+}
+
+/// story: e17s02 — explicit SSH wiring for tests (template gate).
+pub fn app_with_ssh(
+    pool: PgPool,
+    session_secret: Vec<u8>,
+    storage_root: String,
+    kata_upstream: String,
+    kata_public_base: String,
+    ssh: crate::ssh::SshConfig,
+) -> Router {
     let state = AppState {
         pool,
         session_secret,
         storage_root,
         kata_upstream,
         kata_public_base,
+        ssh,
     };
     let protected = Router::new()
         .route("/settings", get(routes::settings))

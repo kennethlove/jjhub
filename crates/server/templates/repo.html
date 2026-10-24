@@ -31,6 +31,8 @@
 <p><a href="/{{ owner }}/{{ name }}/merge-requests">All merge requests</a>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}</p>
 <h2>Add this repository</h2>
 <p>Clone: <code>http://{{ host }}/git/{{ owner }}/{{ name }}.git</code></p>
+{# story: e17s02 — ssh:// clone line, gated on the listener config #}
+{% if ssh_enabled %}<p>Clone over SSH: <code>ssh://{{ owner }}@{{ ssh_host }}:{{ ssh_port }}/{{ owner }}/{{ name }}.git</code></p>{% endif %}
 {% if generate %}
 <form method="post" action="/{{ owner }}/{{ name }}/tokens">
 <input type="hidden" name="label" value="clone-{{ owner }}/{{ name }}">

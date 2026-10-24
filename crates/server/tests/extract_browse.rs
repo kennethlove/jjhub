@@ -111,6 +111,10 @@ mod extract_browse {
         expected.insert("host", "localhost:3000");
         expected.insert("clone_token", "<TOKEN>");
         expected.insert("generate", &false);
+        // story: e17s02 — the clone block carries the gated ssh:// line
+        expected.insert("ssh_enabled", &true);
+        expected.insert("ssh_host", "localhost");
+        expected.insert("ssh_port", &server::ssh::DEFAULT_SSH_PORT);
         assert_eq!(html, server::render::render("repo.html", &expected));
     }
 
