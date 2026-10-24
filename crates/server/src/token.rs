@@ -3,7 +3,6 @@ use argon2::password_hash::{
     rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
 };
 use argon2::Argon2;
-use rand::RngCore;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -23,8 +22,7 @@ pub fn hash(token: &str) -> String {
 }
 
 pub fn generate() -> (String, String) {
-    let mut bytes = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    let bytes = rand::random::<[u8; 24]>();
     let plaintext = format!("{TOKEN_PREFIX}{}", hex::encode(bytes));
     let prefix = plaintext.chars().take(TOKEN_PREFIX.len() + 6).collect();
     (plaintext, prefix)

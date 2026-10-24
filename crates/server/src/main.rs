@@ -28,6 +28,23 @@ async fn main() {
         std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
     server::ensure_storage_layout(&storage_root).expect("create storage layout");
 
+    // story: e17s01 — SSH transport: binds before the HTTP listener so a
+    // port conflict fails boot loudly; gated on JJHUB_SSH_PORT so tests
+    // and HTTP-only deploys are untouched.
+    if let Ok(ssh_port) = std::env::var("JJHUB_SSH_PORT") {
+        let key_dir =
+            std::env::var("JJHUB_SSH_HOST_KEY_DIR").unwrap_or_else(|_| "./data/host-keys".into());
+        let ssh = server::ssh::SshListener::bind(
+            &ssh_port,
+            std::path::Path::new(&key_dir),
+            pool.clone(),
+            storage_root.clone(),
+        )
+        .await
+        .unwrap_or_else(|e| panic!("failed to start SSH listener: {e}"));
+        tokio::spawn(ssh.run());
+    }
+
     // story: e02s01 — bind all interfaces so docker port mapping works.
     let port = std::env::var("JJHUB_PORT").unwrap_or_else(|_| "3000".into());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))

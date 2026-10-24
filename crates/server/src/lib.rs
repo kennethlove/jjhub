@@ -13,6 +13,7 @@ pub mod review_proxy;
 pub mod revsets;
 pub mod routes;
 pub mod session;
+pub mod ssh;
 pub mod stack;
 pub mod token;
 pub mod transport;
