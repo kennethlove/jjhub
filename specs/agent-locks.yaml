@@ -1,170 +1,181 @@
 locks:
-- story_id: e01s01
-  locked_by: 'agent: develop-tdd'
-  locked_at: '2026-10-15T18:20:38Z'
-  files_touched: []
-- story_id: e08s01
-  locked_by: agent-e08s01
-  locked_at: '2026-10-21T20:48:30Z'
-  files_touched:
-  - crates/server/tests/conflict_fixture.rs
-  - crates/server/tests/conflict_refs.rs
-  - crates/server/tests/conflict_support/mod.rs
-  - scripts/e2e-clone.sh
-- story_id: e08s02
-  locked_by: agent-e08s02
-  locked_at: '2026-10-22T01:05:00Z'
-  files_touched:
-  - crates/server/src/browse.rs
-  - crates/server/src/routes.rs
-  - crates/server/templates/blob.html
-  - crates/server/templates/tree.html
-  - crates/server/tests/conflict_browse.rs
-  - crates/server/tests/conflict_tree.rs
-  - crates/server/tests/conflict_support/mod.rs
-- story_id: e08s03
-  locked_by: agent-e08s03
-  locked_at: '2026-10-23T00:00:15Z'
-  files_touched:
-  - crates/server/src/jj_meta.rs
-  - crates/server/src/routes.rs
-  - crates/server/templates/repo.html
-  - crates/server/templates/mr_detail.html
-  - crates/server/tests/conflict_meta.rs
-  - crates/server/tests/conflict_ui.rs
-  - specs/agent-locks.yaml
-  - specs/epics/e08-conflict-hosting/e08s03-conflict-trunk-ui.md
-  - specs/epics/e08-conflict-hosting/e08s03-tasks.yaml
-- story_id: e09s01
-  locked_by: agent-e09s01
-  locked_at: '2026-10-21T20:34:33Z'
-  files_touched:
-  - crates/server/src/jj_meta.rs
-  - crates/server/src/routes.rs
-  - crates/server/src/lib.rs
-  - crates/server/src/render.rs
-  - crates/server/templates/operations.html
-  - crates/server/templates/repo.html
-  - crates/server/tests/oplog_read.rs
-  - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
-- story_id: e09s02
-  locked_by: agent-e09s02
-  locked_at: '2026-10-22T22:56:00Z'
-  files_touched:
-  - crates/server/src/jj_meta.rs
-  - crates/server/src/routes.rs
-  - crates/server/src/lib.rs
-  - crates/server/src/render.rs
-  - crates/server/templates/operation_detail.html
-  - crates/server/tests/oplog_detail.rs
-- story_id: e10s01
-  locked_by: 'agent: e10s01'
-  locked_at: '2026-10-20T21:14:53Z'
-  files_touched: []
-- story_id: e10s02
-  locked_by: agent-e10s02
-  locked_at: '2026-10-21T20:34:05Z'
-  files_touched:
-  - crates/server/templates/repo.html
-  - crates/server/src/routes.rs
-  - crates/server/tests/protect_page.rs
-- story_id: e10s03
-  locked_by: 'agent: e10s03'
-  locked_at: '2026-10-21T00:50:45Z'
-  files_touched:
-  - crates/server/migrations/0009_push_rejections.sql
-  - crates/server/src/main.rs
-  - crates/server/src/receive_guard.rs
-  - crates/server/tests/protect_audit.rs
-- story_id: e11s02
-  locked_by: 'agent: e11s02'
-  locked_at: '2026-10-20T23:43:01Z'
-  files_touched:
-  - crates/server/src/revsets.rs
-  - crates/server/src/routes.rs
-  - crates/server/src/render.rs
-  - crates/server/src/lib.rs
-  - crates/server/templates/search.html
-  - crates/server/templates/repo.html
-  - crates/server/tests/revset_ui.rs
-  - crates/server/tests/revset_default.rs
-- story_id: e12s02
-  locked_by: 'agent: e12s02'
-  locked_at: '2026-10-21T00:54:01Z'
-  files_touched: []
-- story_id: e13s01
-  locked_by: agent-e13s01
-  locked_at: '2026-10-22T19:31:49Z'
-  files_touched:
-  - crates/server/src/routes.rs
-  - crates/server/templates/repo.html
-  - crates/server/tests/landing_tree.rs
-  - specs/agent-locks.yaml
-  - specs/epics/e13-landing-tree/e13s01-landing-tree.md
-  - specs/epics/e13-landing-tree/e13s01-tasks.yaml
-- story_id: e13s02
-  locked_by: agent-e13s02
-  locked_at: '2026-10-23T00:29:16Z'
-  files_touched:
-  - crates/server/templates/repo.html
-  - crates/server/tests/landing_links.rs
-  - crates/server/tests/landing_empty.rs
-  - specs/agent-locks.yaml
-  - specs/epics/e13-landing-tree/e13s02-tree-navigation.md
-  - specs/epics/e13-landing-tree/e13s02-tasks.yaml
-- story_id: e14s01
-  locked_by: agent-e14s01
-  locked_at: '2026-10-22T00:11:46Z'
-  files_touched:
-  - crates/server/src/review_proxy.rs
-  - crates/server/templates/mr_detail.html
-  - crates/server/tests/embed_iframe.rs
-  - specs/agent-locks.yaml
-  - specs/epics/e14-kata-embed/e14s01-kata-embed.md
-  - specs/epics/e14-kata-embed/e14s01-tasks.yaml
-- story_id: e14s02
-  locked_by: agent-e14s02
-  locked_at: '2026-10-22T22:52:29Z'
-  files_touched:
-  - crates/server/templates/mr_detail.html
-  - crates/server/assets/app.css
-  - crates/server/tests/embed_states.rs
-  - specs/agent-locks.yaml
-  - specs/epics/e14-kata-embed/e14s02-embed-states.md
-  - specs/epics/e14-kata-embed/e14s02-tasks.yaml
-- story_id: e15s02
-  locked_by: 'agent: e15s02'
-  locked_at: '2026-10-20T21:21:31Z'
-  files_touched: []
-- story_id: e15s03
-  locked_by: 'agent: e15s03'
-  locked_at: '2026-10-20T22:57:42Z'
-  files_touched: []
-- story_id: e17s01
-  locked_by: 'agent: e17s01'
-  locked_at: '2026-10-24T00:00:00Z'
-  files_touched:
-  - crates/server/src/ssh.rs
-  - crates/server/src/lib.rs
-  - crates/server/src/main.rs
-  - crates/server/src/transport.rs
-  - crates/server/tests/ssh_auth.rs
-  - crates/server/tests/ssh_host_keys.rs
-  - scripts/e2e-ssh-clone.sh
-  - specs/epics/e17-ssh-transport/e17s01-listener-clone.md
-  - specs/epics/e17-ssh-transport/e17s01-tasks.yaml
-  - specs/agent-locks.yaml
-- story_id: e17s02
-  locked_by: 'agent: e17s02'
-  locked_at: '2026-10-24T00:00:00Z'
-  files_touched:
-  - crates/server/src/ssh.rs
-  - crates/server/src/lib.rs
-  - crates/server/templates/repo.html
-  - crates/server/routes.rs
-  - crates/server/tests/ssh_push_admission.rs
-  - crates/server/tests/ssh_url_snippet.rs
-  - scripts/e2e-ssh-push.sh
-  - specs/epics/e17-ssh-transport/e17s02-push-url-e2e.md
-  - specs/epics/e17-ssh-transport/e17s02-tasks.yaml
-  - specs/agent-locks.yaml
+  - story_id: e01s01
+    locked_by: 'agent: develop-tdd'
+    locked_at: '2026-10-15T18:20:38Z'
+    files_touched: []
+  - story_id: e08s01
+    locked_by: agent-e08s01
+    locked_at: '2026-10-21T20:48:30Z'
+    files_touched:
+      - crates/server/tests/conflict_fixture.rs
+      - crates/server/tests/conflict_refs.rs
+      - crates/server/tests/conflict_support/mod.rs
+      - scripts/e2e-clone.sh
+  - story_id: e08s02
+    locked_by: agent-e08s02
+    locked_at: '2026-10-22T01:05:00Z'
+    files_touched:
+      - crates/server/src/browse.rs
+      - crates/server/src/routes.rs
+      - crates/server/templates/blob.html
+      - crates/server/templates/tree.html
+      - crates/server/tests/conflict_browse.rs
+      - crates/server/tests/conflict_tree.rs
+      - crates/server/tests/conflict_support/mod.rs
+  - story_id: e08s03
+    locked_by: agent-e08s03
+    locked_at: '2026-10-23T00:00:15Z'
+    files_touched:
+      - crates/server/src/jj_meta.rs
+      - crates/server/src/routes.rs
+      - crates/server/templates/repo.html
+      - crates/server/templates/mr_detail.html
+      - crates/server/tests/conflict_meta.rs
+      - crates/server/tests/conflict_ui.rs
+      - specs/agent-locks.yaml
+      - specs/epics/e08-conflict-hosting/e08s03-conflict-trunk-ui.md
+      - specs/epics/e08-conflict-hosting/e08s03-tasks.yaml
+  - story_id: e09s01
+    locked_by: agent-e09s01
+    locked_at: '2026-10-21T20:34:33Z'
+    files_touched:
+      - crates/server/src/jj_meta.rs
+      - crates/server/src/routes.rs
+      - crates/server/src/lib.rs
+      - crates/server/src/render.rs
+      - crates/server/templates/operations.html
+      - crates/server/templates/repo.html
+      - crates/server/tests/oplog_read.rs
+      - specs/epics/e09-oplog-audit/e09s01-tasks.yaml
+  - story_id: e09s02
+    locked_by: agent-e09s02
+    locked_at: '2026-10-22T22:56:00Z'
+    files_touched:
+      - crates/server/src/jj_meta.rs
+      - crates/server/src/routes.rs
+      - crates/server/src/lib.rs
+      - crates/server/src/render.rs
+      - crates/server/templates/operation_detail.html
+      - crates/server/tests/oplog_detail.rs
+  - story_id: e10s01
+    locked_by: 'agent: e10s01'
+    locked_at: '2026-10-20T21:14:53Z'
+    files_touched: []
+  - story_id: e10s02
+    locked_by: agent-e10s02
+    locked_at: '2026-10-21T20:34:05Z'
+    files_touched:
+      - crates/server/templates/repo.html
+      - crates/server/src/routes.rs
+      - crates/server/tests/protect_page.rs
+  - story_id: e10s03
+    locked_by: 'agent: e10s03'
+    locked_at: '2026-10-21T00:50:45Z'
+    files_touched:
+      - crates/server/migrations/0009_push_rejections.sql
+      - crates/server/src/main.rs
+      - crates/server/src/receive_guard.rs
+      - crates/server/tests/protect_audit.rs
+  - story_id: e11s02
+    locked_by: 'agent: e11s02'
+    locked_at: '2026-10-20T23:43:01Z'
+    files_touched:
+      - crates/server/src/revsets.rs
+      - crates/server/src/routes.rs
+      - crates/server/src/render.rs
+      - crates/server/src/lib.rs
+      - crates/server/templates/search.html
+      - crates/server/templates/repo.html
+      - crates/server/tests/revset_ui.rs
+      - crates/server/tests/revset_default.rs
+  - story_id: e12s02
+    locked_by: 'agent: e12s02'
+    locked_at: '2026-10-21T00:54:01Z'
+    files_touched: []
+  - story_id: e13s01
+    locked_by: agent-e13s01
+    locked_at: '2026-10-22T19:31:49Z'
+    files_touched:
+      - crates/server/src/routes.rs
+      - crates/server/templates/repo.html
+      - crates/server/tests/landing_tree.rs
+      - specs/agent-locks.yaml
+      - specs/epics/e13-landing-tree/e13s01-landing-tree.md
+      - specs/epics/e13-landing-tree/e13s01-tasks.yaml
+  - story_id: e13s02
+    locked_by: agent-e13s02
+    locked_at: '2026-10-23T00:29:16Z'
+    files_touched:
+      - crates/server/templates/repo.html
+      - crates/server/tests/landing_links.rs
+      - crates/server/tests/landing_empty.rs
+      - specs/agent-locks.yaml
+      - specs/epics/e13-landing-tree/e13s02-tree-navigation.md
+      - specs/epics/e13-landing-tree/e13s02-tasks.yaml
+  - story_id: e14s01
+    locked_by: agent-e14s01
+    locked_at: '2026-10-22T00:11:46Z'
+    files_touched:
+      - crates/server/src/review_proxy.rs
+      - crates/server/templates/mr_detail.html
+      - crates/server/tests/embed_iframe.rs
+      - specs/agent-locks.yaml
+      - specs/epics/e14-kata-embed/e14s01-kata-embed.md
+      - specs/epics/e14-kata-embed/e14s01-tasks.yaml
+  - story_id: e14s02
+    locked_by: agent-e14s02
+    locked_at: '2026-10-22T22:52:29Z'
+    files_touched:
+      - crates/server/templates/mr_detail.html
+      - crates/server/assets/app.css
+      - crates/server/tests/embed_states.rs
+      - specs/agent-locks.yaml
+      - specs/epics/e14-kata-embed/e14s02-embed-states.md
+      - specs/epics/e14-kata-embed/e14s02-tasks.yaml
+  - story_id: e15s02
+    locked_by: 'agent: e15s02'
+    locked_at: '2026-10-20T21:21:31Z'
+    files_touched: []
+  - story_id: e15s03
+    locked_by: 'agent: e15s03'
+    locked_at: '2026-10-20T22:57:42Z'
+    files_touched: []
+  - story_id: e17s01
+    locked_by: 'agent: e17s01'
+    locked_at: '2026-10-24T00:00:00Z'
+    files_touched:
+      - crates/server/src/ssh.rs
+      - crates/server/src/lib.rs
+      - crates/server/src/main.rs
+      - crates/server/src/transport.rs
+      - crates/server/tests/ssh_auth.rs
+      - crates/server/tests/ssh_host_keys.rs
+      - scripts/e2e-ssh-clone.sh
+      - specs/epics/e17-ssh-transport/e17s01-listener-clone.md
+      - specs/epics/e17-ssh-transport/e17s01-tasks.yaml
+      - specs/agent-locks.yaml
+  - story_id: e17s02
+    locked_by: 'agent: e17s02'
+    locked_at: '2026-10-24T00:00:00Z'
+    files_touched:
+      - crates/server/src/ssh.rs
+      - crates/server/src/lib.rs
+      - crates/server/templates/repo.html
+      - crates/server/routes.rs
+      - crates/server/tests/ssh_push_admission.rs
+      - crates/server/tests/ssh_url_snippet.rs
+      - scripts/e2e-ssh-push.sh
+      - specs/epics/e17-ssh-transport/e17s02-push-url-e2e.md
+      - specs/epics/e17-ssh-transport/e17s02-tasks.yaml
+      - specs/agent-locks.yaml
+  - story_id: e18s01
+    locked_by: 'agent: e18s01'
+    locked_at: '2026-10-24T22:59:51Z'
+    files_touched:
+      - docker-compose.yml
+      - Dockerfile
+      - .env.example
+      - README.md
+      - specs/epics/e18-coolify-deploy/e18s01-coolify-compose.md
+      - specs/epics/e18-coolify-deploy/e18s01-tasks.yaml
+      - specs/agent-locks.yaml

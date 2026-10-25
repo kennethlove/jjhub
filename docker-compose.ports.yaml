@@ -1,0 +1,15 @@
+# story: e18s01 — optional host-port publish, merged in only when .env sets
+# COMPOSE_FILE (see .env.example). A Coolify clone ships no .env, so the base
+# docker-compose.yml alone renders zero published ports.
+services:
+  app:
+    ports:
+      # Requires JJHUB_BIND_HTTP to be set whenever this file loads — an
+      # empty entry hard-errors on compose v5.5.0 ("no port specified:
+      # <empty>"), so .env.example always pairs COMPOSE_FILE with
+      # JJHUB_BIND_HTTP=3000:3000.
+      - "${JJHUB_BIND_HTTP:-}"
+      # SSH publish opt-in: uncomment and set JJHUB_BIND_SSH=2202:2202 in
+      # .env. Left commented because an empty default would hard-error per
+      # compose-go v5.5.0.
+      # - "${JJHUB_BIND_SSH:-}"

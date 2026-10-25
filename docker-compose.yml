@@ -24,12 +24,28 @@ services:
       # generate: openssl rand -hex 32
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       JJHUB_STORAGE_ROOT: /var/lib/jjhub/repos
+      # story: e18s01 — SSH host keys live on the repo-data volume so
+      # fingerprints survive container replacement (default would be the
+      # container layer, regenerated on every redeploy).
+      JJHUB_SSH_HOST_KEY_DIR: /var/lib/jjhub/host-keys
       # story: e05s03 — the app proxies /review/** to the sidecar
       KATA_UPSTREAM: http://kata:7878
     volumes:
       - repo-data:/var/lib/jjhub
-    ports:
-      - "3000:3000"
+    # story: e18s01 — host ports live in docker-compose.ports.yaml, loaded
+    # only via COMPOSE_FILE in .env (a Coolify clone has no .env, so no
+    # ports bind there).
+    # story: e18s01 — real HTTP probe of /healthz (curl added in the image);
+    # gates docker compose ps and Coolify deployment health.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://localhost:${JJHUB_PORT:-3000}/healthz || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
 
   # story: e05s02 — kata review sidecar. Built from upstream source at a
   # pinned commit (the published image rejects anonymous pulls). Serves the

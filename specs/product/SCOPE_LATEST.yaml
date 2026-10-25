@@ -18,7 +18,11 @@ summary: >
   HTTP-only remote: jjhub runs its own SSH listener on a configurable
   port, generates host keys at first boot, authenticates the existing
   transport token as the password, and executes the same git pack
-  programs the HTTP path already uses. The audience stays solo
+  programs the HTTP path already uses. The compose stack then
+  deploys on a platform like Coolify with two secrets and no bound
+  host ports — the operator maps ports, the container healthcheck
+  gates readiness, and SSH host keys persist on the storage volume.
+  The audience stays solo
   self-hosters; nothing about storage formats or the review model
   changes.
 in_scope:
@@ -49,6 +53,20 @@ in_scope:
       self-hosted forge that only speaks HTTP forces every user to
       relearn or reconfigure, and the transport token issued at
       account creation already exists to be a credential.
+  - id: e18
+    title: "Coolify-ready deployment"
+    detail: >
+      The compose stack deploys unchanged on Coolify: no host port is
+      bound unless the operator asks (JJHUB_BIND_HTTP /
+      JJHUB_BIND_SSH, unset in PaaS), the app carries a /healthz
+      container healthcheck so deployment readiness is gated, SSH
+      host keys persist on the storage volume instead of the
+      container layer, and the README documents the Coolify path.
+    why: >
+      The deployment unit is the product for solo self-hosters; a
+      compose file that hard-binds host ports collides with the
+      platform proxy and every other app on the box, and host keys
+      regenerated per container break known_hosts on every redeploy.
 out_of_scope:
   - item: "Issues tracker, orgs/teams, OIDC, CI runners, full-text search"
     why: "Deferred since v0.1.0/v0.2.0 — unchanged reasons on record"
@@ -66,6 +84,10 @@ out_of_scope:
     why: >
       The server authenticates tokens; how operators distribute host
       keys or client keys is their tooling, documented not built.
+  - item: "Kubernetes/Helm manifests, platform-specific config beyond Coolify"
+    why: >
+      Coolify consumes plain Docker Compose; other platforms use the
+      same compose where it fits — no per-platform scaffolding.
   - item: "Redesigning kata's own UI, commercial features"
     why: "Carried forward from v0.2.0 verbatim"
 constraints:
@@ -88,8 +110,10 @@ success_criteria: >
   list, with a test proving the detection. An operator starts jjhub
   with no prior SSH state; the service generates host keys and serves
   ssh:// clone and push with the account's transport token end-to-end
-  in an e2e test, with push admission identical to HTTP. Preflight and
-  CI stay green.
+  in an e2e test, with push admission identical to HTTP. An operator
+  points Coolify at the compose file with only POSTGRES_PASSWORD and
+  SESSION_SECRET set, binds no host ports, and the stack turns
+  healthy on its healthcheck. Preflight and CI stay green.
 references:
   - >
     specs/product/VISION_LATEST.yaml — items 8 (divergence) and 9

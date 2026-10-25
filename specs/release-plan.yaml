@@ -19,6 +19,12 @@ epics:
     wsjf: 14
     bcp_total: 10
     delta: ADDED
+  - id: e18
+    slug: coolify-deploy
+    title: "Coolify-ready deployment — env-gated ports, healthcheck, docs"
+    wsjf: 12
+    bcp_total: 4
+    delta: ADDED
 
 bugs:
   total: 1

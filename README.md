@@ -42,6 +42,35 @@ cp .env.example .env   # set POSTGRES_PASSWORD and SESSION_SECRET
 docker compose up -d   # http://localhost:3000
 ```
 
+## Deploy on Coolify
+
+Register the repository as a compose stack. Set only two secrets:
+
+```bash
+POSTGRES_PASSWORD=
+SESSION_SECRET=      # openssl rand -hex 32
+```
+
+A clone ships no `.env`, so `COMPOSE_FILE` is never set and the optional
+port file `docker-compose.ports.yaml` does not load: the stack binds no
+host port. Map ports in the platform instead.
+
+Local self-hosting is unchanged — `cp .env.example .env` gives you
+`COMPOSE_FILE=docker-compose.yml:docker-compose.ports.yaml` plus
+`JJHUB_BIND_HTTP=3000:3000`, so `docker compose up -d` serves
+http://localhost:3000 as before.
+
+SSH publish opt-in: set `JJHUB_BIND_SSH=2202:2202` in `.env` and
+uncomment the SSH line in `docker-compose.ports.yaml` (SSH clones).
+
+The app container healthchecks `GET /healthz` with curl every 30 seconds.
+`docker compose ps` and the platform show the app healthy only while the
+route answers.
+
+SSH host keys live on the `repo-data` volume at
+`/var/lib/jjhub/host-keys`, so clone fingerprints stay stable across
+redeploys.
+
 ## License
 
 Apache License 2.0.
