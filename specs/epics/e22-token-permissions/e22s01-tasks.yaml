@@ -1,0 +1,38 @@
+story_id: e22s01
+title: "Token permission columns + backfill migration"
+status: failing
+bcps: 3
+tasks:
+  - id: e22s01t1
+    description: >
+      migration 0011: scopes TEXT[] default {read,write},
+      expires_at, repo_id FK, allowed_inets INET[]
+    verify: "cargo test -p server token_permissions_migration"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "token-permissions"
+        - "migration"
+  - id: e22s01t2
+    description: >
+      backfill: every pre-existing token is read+write with NULL
+      restrictions
+    verify: "cargo test -p server token_scopes_backfill"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "token-permissions"
+        - "migration"
+  - id: e22s01t3
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

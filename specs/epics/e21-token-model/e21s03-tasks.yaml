@@ -1,0 +1,48 @@
+story_id: e21s03
+title: "Regenerate rotate + demote repo-page form"
+status: failing
+bcps: 3
+tasks:
+  - id: e21s03t1
+    description: >
+      regenerate: revoke old + issue new in one operation;
+      plaintext shown once; old token rejected
+    verify: "cargo test -p server token_regenerate"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "token-model"
+        - "Security Review"
+  - id: e21s03t2
+    description: >
+      repo-page token form behind explicit advanced disclosure;
+      route and tests unchanged
+    verify: "cargo test -p server create_repo_token"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-model"
+        - "templates"
+  - id: e21s03t3
+    description: "regenerate consumes the token-creation budget"
+    verify: "cargo test -p server rate_limit_token"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "token-model"
+        - "rate-limit"
+  - id: e21s03t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

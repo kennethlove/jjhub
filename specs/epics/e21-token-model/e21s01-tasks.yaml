@@ -1,0 +1,50 @@
+story_id: e21s01
+title: "Signup auto-issues token; one-time details screen"
+status: failing
+bcps: 5
+tasks:
+  - id: e21s01t1
+    description: >
+      migration 0010: users.display_name NULL, users.theme
+      default 'system'; existing rows valid
+    verify: "cargo test -p server users_prefs_migration"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "token-model"
+        - "migration"
+  - id: e21s01t2
+    description: >
+      signup mints one hashed transport token; redirect to the
+      one-time details screen
+    verify: "cargo test -p server signup_auto_token"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "token-model"
+        - "Security Review"
+  - id: e21s01t3
+    description: >
+      copy-once details screen: completion marked, never
+      re-renders, abandonment does not re-trigger
+    verify: "cargo test -p server details_once"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "token-model"
+        - "Security Review"
+  - id: e21s01t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

@@ -1,0 +1,36 @@
+story_id: e20s03
+title: "SSH over-budget disconnect + pruning"
+status: failing
+bcps: 3
+tasks:
+  - id: e20s03t1
+    description: >
+      SSH receive-pack over budget disconnects with message before
+      spawning git; SSH reads exempt
+    verify: "cargo test -p server rate_limit_ssh"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "ssh"
+  - id: e20s03t2
+    description: "idle buckets pruned after the window on access"
+    verify: "cargo test -p server rate_limit_prune"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "rate-limit"
+        - "unit"
+  - id: e20s03t3
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

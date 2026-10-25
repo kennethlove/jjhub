@@ -1,58 +1,203 @@
-# specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
-feature_name: "jjhub v0.3.0 — divergence visible, SSH transport"
+# specs/planning-context.yaml — elaborate-spec output; consumed by scope-work
+# v0.4.0 cycle: push-to-create, rate limits, tokens (overwrote v0.3.0)
+feature_name: "jjhub v0.4.0 — push-to-create, rate limits, tokens"
 problem_statement: >
-  v0.2.0 shipped conflict tolerance, audit, immutability, search, and
-  the presentation pass. Two vision items remain unshipped and the user
-  selected both for v0.3.0: divergence is invisible (a change-id with
-  two non-ancestor heads renders as if nothing is wrong, while review
-  identity is the product's core claim), and transport is HTTP-only
-  (SSH is the default remote URL for most jj/git users). v0.3.0 makes
-  divergence visible on the MR and repo surfaces, and serves
-  git-over-SSH from a built-in listener authenticated by the existing
-  transport tokens.
+  Two gaps. First, a push to a repo path that does not exist yet is a
+  dead end: jjhub behaves like GitHub here, so the first push of a
+  new project needs a web form filled in first, while the natural
+  jj/git workflow is "add remote, push". Gitea/Codeberg, GitLab, and
+  soft-serve all create the repo on first push; jjhub does not.
+  Second, nothing throttles expensive or abuse-prone actions —
+  pushing, repo creation, token creation, login — so a single client
+  (or one bad script) can spin the server and the git subprocess
+  factory without limit. Third, the token model is form-first: a
+  user who just signed up has no transport token until they find the
+  settings page, and the repo-page token form is the most prominent
+  way to mint one. v0.4.0 adds push-to-create on both transports
+  behind one shared creation service, an in-process per-user/per-IP
+  rate limiter on the named expensive actions, and an account-level
+  token lifecycle: auto-issue on signup, regenerate on demand,
+  repo-page minting demoted to an advanced affordance. Fourth,
+  tokens are flat: every token clones and pushes everything,
+  everywhere, forever — no scopes, no expiry, no binding to a
+  repo or an address. v0.4.0 adds scoped transport tokens:
+  read/write scopes, optional expiry, repo pin, IP allowlist.
 constraints:
   - >
-    No new storage format — divergence is computed from the pushed
-    graph + .meta, SSH state is config + host keys on disk
+    No new crate dependency: in-process token bucket, hand-rolled on
+    axum middleware; single-node deployment (one Coolify container)
+    cannot use distributed-limiter features
+  - >
+    Existing test suite (80+) must stay green: rate limiting is off
+    unless the production constructor builds it from env
+  - >
+    One creation path: UI create and push-to-create call the same
+    service; the two must not drift
   - >
     Stack unchanged: Rust / axum / htmx / Tera / Tailwind / Postgres;
     Postgres via sqlx
-  - >
-    russh is the one new dependency (SSH server; tokio-native,
-    Apache-2.0) — HTTP path untouched
   - "Page HTML lives in Tera templates; handlers stay in Rust"
   - "Preflight green and all existing tests keep passing"
-  - "UI work runs keystone render, impeccable live, and ux audit before handoff"
   - "Conventional Commits; TDD; specs/ as planning source of truth"
+  - "Every story carries at least one story: eNNsNN tag in code/tests"
 out_of_scope:
   - >
     Issue tracker, orgs/teams, OIDC, CI runners, full-text search
     (carried forward)
   - >
-    SSH via the host's sshd / authorized_keys forced commands (user
-    chose built-in listener)
-  - "SSH shell, SCP, or SFTP subsystems — git pack protocol only"
+    Rate limiting beyond the named actions (global throttling of all
+    routes, per-route fine-tuning) — policy table is explicit, extend
+    later by adding rows
   - >
-    Port 22 binding (dedicated configurable port; operator's reverse
-    proxy owns 22 if desired)
+    Distributed rate-limit state (Redis or DB-backed counters) —
+    single-node reality; revisit only with a second node
+  - >
+    Login lockout, CAPTCHA, progressive backoff beyond the plain
+    token bucket — brute force gets a budget, not an account policy
+  - >
+    Email or out-of-band token delivery — jjhub has no mail
+    infrastructure; plaintext is shown in-band, once
+  - >
+    Minting tokens for EXISTING zero-token users — only new signups
+    auto-receive one; minting credentials for dormant accounts
+    widens the attack surface for no workflow gain
+  - >
+    Per-user repository-count quotas or paid-tier style limits —
+    push-to-create admission is ownership + validity only
+  - >
+    Changing existing UI create semantics (visibility input, 409 on
+    duplicate, 422 on invalid name) — the shared service preserves
+    them
 key_decisions:
-  - decision: "e16 divergence visible — compute, don't store"
+  - decision: "Shared creation service — one creation path"
     rationale: >
-      jj divergence = same change-id, heads where neither contains the
-      other. The server already reads change-ids (e11) and the op log
-      (e09); evaluate divergence at render/push time, no schema change.
-  - decision: "e16 surfaces — MR detail, MR list, repo page"
+      validate -> dup-check -> init_bare -> jj_meta::init -> INSERT tx
+      with fs cleanup on every failure and unique-constraint
+      re-lookup, extracted from routes::create_repo. UI handler and
+      transport both call it, so the two paths cannot drift.
+  - decision: >
+      push-to-create admits only ReceivePack + TransportUser + URL
+      owner equals the token user's handle
     rationale: >
-      User choice at scope interview: MR + repo surfaces (not
-      push-time-only, not audit-log). Review identity is where
-      divergence misleads.
-  - decision: "e17 SSH — built-in russh listener, token auth, exec git"
+      upload-pack on a missing repo stays 404 (clone of nothing is
+      not a create); another user's namespace stays 404 (no probing,
+      no squatting); the row is inserted before git http-backend
+      spawns so admit_push, the pre-receive hook, and post_receive
+      all see it. Unique-constraint race -> re-lookup, proceed.
+  - decision: "SSH parity through the same helper"
     rationale: >
-      User choice: built-in sshd on configurable port (default 2202),
-      host keys generated at first boot, transport token as password,
-      shell out to git-upload-pack/git-receive-pack — same binaries the
-      HTTP path already trusts. russh 0.64.1 (2026-10) tokio-native.
-  - decision: "e17 ordering after e16"
+      ssh.rs start_service already shares transport::authorize with
+      HTTP; push-to-create reuses the same shared admission helper so
+      both transports make one decision, same principle.
+  - decision: "Push-to-create makes repos PRIVATE"
     rationale: >
-      Divergence is self-contained and ships first; SSH touches
-      transport config and the repo-page snippets e16 also edits.
+      Conservative default; the e10s02 settings UI already flips
+      visibility after creation. Squatting a public name via push is
+      never possible.
+  - decision: "In-process token bucket, hand-rolled, Option on AppState"
+    rationale: >
+      Single Coolify container; governor/tower-http RateLimit/Redis
+      rejected (see rate_limit_mechanism below). AppState carries an
+      Option<RateLimiter>: test constructors leave it None, so the
+      80+ existing tests are untouched; main.rs builds it from env.
+  - decision: >
+      Per-user AND per-IP dimensions; 429 + Retry-After on HTTP,
+      clean disconnect on SSH before spawning git
+    rationale: >
+      User dimension is the honest identity; IP catches anonymous
+      floods and shared-NAT users. russh has no HTTP status channel,
+      so the SSH mapping is a disconnect with a message.
+  - decision: "Login POST gets one policy row"
+    rationale: >
+      It is the only unauthenticated state-changing route; brute-force
+      protection costs one row in the same middleware, not new
+      machinery.
+  - decision: "Repo-page token form demoted, not removed"
+    rationale: >
+      Keep the route and tests, hide the form behind an explicit
+      "Advanced" disclosure on the repo page — one template change,
+      no authz surgery, and existing consumers of per-repo tokens
+      keep working; the default minting path becomes account-level
+      settings.
+  - decision: "Auto-issue one token on signup, details screen delivery"
+    rationale: >
+      Signup mints a transport token (stored hashed, e15s02 style)
+      and redirects to a one-time details screen: the plaintext is
+      copy-once there, completion is marked, and the screen never
+      re-renders afterwards (abandoned screens do not re-trigger;
+      settings regenerate covers users who never finish). The
+      screen carries three preferences: display name (new users
+      column, nullable, fallback handle), theme dark/light/system
+      (new users column, default system), and the email gravatar
+      computed with a link to gravatar.com to change it (derived,
+      no column).
+  - decision: "Regenerate = revoke + reissue, shown once, rate-limited"
+    rationale: >
+      Rotate semantics for a compromised token: the old token is
+      revoked in the same operation that issues the replacement, the
+      new plaintext shows once on the settings page, and regenerate
+      counts as token creation for the rate-limit policy row.
+  - decision: "No backfill for existing zero-token users"
+    rationale: >
+      Only new signups auto-receive a token; a migration cannot mint
+      plaintext safely and auto-issuing credentials for dormant
+      accounts widens the attack surface. Existing users keep the
+      settings flow.
+  - decision: "Token permissions live on the token row"
+    rationale: >
+      tokens gains scopes (read/write array, default read+write
+      for every token including signup and regenerate — zero
+      behavior change for existing rows), expires_at, repo_id
+      pin, and allowed_inets CIDR list; migration backfills
+      current tokens to full scopes.
+  - decision: "Restrictions at authenticate, scope at authorize"
+    rationale: >
+      authenticate() rejects expired, foreign-repo, and wrong-IP
+      tokens while loading the row (one SQL; IP via Postgres
+      inet <<= operator — no Rust CIDR crate, honoring the
+      no-new-dependency constraint); authorize maps upload-pack
+      to read and receive-pack to write inside the existing
+      shared admission decision for HTTP and SSH.
+  - decision: "Settings select permissions; repo-page form pins"
+    rationale: >
+      Create and regenerate forms gain scope selection, optional
+      expiry, and optional pin; the demoted repo-page form
+      pre-pins its own repo — what a per-repo token should mean.
+rate_limit_mechanism:
+  chosen: >
+    Hand-rolled token bucket in axum middleware
+    (axum::middleware::from_fn_with_state), state shared via AppState
+    as Option<RateLimiter>; buckets keyed (action, dimension, key)
+    with idle pruning; only the named routes are wrapped — not a
+    global layer.
+  rejected:
+    - "governor crate — new dep; distributed features unused (single node)"
+    - "tower-http RateLimit — global bucket, not per-user/per-IP keyed"
+    - "Redis / DB counters — no second node exists; write amplification"
+  why_line: >
+    No new dependency, test-bypass is structural (None), and the
+    policy table is data — adding an action is one row plus one wrap.
+policy_table:
+  header: "action | dimension | default budget | burst | env knobs"
+  rows:
+    - >
+      git push (smart HTTP + SSH) | per-user, per-IP | 30/hour |
+      10 | JJHUB_RATE_PUSH_USER, JJHUB_RATE_PUSH_IP
+    - >
+      repo creation (POST /repos + push-to-create) | per-user,
+      per-IP | 10/hour | 3 | JJHUB_RATE_CREATE_USER,
+      JJHUB_RATE_CREATE_IP
+    - >
+      token creation (/settings/tokens incl. regenerate,
+      repo-page token route) | per-user | 10/hour | 5 |
+      JJHUB_RATE_TOKEN_USER
+    - >
+      login POST (/login) | per-IP | 20/hour | 5 |
+      JJHUB_RATE_LOGIN_IP
+    - >
+      master switch + unit | — | on | — | JJHUB_RATE_LIMIT (off
+      disables all), JJHUB_RATE_LIMIT_WINDOW (seconds, default 3600)
+ssh_failure_shape: >
+  When the SSH receive path is over budget, start_service disconnects
+  the session with a clear "rate limited, retry later" message before
+  spawning any git process. No status channel exists in russh.

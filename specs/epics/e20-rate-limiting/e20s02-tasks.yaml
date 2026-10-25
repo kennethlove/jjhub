@@ -1,0 +1,48 @@
+story_id: e20s02
+title: "Policy table routes — push, create, token HTTP 429"
+status: failing
+bcps: 4
+tasks:
+  - id: e20s02t1
+    description: >
+      policy rows for push/create/token with per-user and per-IP
+      dimensions, defaults and env knobs per planning-context
+    verify: "cargo test -p server rate_limit_policy"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "unit"
+  - id: e20s02t2
+    description: >
+      wrap smart-HTTP ReceivePack, POST /repos, token routes;
+      429 + Retry-After past budget; reads untouched
+    verify: "cargo test -p server rate_limit_routes"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "integration"
+  - id: e20s02t3
+    description: "push-to-create charges the create budget"
+    verify: "cargo test -p server rate_limit_push_create"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "push-to-create"
+  - id: e20s02t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

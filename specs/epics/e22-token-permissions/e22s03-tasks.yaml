@@ -1,0 +1,38 @@
+story_id: e22s03
+title: "Settings selectors and repo-page form pin"
+status: failing
+bcps: 3
+tasks:
+  - id: e22s03t1
+    description: >
+      settings create form: scope checkboxes, expiry, pin; empty
+      selection falls back to read+write; past expiry 422
+    verify: "cargo test -p server token_form_permissions"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-permissions"
+        - "forms"
+  - id: e22s03t2
+    description: >
+      signup and regenerate default read+write; repo-page mint
+      server-assigned pin to its own repo
+    verify: "cargo test -p server token_defaults"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-permissions"
+        - "forms"
+  - id: e22s03t3
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

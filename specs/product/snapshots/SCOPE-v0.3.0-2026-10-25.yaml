@@ -1,0 +1,153 @@
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.3.0
+# v0.2.0 scope archived at specs/product/snapshots/SCOPE-v0.2.0-2026-10-23.yaml
+version: "0.3.0"
+feature_name: "jjhub"
+core_value: >
+  jjhub stays honest about jj's history model and reachable the way jj
+  users actually connect: a change that diverged says so wherever
+  review happens, and every repository clones and pushes over SSH with
+  the same tokens as HTTP.
+summary: >
+  v0.3.0 ships the two vision items the user selected: divergence
+  visibility and SSH transport. Divergence visibility closes the gap
+  between jj's model and the product's rendering — the MR is anchored
+  to a change-id, yet when two heads carry the same change-id and
+  neither contains the other, the pages currently show a single
+  ordinary-looking revision list. The MR detail, MR list, and repo page
+  now surface that state and show both siblings. SSH transport ends the
+  HTTP-only remote: jjhub runs its own SSH listener on a configurable
+  port, generates host keys at first boot, authenticates the existing
+  transport token as the password, and executes the same git pack
+  programs the HTTP path already uses. The compose stack then
+  deploys on a platform like Coolify with two secrets and no bound
+  host ports — the operator maps ports, the container healthcheck
+  gates readiness, and SSH host keys persist on the storage volume.
+  The audience stays solo
+  self-hosters; nothing about storage formats or the review model
+  changes.
+in_scope:
+  - id: e16
+    title: "Divergence visible"
+    detail: >
+      A change-id whose pushed heads diverge (neither head contains
+      the other) is flagged on the MR detail page with both siblings
+      and their ancestry relation, marked in the MR list, and shown on
+      the repository page's MR surface — computed from the graph at
+      render time, not stored.
+    why: >
+      Review identity is the product's core claim (ADR-0001); a
+      divergent change rendered as ordinary misleads reviewers about
+      what they are approving, and jj users rewrite history enough
+      that divergence is a normal state to see, not an error.
+  - id: e17
+    title: "SSH transport"
+    detail: >
+      jjhub serves the git pack protocol (upload-pack and
+      receive-pack) over SSH from a built-in listener on a
+      configurable port (default 2202): host keys generated at first
+      boot, transport token as password authentication, push admission
+      through the existing receive path, and the ssh:// clone URL
+      rendered next to the HTTP URL on the repo page.
+    why: >
+      SSH is the default remote scheme in jj and git workflows; a
+      self-hosted forge that only speaks HTTP forces every user to
+      relearn or reconfigure, and the transport token issued at
+      account creation already exists to be a credential.
+  - id: e18
+    title: "Coolify-ready deployment"
+    detail: >
+      The compose stack deploys unchanged on Coolify: no host port is
+      bound unless the operator asks (JJHUB_BIND_HTTP /
+      JJHUB_BIND_SSH, unset in PaaS), the app carries a /healthz
+      container healthcheck so deployment readiness is gated, SSH
+      host keys persist on the storage volume instead of the
+      container layer, and the README documents the Coolify path.
+    why: >
+      The deployment unit is the product for solo self-hosters; a
+      compose file that hard-binds host ports collides with the
+      platform proxy and every other app on the box, and host keys
+      regenerated per container break known_hosts on every redeploy.
+out_of_scope:
+  - item: "Issues tracker, orgs/teams, OIDC, CI runners, full-text search"
+    why: "Deferred since v0.1.0/v0.2.0 — unchanged reasons on record"
+  - item: "SSH via the host's sshd and authorized_keys forced commands"
+    why: >
+      User chose the built-in listener at scope interview; editing the
+      host's sshd config is a more invasive install story.
+  - item: "SSH shell, SCP, SFTP, port forwarding"
+    why: "Git pack protocol only — git-upload-pack/git-receive-pack"
+  - item: "Binding port 22 and SSH beyond a single listener port"
+    why: >
+      Dedicated configurable port (default 2202); operators keep 22
+      for their own sshd or a reverse proxy.
+  - item: "SSH client-side features (known-hosts automation, key mgmt UI)"
+    why: >
+      The server authenticates tokens; how operators distribute host
+      keys or client keys is their tooling, documented not built.
+  - item: "Kubernetes/Helm manifests, platform-specific config beyond Coolify"
+    why: >
+      Coolify consumes plain Docker Compose; other platforms use the
+      same compose where it fits — no per-platform scaffolding.
+  - item: "Redesigning kata's own UI, commercial features"
+    why: "Carried forward from v0.2.0 verbatim"
+constraints:
+  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
+  - >
+    One new dependency: russh (SSH server, tokio-native). No new
+    database tables for either epic — divergence is computed, SSH
+    state is config plus host-key files.
+  - "Public open source codebase; no external paid services"
+  - "Conventional Commits; TDD where possible; specs/ as planning SoT"
+  - "Preflight and CI stay green before forward work"
+  - "Every story carries at least one story: eNNsNN tag in code/tests"
+  - "Page HTML lives in Tera templates; routes.rs holds handlers only"
+  - >
+    UI work runs keystone render gates, impeccable live tools, and
+    the ux audit before handoff
+success_criteria: >
+  A repository whose pushed change-id exists at two non-ancestor heads
+  shows both siblings and a divergence flag on its MR detail and MR
+  list, with a test proving the detection. An operator starts jjhub
+  with no prior SSH state; the service generates host keys and serves
+  ssh:// clone and push with the account's transport token end-to-end
+  in an e2e test, with push admission identical to HTTP. An operator
+  points Coolify at the compose file with only POSTGRES_PASSWORD and
+  SESSION_SECRET set, binds no host ports, and the stack turns
+  healthy on its healthcheck. Preflight and CI stay green.
+references:
+  - >
+    specs/product/VISION_LATEST.yaml — items 8 (divergence) and 9
+    (git compat layer)
+  - "specs/adr/0001-change-id-anchored-mr.md"
+  - "specs/planning-context.yaml — key decisions for e16/e17"
+
+# Prior Art — research-first (2026-10-23)
+prior_art:
+  adopt:
+    - >
+      russh 0.64.1 (warp-tech/russh, Apache-2.0, tokio-native, Oct
+      2026 release cadence, 3.8M monthly downloads) for the SSH
+      server; its keys module loads/generates host keys.
+    - >
+      jj divergence semantics via jj-lib: same change-id, multiple
+      heads, no ancestor relation — the revset machinery e11 already
+      depends on evaluates this; compute per-change at render time.
+    - >
+      git-upload-pack / git-receive-pack executables, already on the
+      host for the HTTP path — SSH exec runs the same programs with
+      the same env (HOME, GIT_CONFIG_GLOBAL=/dev/null patterns).
+  extend:
+    - >
+      receive_guard (e10 admission) is transport-agnostic — the SSH
+      receive path must call the same push admission, not fork it.
+    - >
+      Repo-page URL snippets (Tera) gain an ssh:// line beside the
+      existing http line.
+  rejected:
+    - >
+      Shell-out to system sshd with authorized_keys — rejected by
+      user decision at scope interview (host config mutation).
+    - >
+      Storing divergence as a column — computed from graph; storage
+      would rot on the next rewrite, the exact failure jj hosting
+      exists to avoid.

@@ -1,0 +1,43 @@
+story_id: e19s01
+title: "Shared creation service — UI handler delegates"
+status: failing
+bcps: 4
+tasks:
+  - id: e19s01t1
+    description: "extract creation service; UI handler delegates"
+    verify: "cargo test -p server create_repo"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "push-to-create"
+        - "refactor"
+  - id: e19s01t2
+    description: "fs cleanup on failure + unique-race re-lookup"
+    verify: "cargo test -p server creation_service"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "push-to-create"
+        - "unit"
+  - id: e19s01t3
+    description: "one creation path — service is the only sequence"
+    verify: "grep -rn 'init_bare' crates/server/src"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "push-to-create"
+  - id: e19s01t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

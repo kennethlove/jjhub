@@ -1,30 +1,59 @@
-# specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.3.0
+# specs/release-plan.yaml — WSJF-ordered epic index for jjhub
 
-version: "0.3.0"
-status: ready
+# v0.4.0 cycle. version is a non-authoritative mirror; semantic-release
+# decides the real tag at merge (gh release view wins).
+# v0.3.0 epics (e16-e18) shipped; their capsules remain in specs/epics/.
+
+version: "0.4.0"
+status: planning
 workflow_mode: solo-git
+bump_hint: minor
 
-# WSJF = (user value + time criticality + risk reduction) / job size, coarse
-# version is a non-authoritative mirror; the real tag is decided at release
+# WSJF = (business value + time criticality + risk reduction) / job
+# size; job size in day-equivalents (4 BCP ~= 1 focused day), the
+# same scale as the v0.3.0 entries. No security boost applied (no
+# THREAT_MODEL files exist for these epics).
 epics:
-  - id: e16
-    slug: divergence-visible
-    title: "Divergence visible — flag same-change non-ancestor heads"
-    wsjf: 16
-    bcp_total: 8
+  - id: e20
+    slug: rate-limiting
+    title: "Rate limiting — per-user and per-IP budgets"
+    wsjf: 16.0
+    bcp_total: 11
     delta: ADDED
-  - id: e17
-    slug: ssh-transport
-    title: "SSH transport — built-in listener, token auth, git pack protocol"
-    wsjf: 14
-    bcp_total: 10
+    note: >
+      (12 + 16 + 16) / (11 / 4) = 16.0. CONVENTIONS names rate
+      limit as the priority defensive category; an unthrottled
+      push path spawns git subprocesses without bound. Sequence:
+      the push-to-create wrap lands after e19 admits that route.
+  - id: e22
+    slug: token-permissions
+    title: "Token permissions — scopes, expiry, pinning, IP allowlist"
+    wsjf: 13.5
+    bcp_total: 11
+    delta: MODIFIED
+    note: >
+      (13 + 12 + 12) / (11 / 4) = 13.5. A leaked token is today a
+      full-identity credential forever; bounding it lands before
+      or with the auto-issued signup token (e21).
+  - id: e19
+    slug: push-to-create
+    title: "Push-to-create — first push creates the owned repo"
+    wsjf: 11.7
+    bcp_total: 13
     delta: ADDED
-  - id: e18
-    slug: coolify-deploy
-    title: "Coolify-ready deployment — env-gated ports, healthcheck, docs"
-    wsjf: 12
-    bcp_total: 4
-    delta: ADDED
+    note: >
+      (18 + 10 + 10) / (13 / 4) = 11.7. Highest business value
+      of the cycle; the larger job (service, HTTP, SSH) drops the
+      ratio below e20 and e22.
+  - id: e21
+    slug: token-model
+    title: "Token model — signup token, regenerate, demoted minting"
+    wsjf: 10.9
+    bcp_total: 11
+    delta: MODIFIED
+    note: >
+      (13 + 9 + 8) / (11 / 4) = 10.9. Signup delivery UX on the
+      existing token table; pairs with e22 scope defaults.
 
 bugs:
   total: 1

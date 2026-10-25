@@ -1,0 +1,51 @@
+story_id: e22s02
+title: "Enforcement — authenticate rejects, authorize scopes"
+status: failing
+bcps: 5
+tasks:
+  - id: e22s02t1
+    description: >
+      authenticate loads restrictions in one SQL and rejects
+      expired / foreign-repo / wrong-IP (inet <<=); NULL
+      allowlist unrestricted
+    verify: "cargo test -p server token_restrictions"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "token-permissions"
+        - "Security Review"
+  - id: e22s02t2
+    description: >
+      authorize maps upload-pack to read and receive-pack to
+      write inside the shared admission decision (HTTP + SSH)
+    verify: "cargo test -p server token_scope_authorize"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "token-permissions"
+        - "Security Review"
+  - id: e22s02t3
+    description: >
+      e2e: read-only clone ok / push refused; pinned and
+      off-list refused on both transports
+    verify: "bash scripts/e2e-token-scopes.sh"
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "token-permissions"
+        - "e2e"
+  - id: e22s02t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"
