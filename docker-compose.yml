@@ -20,7 +20,8 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://jjhub:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/jjhub
+      # compose's built-in `:?` error names the missing variable
+      DATABASE_URL: postgres://jjhub:${POSTGRES_PASSWORD:?}@db:5432/jjhub
       # generate: openssl rand -hex 32
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       JJHUB_STORAGE_ROOT: /var/lib/jjhub/repos
@@ -83,8 +84,16 @@ services:
     command: ["serve", "--author", "jjhub@localhost"]
     # story: kata at jjhub origin — never published; the app proxies
     # /r, /api, and /assets at its own origin with identity injected.
+    # WHY: the probe carries the trusted identity header — in
+    # trust-forwarded-header mode /api/whoami answers 401 without one, so
+    # a bare curl can never pass (this is also what made the old probe
+    # permanently unhealthy, on top of curl missing from the image).
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:7878/api/whoami >/dev/null || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sf -H 'X-Review-Author: healthcheck@localhost'
+          http://localhost:7878/api/whoami >/dev/null || exit 1
       interval: 10s
       timeout: 3s
       retries: 5

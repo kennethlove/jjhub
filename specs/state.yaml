@@ -33,8 +33,6 @@ handoff:
     bookmark e17 as v030-w2. e16 story ACs/tasks already ticked passing
     inside their commits (verify with `jj diff -r <tick-commit>`, not the
     working tree — dispatch workspaces leave stale snapshots on disk).
-    Remaining after v0.3.0: e15s03 OPEN QUESTION for the user (e15 epic
-    flipped passing in the rollup; spec was never ticked).
     LESSONS: pi long-prompt provider stall (content-independent; logs buffer
     to 0B always — judge liveness by commits; ONE pi per workspace; lsof
     cwd is the only reliable repo check); after ANY chain repair re-probe
@@ -50,8 +48,11 @@ handoff:
     inline env-gated entries — compose v5.5.0 hard-errors empty
     short entries (no port specified: <empty>), which would break
     both a Coolify clone (no .env) and local dev.
-    v0.3.0 STATUS: e16 #54, e17s01 #55, e17s02 #56, e18s01 #57,
-    records #58 all merged; release-plan flipped ready (precedent
-    jjhub-ql9). v0.3.0 tag PENDING user decision. e15s03 open spec
-    question for user (rollup says passing; story spec never ticked).
-    Nothing local in flight.
+    v0.3.0 SHIPPED: epics e16/e17/e18 merged (#54-#59 incl. closeout
+    and changelog); tag v0.3.0 = 27ccd061 pushed; GitHub release
+    published. e15s03 question RESOLVED — tasks.yaml ticking plus the
+    green extract_mr/extract_review tests are the record; no
+    retroactive story prose. v0.4.0 needs scope-work (user direction).
+    Remote hub (jjhub.eyeheartzombies.com) is up but the mirror repo
+    404s — not seeded (user informed; origin GitHub is source of
+    truth). Nothing local in flight.
