@@ -25,6 +25,14 @@ pub enum CreateError {
     Db(String),
 }
 
+// story: e19s01 — two concurrent creates of one name must not init the
+// same stores in parallel: jj workspace init on a shared path corrupts
+// both callers (`workspace load: There is no Jujutsu repo`). Serializing
+// just the init phase keeps the INSERT race below intact for the
+// re-lookup; the lock is process-local and held only across init.
+static STORE_INIT: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
 /// story: e19s01 — run the creation sequence for `owner_id`. `raw_name`
 /// and `raw_visibility` are untrusted form input; the service normalizes
 /// and validates both.
@@ -70,6 +78,7 @@ pub async fn create_repository(
     // transaction. No manual compensation: if either init fails we clean up
     // two dirs we own, and if the transaction aborts the filesystem work is
     // discarded the same way.
+    let _init_guard = STORE_INIT.lock().await;
     let bare = domain::storage_path(storage_root, &owner, &name);
     if let Err(err) = crate::repo::init_bare(&bare) {
         let _ = std::fs::remove_dir_all(&bare);
@@ -81,8 +90,10 @@ pub async fn create_repository(
     if let Err(err) = crate::jj_meta::init(&meta, &bare).await {
         let _ = std::fs::remove_dir_all(&bare);
         let _ = std::fs::remove_dir_all(&meta);
+        drop(_init_guard);
         return Err(CreateError::Storage(err));
     }
+    drop(_init_guard);
 
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
@@ -108,23 +119,37 @@ pub async fn create_repository(
                 let _ = std::fs::remove_dir_all(&meta);
                 return Err(CreateError::Db(format!("db error: {err}")));
             }
-            Ok(Created {
-                id,
-                owner,
-                name,
-            })
+            Ok(Created { id, owner, name })
         }
         Err(err) => {
             drop(tx);
-            let _ = std::fs::remove_dir_all(&bare);
-            let _ = std::fs::remove_dir_all(&meta);
             match &err {
                 sqlx::Error::Database(db)
                     if db.constraint() == Some("repositories_owner_id_name_key") =>
                 {
+                    // story: e19s01 — the race loser must not clean up: those
+                    // stores on disk belong to the winner's committed row.
+                    // Re-look-up proves the row exists and answers 409.
+                    let winner: Option<uuid::Uuid> = sqlx::query_scalar(
+                        "SELECT id FROM repositories WHERE owner_id = $1 AND name = $2",
+                    )
+                    .bind(owner_id)
+                    .bind(&name)
+                    .fetch_optional(pool)
+                    .await
+                    .ok()
+                    .flatten();
+                    if winner.is_none() {
+                        let _ = std::fs::remove_dir_all(&bare);
+                        let _ = std::fs::remove_dir_all(&meta);
+                    }
                     Err(CreateError::Duplicate)
                 }
-                _ => Err(CreateError::Db(format!("db error: {err}"))),
+                _ => {
+                    let _ = std::fs::remove_dir_all(&bare);
+                    let _ = std::fs::remove_dir_all(&meta);
+                    Err(CreateError::Db(format!("db error: {err}")))
+                }
             }
         }
     }

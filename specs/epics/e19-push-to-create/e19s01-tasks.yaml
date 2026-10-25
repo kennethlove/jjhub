@@ -1,6 +1,6 @@
 story_id: e19s01
 title: "Shared creation service — UI handler delegates"
-status: failing
+status: passing
 bcps: 4
 tasks:
   - id: e19s01t1
@@ -17,7 +17,7 @@ tasks:
     description: "fs cleanup on failure + unique-race re-lookup"
     verify: "cargo test -p server creation_service"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -27,7 +27,7 @@ tasks:
     description: "one creation path — service is the only sequence"
     verify: "grep -rn 'init_bare' crates/server/src"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -36,7 +36,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

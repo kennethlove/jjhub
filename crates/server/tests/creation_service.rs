@@ -70,13 +70,12 @@ async fn duplicate_race_keeps_winner_stores(pool: sqlx::PgPool) {
         "loser must be Duplicate, got {results:?}"
     );
 
-    let ids: Vec<(uuid::Uuid,)> = sqlx::query_as(
-        "SELECT id FROM repositories WHERE owner_id = $1 AND name = 'race-repo'",
-    )
-    .bind(owner)
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let ids: Vec<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM repositories WHERE owner_id = $1 AND name = 'race-repo'")
+            .bind(owner)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
     assert_eq!(ids.len(), 1, "one row");
     assert_eq!(ids[0].0, oks[0].id, "row is the winner's");
 
