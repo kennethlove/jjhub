@@ -44,3 +44,12 @@ handoff:
     bookmark; verify suspect jj ops with `gh pr view <n> --json files`;
     never use perl exec wrappers to probe pi (mangles argv); RTK mangles
     `+ "\n"` templates (use separate()).
+    ACTIVE DECISIONS
+    e18s01 ports design: host ports live in tracked
+    docker-compose.ports.yaml gated by COMPOSE_FILE in .env, NOT
+    inline env-gated entries — compose v5.5.0 hard-errors empty
+    short entries (no port specified: <empty>), which would break
+    both a Coolify clone (no .env) and local dev.
+    v0.3.0 STATUS: e16 merged (#54), e17s01 #55, e17s02 #56, e18s01
+    in PR #57 (ports via COMPOSE_FILE gate; healthcheck; host keys
+    on repo-data volume). Nothing local in flight.
