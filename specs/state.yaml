@@ -50,6 +50,8 @@ handoff:
     inline env-gated entries — compose v5.5.0 hard-errors empty
     short entries (no port specified: <empty>), which would break
     both a Coolify clone (no .env) and local dev.
-    v0.3.0 STATUS: e16 merged (#54), e17s01 #55, e17s02 #56, e18s01
-    in PR #57 (ports via COMPOSE_FILE gate; healthcheck; host keys
-    on repo-data volume). Nothing local in flight.
+    v0.3.0 STATUS: e16 #54, e17s01 #55, e17s02 #56, e18s01 #57,
+    records #58 all merged; release-plan flipped ready (precedent
+    jjhub-ql9). v0.3.0 tag PENDING user decision. e15s03 open spec
+    question for user (rollup says passing; story spec never ticked).
+    Nothing local in flight.

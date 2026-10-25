@@ -1,7 +1,7 @@
 # specs/release-plan.yaml — WSJF-ordered epic index for jjhub v0.3.0
 
 version: "0.3.0"
-status: planning
+status: ready
 workflow_mode: solo-git
 
 # WSJF = (user value + time criticality + risk reduction) / job size, coarse

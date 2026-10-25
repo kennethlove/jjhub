@@ -91,7 +91,11 @@ epics:
       e16s02: passing
       e16s03: passing
   e17-ssh-transport:
-    status: in_progress
+    status: passing
     stories:
-      e17s01: todo
-      e17s02: todo
+      e17s01: passing
+      e17s02: passing
+  e18-coolify-deploy:
+    status: passing
+    stories:
+      e18s01: passing
