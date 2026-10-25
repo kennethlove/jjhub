@@ -36,8 +36,10 @@ RUN cargo build --release -p kata-server \
  && cp target/release/kata /kata
 
 FROM debian:bookworm-slim
+# story: e18s03-note — curl feeds compose's healthcheck (curl /api/whoami);
+# without it the healthcheck can only ever fail with `curl: not found`.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=backend /kata /usr/local/bin/kata
 # Bind inside the container; compose decides host reachability.
