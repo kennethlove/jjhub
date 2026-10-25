@@ -2,6 +2,41 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-10-24
+
+The v0.3.0 build: visible divergence, built-in SSH transport, and a
+Coolify-ready deployment. Three epics shipped as PRs #54–#57, plus
+bookkeeping (#58, #59).
+
+### Added
+
+- **Divergence visible** (#54): pairwise same-change non-ancestor heads are
+detected per commit (`server::divergence::divergent_heads`), surfaced as a
+divergence notice on merge-request detail (both heads linked), a mark on MR
+list items, and a flag on the repository page — one shared `divergence-flag`
+class that fails safe to not-divergent
+- **SSH transport** (#55, #56): russh-based listener with generated host keys
+on disk, transport-token auth over password (publickey declined), read-only
+clone over `ssh://`, and receive-pack push admission through the same
+authorize chain as smart HTTP — pushes flow through `admit_push` and
+post-receive, refused pushes land in `push_rejections`, and repository pages
+show the `ssh://` clone line when the listener is enabled
+- **Coolify-ready deployment** (#57): host ports move out of
+`docker-compose.yml` into tracked `docker-compose.ports.yaml`, loaded only
+via `COMPOSE_FILE` in `.env` — a clone with only `POSTGRES_PASSWORD` and
+`SESSION_SECRET` binds no host ports; containers healthcheck `GET /healthz`;
+SSH host keys persist on the `repo-data` volume across redeploys
+
+### Changed
+
+- CI e2e runs `e2e-ssh-push` alongside the existing suites (#56)
+
+### Fixed
+
+- The e16 divergence code never reached trunk: #53's squash shipped only
+bookkeeping; the wave commits were restored from dangling history and
+verified as #54
+
 ## [0.2.0] - 2026-10-23
 
 The v0.2.0 build: a design system, a server-side rendering pass, a push
@@ -87,5 +122,6 @@ threads, all green under CI.
 - Preflight and e2e gates restored after MVP shipments (#33)
 - CI debuginfo disabled after runner disk/linker exhaustion on e07 branch
 
+[0.3.0]: https://github.com/kennethlove/jjhub/releases/tag/v0.3.0
 [0.2.0]: https://github.com/kennethlove/jjhub/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kennethlove/jjhub/releases/tag/v0.1.0
