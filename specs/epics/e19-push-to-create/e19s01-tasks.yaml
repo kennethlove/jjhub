@@ -7,7 +7,7 @@ tasks:
     description: "extract creation service; UI handler delegates"
     verify: "cargo test -p server create_repo"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
