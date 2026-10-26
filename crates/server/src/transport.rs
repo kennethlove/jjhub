@@ -67,6 +67,12 @@ pub async fn require_token(
 /// authorization — it runs before any subprocess — and every other
 /// request falls through to 404, indistinguishable from a repo that
 /// does not exist.
+// story: e19s02 — admission decides a missing repo either becomes a
+// PRIVATE create or nothing. story: e20s02 — it charges the create
+// row before creating, so the error carries a ready 429/500 Response.
+// WHY: allow, not a params struct — the two charge args travel with
+// every admit_create call and a struct would hide the seam.
+#[allow(clippy::too_many_arguments)]
 pub async fn admit_create(
     pool: &sqlx::PgPool,
     storage_root: &str,
@@ -74,7 +80,12 @@ pub async fn admit_create(
     name: &str,
     op: GitOp,
     user: Option<Uuid>,
-) -> Result<Option<(Uuid, Uuid, String)>, StatusCode> {
+    // story: e20s02 — the create row is charged here, only when a repo
+    // is actually about to be created; SSH passes no limiter until
+    // e20s03 lands its disconnect policy.
+    peer_ip: &str,
+    limiter: Option<&std::sync::Arc<crate::rate_limit::RateLimiter>>,
+) -> Result<Option<(Uuid, Uuid, String)>, Box<axum::response::Response>> {
     if op != GitOp::ReceivePack {
         return Ok(None);
     }
@@ -92,6 +103,18 @@ pub async fn admit_create(
     };
     if owner != handle {
         return Ok(None);
+    }
+    // story: e20s02 — push-to-create charges BOTH rows: the push row
+    // was charged at the transport edge; the create row is charged
+    // here, before any creation work.
+    if let Some(limiter) = limiter {
+        if let Err(retry) = limiter.try_charge(
+            crate::rate_limit::Action::Create,
+            &user_id.to_string(),
+            peer_ip,
+        ) {
+            return Err(Box::new(crate::rate_limit::too_many_requests(retry)));
+        }
     }
     match crate::creation::create_repository(pool, storage_root, user_id, name, "private").await {
         Ok(created) => Ok(Some((created.id, user_id, "private".to_string()))),
@@ -112,7 +135,9 @@ pub async fn admit_create(
         Err(crate::creation::CreateError::InvalidName)
         | Err(crate::creation::CreateError::InvalidVisibility) => Ok(None),
         Err(crate::creation::CreateError::Storage(_))
-        | Err(crate::creation::CreateError::Db(_)) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        | Err(crate::creation::CreateError::Db(_)) => Err(Box::new(
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error").into_response(),
+        )),
     }
 }
 
@@ -143,6 +168,22 @@ pub async fn smart_http(
     };
     let user = token_user(&parts.headers, &state).await;
 
+    // story: e20s02 — push charges the push row BEFORE any git work:
+    // the budget protects work, not admission, so token and IP rows
+    // are checked, then both charged (check-then-charge). Anonymous
+    // pushes share one bucket per client IP.
+    if op == GitOp::ReceivePack {
+        if let Some(limiter) = state.rate_limiter.as_ref() {
+            let ip = crate::rate_limit::peer_ip(&parts.extensions);
+            let who = user
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| "anonymous".to_string());
+            if let Err(retry) = limiter.try_charge(crate::rate_limit::Action::Push, &who, &ip) {
+                return crate::rate_limit::too_many_requests(retry);
+            }
+        }
+    }
+
     let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
         "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
@@ -158,9 +199,21 @@ pub async fn smart_http(
     let repo = match repo {
         Some(repo) => Some(repo),
         None => {
-            match admit_create(&state.pool, &state.storage_root, &owner, &name, op, user).await {
+            let ip = crate::rate_limit::peer_ip(&parts.extensions);
+            match admit_create(
+                &state.pool,
+                &state.storage_root,
+                &owner,
+                &name,
+                op,
+                user,
+                &ip,
+                state.rate_limiter.as_ref(),
+            )
+            .await
+            {
                 Ok(repo) => repo,
-                Err(status) => return status.into_response(),
+                Err(response) => return *response,
             }
         }
     };

@@ -19,7 +19,7 @@ mod rate_limit_policy {
     /// policy table.
     #[test]
     fn rows_match_policy_table_defaults() {
-        let cfg = RateLimitConfig::load(&env(&[("JJHUB_RATE_LIMIT", "on")]));
+        let cfg = RateLimitConfig::load(env(&[("JJHUB_RATE_LIMIT", "on")]));
         assert_eq!(
             cfg.push_user,
             Budget {
@@ -51,7 +51,7 @@ mod rate_limit_policy {
     /// story: e20s02 — every row has its own env knob.
     #[test]
     fn every_row_has_an_env_override() {
-        let cfg = RateLimitConfig::load(&env(&[
+        let cfg = RateLimitConfig::load(env(&[
             ("JJHUB_RATE_LIMIT", "on"),
             ("JJHUB_RATE_PUSH_USER", "1/60:1"),
             ("JJHUB_RATE_PUSH_IP", "2/60:1"),
@@ -71,7 +71,7 @@ mod rate_limit_policy {
     #[test]
     #[should_panic(expected = "JJHUB_RATE_PUSH_USER")]
     fn malformed_row_fails_loud() {
-        let _ = RateLimitConfig::load(&env(&[
+        let _ = RateLimitConfig::load(env(&[
             ("JJHUB_RATE_LIMIT", "on"),
             ("JJHUB_RATE_PUSH_USER", "lots"),
         ]));

@@ -161,6 +161,10 @@ impl SshHandler {
                 &name,
                 service.git_op(),
                 self.user,
+                // story: e20s02 — no create-row charge over SSH until
+                // e20s03 lands the SSH disconnect policy.
+                "unknown",
+                None,
             )
             .await
             .map_err(|_| "server error")?;

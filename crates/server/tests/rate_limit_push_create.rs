@@ -34,16 +34,11 @@ fn create_limiter(per_window: u32) -> RateLimiter {
     })
 }
 
-fn app(
-    pool: sqlx::PgPool,
-    root: &tempfile::TempDir,
-    limiter: Option<RateLimiter>,
-) -> axum::Router {
+fn app(pool: sqlx::PgPool, root: &tempfile::TempDir, limiter: Option<RateLimiter>) -> axum::Router {
     server::app_with_limiter(pool, root.path().to_str().unwrap().to_string(), limiter)
 }
 
 async fn register(app: axum::Router) -> String {
-    std::env::set_var("SESSION_SECRET", SESSION_SECRET);
     let request = Request::post("/register")
         .header("content-type", "application/x-www-form-urlencoded")
         .body(Body::from(
@@ -74,6 +69,7 @@ fn token_for(cookie: &str) -> String {
 /// app serves all three creates.
 #[sqlx::test(migrations = "./migrations")]
 async fn form_and_push_share_create_budget(pool: sqlx::PgPool) {
+    std::env::set_var("SESSION_SECRET", SESSION_SECRET);
     let root = tempfile::tempdir().unwrap();
     let cookie = register(app(pool.clone(), &root, None)).await;
     let csrf = token_for(&cookie);
@@ -129,12 +125,16 @@ async fn form_and_push_share_create_budget(pool: sqlx::PgPool) {
         .fetch_one(&pool)
         .await
         .expect("push-to-create admitted the repo before the budget ran out");
-    let visibility: String = sqlx::query_scalar("SELECT visibility FROM repositories WHERE id = $1")
-        .bind(pushed)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(visibility, "private", "push-to-create still creates PRIVATE");
+    let visibility: String =
+        sqlx::query_scalar("SELECT visibility FROM repositories WHERE id = $1")
+            .bind(pushed)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        visibility, "private",
+        "push-to-create still creates PRIVATE"
+    );
 
     // 3rd create: budget spent — 429 + Retry-After.
     let third = appw

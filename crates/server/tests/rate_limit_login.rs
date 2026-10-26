@@ -17,6 +17,31 @@ fn limiter(per_window: u32, burst: u32) -> RateLimiter {
             window_secs: 3600,
             burst,
         },
+        push_user: Budget {
+            per_window: 30,
+            window_secs: 3600,
+            burst: 10,
+        },
+        push_ip: Budget {
+            per_window: 30,
+            window_secs: 3600,
+            burst: 10,
+        },
+        create_user: Budget {
+            per_window: 10,
+            window_secs: 3600,
+            burst: 3,
+        },
+        create_ip: Budget {
+            per_window: 10,
+            window_secs: 3600,
+            burst: 3,
+        },
+        token_user: Budget {
+            per_window: 10,
+            window_secs: 3600,
+            burst: 5,
+        },
     })
 }
 

@@ -11,11 +11,14 @@ use axum::http::{header, Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
-/// Which policy row charges a request. story: e20s01 ships Login only;
-/// e20s02 widens the table to push/create/token.
+/// Which policy row charges a request. story: e20s02 widens the table
+/// beyond Login to the policy-table rows: push, create, token.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Action {
     Login,
+    Push,
+    Create,
+    Token,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +33,11 @@ pub struct RateLimitConfig {
     pub enabled: bool,
     pub window_secs: u64,
     pub login_ip: Budget,
+    pub push_user: Budget,
+    pub push_ip: Budget,
+    pub create_user: Budget,
+    pub create_ip: Budget,
+    pub token_user: Budget,
 }
 
 impl RateLimitConfig {
@@ -42,10 +50,20 @@ impl RateLimitConfig {
             .and_then(|v| v.parse().ok())
             .unwrap_or(3600);
         let login_raw = get("JJHUB_RATE_LOGIN_IP").unwrap_or_else(|| "20/3600:5".into());
+        let push_user_raw = get("JJHUB_RATE_PUSH_USER").unwrap_or_else(|| "30/3600:10".into());
+        let push_ip_raw = get("JJHUB_RATE_PUSH_IP").unwrap_or_else(|| "30/3600:10".into());
+        let create_user_raw = get("JJHUB_RATE_CREATE_USER").unwrap_or_else(|| "10/3600:3".into());
+        let create_ip_raw = get("JJHUB_RATE_CREATE_IP").unwrap_or_else(|| "10/3600:3".into());
+        let token_user_raw = get("JJHUB_RATE_TOKEN_USER").unwrap_or_else(|| "10/3600:5".into());
         RateLimitConfig {
             enabled,
             window_secs,
             login_ip: parse_budget("JJHUB_RATE_LOGIN_IP", &login_raw, window_secs),
+            push_user: parse_budget("JJHUB_RATE_PUSH_USER", &push_user_raw, window_secs),
+            push_ip: parse_budget("JJHUB_RATE_PUSH_IP", &push_ip_raw, window_secs),
+            create_user: parse_budget("JJHUB_RATE_CREATE_USER", &create_user_raw, window_secs),
+            create_ip: parse_budget("JJHUB_RATE_CREATE_IP", &create_ip_raw, window_secs),
+            token_user: parse_budget("JJHUB_RATE_TOKEN_USER", &token_user_raw, window_secs),
         }
     }
 
@@ -93,16 +111,18 @@ struct Bucket {
 
 pub struct RateLimiter {
     buckets: Mutex<HashMap<(Action, String), Bucket>>,
-    login_ip: Budget,
+    budgets: RateLimitConfig,
     idle_window: Duration,
 }
 
 impl RateLimiter {
     pub fn new(cfg: RateLimitConfig) -> Self {
+        let idle_window =
+            Duration::from_secs(cfg.window_secs.max(cfg.login_ip.window_secs).max(3600));
         RateLimiter {
             buckets: Mutex::new(HashMap::new()),
-            login_ip: cfg.login_ip,
-            idle_window: Duration::from_secs(cfg.login_ip.window_secs.max(cfg.window_secs)),
+            budgets: cfg,
+            idle_window,
         }
     }
 
@@ -110,7 +130,13 @@ impl RateLimiter {
     /// retry-after (whole seconds, at least 1).
     pub fn consume(&self, action: Action, key: &str) -> Result<(), Duration> {
         let budget = match action {
-            Action::Login => self.login_ip,
+            Action::Login => self.budgets.login_ip,
+            Action::Push => self.budgets.push_user,
+            // story: e20s02 — push and create keep their user AND ip
+            // rows; each dimension is its own (action, key) bucket, so
+            // one consume() call charges exactly one row.
+            Action::Create => self.budgets.create_user,
+            Action::Token => self.budgets.token_user,
         };
         let now = Instant::now();
         let mut buckets = self.buckets.lock().expect("rate-limit bucket lock");
@@ -130,6 +156,50 @@ impl RateLimiter {
         } else {
             let wait_secs = ((1.0 - bucket.tokens) / rate).ceil().max(1.0);
             Err(Duration::from_secs_f64(wait_secs))
+        }
+    }
+
+    /// story: e20s02 — check-then-charge for the two-dimension rows
+    /// (push, create): both the user row and the IP row must pass, and
+    /// only then are both charged — a failed check charges nothing, and
+    /// one lock makes the pair atomic. Token has no IP row in the policy
+    /// table: use `consume` for it.
+    pub fn try_charge(&self, action: Action, user_key: &str, ip_key: &str) -> Result<(), Duration> {
+        let (user_budget, ip_budget) = match action {
+            Action::Push => (self.budgets.push_user, self.budgets.push_ip),
+            Action::Create => (self.budgets.create_user, self.budgets.create_ip),
+            Action::Login => (self.budgets.login_ip, self.budgets.login_ip),
+            Action::Token => (self.budgets.token_user, self.budgets.token_user),
+        };
+        let now = Instant::now();
+        let mut buckets = self.buckets.lock().expect("rate-limit bucket lock");
+        let mut fill = |budget: Budget, key: &str| -> Duration {
+            let rate = budget.per_window as f64 / budget.window_secs as f64;
+            let bucket = buckets.entry((action, key.to_string())).or_insert(Bucket {
+                tokens: budget.burst as f64,
+                last: now,
+            });
+            let elapsed = now.duration_since(bucket.last).as_secs_f64();
+            bucket.tokens = (bucket.tokens + elapsed * rate).min(budget.burst as f64);
+            bucket.last = now;
+            if bucket.tokens >= 1.0 {
+                Duration::ZERO
+            } else {
+                Duration::from_secs_f64(((1.0 - bucket.tokens) / rate).ceil().max(1.0))
+            }
+        };
+        let wait = fill(user_budget, user_key).max(fill(ip_budget, ip_key));
+        if wait == Duration::ZERO {
+            // both rows checked out a token — debit them.
+            for key in [user_key, ip_key] {
+                let bucket = buckets
+                    .get_mut(&(action, key.to_string()))
+                    .expect("bucket just filled");
+                bucket.tokens -= 1.0;
+            }
+            Ok(())
+        } else {
+            Err(wait)
         }
     }
 
@@ -156,11 +226,7 @@ pub async fn rate_limit_mw(
         if req.method() == Method::POST {
             // story: e20s01 — no connect info: share one bucket; the
             // production serve always supplies it.
-            let ip = req
-                .extensions()
-                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-                .map(|c| c.0.ip().to_string())
-                .unwrap_or_else(|| "unknown".to_string());
+            let ip = peer_ip(req.extensions());
             if let Err(retry) = limiter.consume(Action::Login, &ip) {
                 let secs = retry.as_secs().max(1);
                 return (
@@ -177,4 +243,44 @@ pub async fn rate_limit_mw(
 
 pub fn share(limiter: RateLimiter) -> Arc<RateLimiter> {
     Arc::new(limiter)
+}
+
+/// story: e20s02 — the client IP for a request: its connect-info
+/// extension when the server supplied one (production: always), or a
+/// shared "unknown" bucket for extension-less callers (oneshot tests).
+pub fn peer_ip(extensions: &axum::http::Extensions) -> String {
+    extensions
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|c| c.0.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// story: e20s02 — opt-in extractor form of `peer_ip` for handlers that
+/// need to charge an IP dimension. Never rejects: a missing connect-info
+/// falls back to the shared bucket, so oneshot tests keep working.
+pub struct OptionalPeerIp(pub String);
+
+impl<S: Sync> axum::extract::FromRequestParts<S> for OptionalPeerIp {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(Self(peer_ip(&parts.extensions)))
+    }
+}
+
+/// story: e20s02 — one shape for every rate-limit refusal: 429, a
+/// Retry-After in whole seconds, plain text. Used by the login
+/// middleware and the direct charge sites in the transport and route
+/// handlers.
+pub fn too_many_requests(retry: Duration) -> Response {
+    let secs = retry.as_secs().max(1);
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        [(header::RETRY_AFTER, secs.to_string())],
+        "too many requests",
+    )
+        .into_response()
 }

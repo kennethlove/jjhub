@@ -188,6 +188,15 @@ pub async fn create_repo_token(
     jar: CookieJar,
     Form(form): Form<TokenForm>,
 ) -> Response {
+    // story: e20s02 — token creation charges the token row (per-user
+    // only; no IP row in the policy table).
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) =
+            limiter.consume(crate::rate_limit::Action::Token, &current.0.to_string())
+        {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
     let new = crate::token::create(&state.pool, current.0, &form.label).await;
     let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
         "new_token",
@@ -264,8 +273,20 @@ pub struct CreateRepoForm {
 pub async fn create_repo(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    ip: crate::rate_limit::OptionalPeerIp,
     Form(form): Form<CreateRepoForm>,
 ) -> Response {
+    // story: e20s02 — the form create charges the same create row as
+    // push-to-create: one action, one budget.
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) = limiter.try_charge(
+            crate::rate_limit::Action::Create,
+            &current.0.to_string(),
+            &ip.0,
+        ) {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
     // story: e19s01 — the sequence lives in the creation service; this
     // handler keeps only form/session/response-shape concerns.
     match crate::creation::create_repository(
@@ -502,6 +523,15 @@ pub async fn create_token(
     jar: CookieJar,
     Form(form): Form<TokenForm>,
 ) -> Response {
+    // story: e20s02 — token creation charges the token row (per-user
+    // only; no IP row in the policy table).
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) =
+            limiter.consume(crate::rate_limit::Action::Token, &current.0.to_string())
+        {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
     let new = crate::token::create(&state.pool, current.0, &form.label).await;
     let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
         "new_token",

@@ -71,6 +71,25 @@ SSH host keys live on the `repo-data` volume at
 `/var/lib/jjhub/host-keys`, so clone fingerprints stay stable across
 redeploys.
 
+## Rate limiting
+
+Token buckets, in memory, off by default. Set `JJHUB_RATE_LIMIT=on`
+to enable; then any row may be overridden:
+
+| Knob | Default (per-window:burst) |
+| --- | --- |
+| `JJHUB_RATE_LIMIT_WINDOW` (seconds) | `3600` |
+| `JJHUB_RATE_LOGIN_IP` | `20/3600:5` |
+| `JJHUB_RATE_PUSH_USER` / `JJHUB_RATE_PUSH_IP` | `30/3600:10` |
+| `JJHUB_RATE_CREATE_USER` / `JJHUB_RATE_CREATE_IP` | `10/3600:3` |
+| `JJHUB_RATE_TOKEN_USER` | `10/3600:5` |
+
+Format: `N[/window-secs[:burst]]`. Over budget answers `429` with
+`Retry-After`. Reads (fetch/clone) are never throttled. Push-to-create
+charges both the push and the create budget; a form create and a
+push-to-create share one create budget per user and per IP. Malformed
+values fail loudly at boot.
+
 ## License
 
 Apache License 2.0.

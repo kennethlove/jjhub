@@ -35,16 +35,11 @@ fn limiter(mutate: impl FnOnce(&mut server::rate_limit::RateLimitConfig)) -> Rat
 
 /// The limiter state lives in the router's AppState, so one app built
 /// here is shared across the requests of a single test.
-fn app(
-    pool: sqlx::PgPool,
-    root: &tempfile::TempDir,
-    limiter: Option<RateLimiter>,
-) -> axum::Router {
+fn app(pool: sqlx::PgPool, root: &tempfile::TempDir, limiter: Option<RateLimiter>) -> axum::Router {
     server::app_with_limiter(pool, root.path().to_str().unwrap().to_string(), limiter)
 }
 
 async fn register(app: axum::Router) -> String {
-    std::env::set_var("SESSION_SECRET", SESSION_SECRET);
     let request = Request::post("/register")
         .header("content-type", "application/x-www-form-urlencoded")
         .body(Body::from(
@@ -156,6 +151,7 @@ async fn reads_never_throttle(pool: sqlx::PgPool) {
 /// succeeds, second is 429.
 #[sqlx::test(migrations = "./migrations")]
 async fn create_route_past_budget_is_429(pool: sqlx::PgPool) {
+    std::env::set_var("SESSION_SECRET", SESSION_SECRET);
     let root = tempfile::tempdir().unwrap();
     let cookie = register(app(pool.clone(), &root, None)).await;
     let csrf = token_for(&cookie);
@@ -180,15 +176,12 @@ async fn create_route_past_budget_is_429(pool: sqlx::PgPool) {
 /// succeeds, second is 429.
 #[sqlx::test(migrations = "./migrations")]
 async fn token_route_past_budget_is_429(pool: sqlx::PgPool) {
+    std::env::set_var("SESSION_SECRET", SESSION_SECRET);
     let root = tempfile::tempdir().unwrap();
     let cookie = register(app(pool.clone(), &root, None)).await;
     let csrf = token_for(&cookie);
 
-    let app = app(
-        pool,
-        &root,
-        Some(limiter(|cfg| cfg.token_user = budget(1))),
-    );
+    let app = app(pool, &root, Some(limiter(|cfg| cfg.token_user = budget(1))));
     let first = post_form(
         app.clone(),
         "/settings/tokens",
