@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your preferences · jjhub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   jjhub — preferences v2. Tokens only (repo DESIGN.md).
+   No JavaScript: every state swap runs on CSS :target.
+   Rest state = no hash; each panel hides only its own rest
+   state when one of its other states is targeted.
+   Elevation: hairlines + background shifts, no shadows.
+   ============================================================ */
+:root {
+  --primary: #16211C;
+  --secondary: #4A574F;
+  --tertiary: #157F52;
+  --tertiary-hover: #116944;
+  --tertiary-pressed: #0D5436;
+  --neutral: #F4F6F4;
+  --surface: #FBFCFB;
+  --surface-sunken: #ECEFEC;
+  --surface-inverse: #1D2A24;
+  --border: #DCE2DD;
+  --on-accent: #F7FAF8;
+  --on-inverse: #E7ECE8;
+  --error: #A32218;
+  --error-surface: #FBEDEC;
+
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --headline-1: 49px;
+  --headline-3: 31px;
+  --headline-4: 25px;
+  --body-lg: 20px;
+  --body: 16px;
+  --body-sm: 14px;
+  --label: 14px;
+  --label-sm: 12px;
+  --data: 14px;
+  --data-sm: 12px;
+
+  --dur: 150ms;
+  --ease: ease-out;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--neutral);
+  color: var(--primary);
+  font-family: var(--sans);
+  font-size: var(--body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- header (signed in) ---------- */
+.site-header {
+  max-width: 72rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.wordmark {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-nav { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.site-nav a {
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.site-nav a:hover { color: var(--primary); border-bottom-color: var(--border); }
+.site-nav a:active { color: var(--secondary); }
+.site-nav a:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+.site-nav a.is-current { color: var(--primary); border-bottom-color: var(--tertiary); }
+.site-nav .username { font-family: var(--mono); font-size: var(--data-sm); }
+
+/* ---------- main ---------- */
+.prefs-main {
+  flex: 1 0 auto;
+  max-width: 48rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 32px 64px;
+}
+.prefs-main > h1 {
+  margin: 0 0 32px;
+  font-size: var(--headline-1);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- panels ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  margin: 0 0 32px;
+}
+.panel h2 {
+  margin: 0 0 24px;
+  font-size: var(--headline-4);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.state-heading {
+  margin: 0 0 8px;
+  font-size: var(--body-lg);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ---------- state machine (:target, no JavaScript) ----------
+   Rest states carry .state-rest and show when their panel has
+   no targeted state. Targeted states win; :has scopes the swap
+   to the panel the link lives in. */
+.state { display: none; scroll-margin-top: 24px; }
+.state:target { display: block; }
+.state-rest { display: block; }
+.panel:has(.state:target) .state-rest:not(:target) { display: none; }
+
+/* ---------- copy blocks ---------- */
+.lede {
+  margin: 0 0 24px;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+.panel-body {
+  margin: 0 0 24px;
+  font-size: var(--body);
+}
+.hint {
+  margin: 4px 0 0;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+
+/* ---------- definition rows ---------- */
+dl { margin: 0 0 24px; }
+.def-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.def-row dt {
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  margin: 0;
+}
+.def-row dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--data);
+  color: var(--primary);
+  text-align: right;
+  word-break: break-all;
+}
+.def-row dd.dd-sm { font-size: var(--data-sm); }
+.def-helper {
+  margin: 4px 0 0;
+  font-family: var(--sans);
+  font-size: var(--body-sm);
+  font-weight: 400;
+  color: var(--secondary);
+}
+.def-helper code {
+  font-family: var(--mono);
+  color: var(--primary);
+}
+
+/* ---------- forms ---------- */
+.field { margin: 0 0 24px; }
+.field label {
+  display: block;
+  font-size: var(--label);
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: var(--primary);
+}
+.field input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: var(--body);
+  color: var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 16px;
+  transition: border-color var(--dur) var(--ease);
+}
+.field input::placeholder { color: var(--secondary); }
+.field input:hover { border-color: var(--secondary); }
+.field input:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+  border-color: var(--tertiary);
+}
+.field input:disabled {
+  background: var(--surface-sunken);
+  color: var(--secondary);
+  cursor: not-allowed;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ---------- generate form ---------- */
+.generate-form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin: 0 0 32px;
+}
+.generate-form .field { flex: 1 1 16rem; margin: 0; }
+
+/* ---------- one-time token reveal strip ---------- */
+.reveal-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tertiary);
+  border-radius: 4px;
+  padding: 16px;
+  margin: 0 0 24px;
+}
+.reveal-strip p {
+  margin: 0 0 8px;
+  font-size: var(--body-sm);
+  font-weight: 500;
+  color: var(--primary);
+}
+.reveal-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.token-value {
+  flex: 1 1 16rem;
+  min-width: 0;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: var(--data);
+  color: var(--primary);
+  white-space: nowrap;
+  overflow-x: auto;
+  user-select: all;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: var(--label);
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+.btn:disabled { cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--tertiary);
+  color: var(--on-accent);
+  border-color: var(--tertiary);
+}
+.btn-primary:hover { background: var(--tertiary-hover); border-color: var(--tertiary-hover); }
+.btn-primary:active { background: var(--tertiary-pressed); border-color: var(--tertiary-pressed); }
+.btn-primary:disabled { background: var(--surface-sunken); border-color: var(--border); color: var(--secondary); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--border);
+}
+.btn-secondary:hover { background: var(--surface-sunken); border-color: var(--secondary); }
+.btn-secondary:active { background: var(--border); }
+.btn-secondary:disabled { background: var(--surface-sunken); color: var(--secondary); border-color: var(--border); }
+
+/* Error-outlined destructive action (danger zone resting state). */
+.btn-danger {
+  background: var(--surface);
+  color: var(--error);
+  border-color: var(--error);
+}
+.btn-danger:hover { background: var(--error-surface); }
+.btn-danger:active { background: var(--error); color: var(--on-accent); }
+.btn-danger:disabled { background: var(--surface-sunken); color: var(--secondary); border-color: var(--border); }
+
+/* ---------- quiet link (Cancel / destructive text links) ---------- */
+.quiet-link {
+  font-family: inherit;
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease);
+}
+.quiet-link:hover { color: var(--primary); }
+.quiet-link-danger { color: var(--error); }
+.quiet-link-danger:hover { color: var(--error); opacity: 0.85; }
+.quiet-link-danger:focus-visible { outline-color: var(--error); }
+.quiet-link:active { color: var(--secondary); }
+.quiet-link:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+
+/* ---------- token ledger ---------- */
+.ledger-scroll { overflow-x: auto; }
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+}
+.ledger th {
+  text-align: left;
+  font-size: var(--label-sm);
+  font-weight: 500;
+  color: var(--secondary);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+.ledger td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--body-sm);
+  vertical-align: middle;
+}
+.ledger tr:last-child td { border-bottom: none; }
+.ledger tbody tr { transition: background-color var(--dur) var(--ease); }
+.ledger tbody tr:hover { background: var(--surface-sunken); }
+.cell-label { font-weight: 500; }
+.cell-prefix {
+  font-family: var(--mono);
+  font-size: var(--data);
+  color: var(--secondary);
+}
+.cell-created {
+  font-family: var(--mono);
+  font-size: var(--data-sm);
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cell-actions { text-align: right; white-space: nowrap; }
+.table-help {
+  margin: 8px 0 0;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+
+/* Quiet error-colored text link (row revoke). */
+.revoke {
+  font-size: var(--body-sm);
+  font-weight: 500;
+  color: var(--error);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease);
+}
+.revoke:hover { text-decoration: underline; text-underline-offset: 2px; }
+.revoke:active { color: var(--error); text-decoration: underline; }
+.revoke:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+
+/* ---------- error components (class-based; never rendered at load) ----------
+   Usage, added only when the server reports a problem:
+     alert:    <div class="alert-error" role="alert"><p>…</p></div>
+     field:    add class="field-error" + aria-invalid="true" to the input,
+               then follow with <p class="hint-error">…</p> */
+.alert-error {
+  background: var(--error-surface);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 16px;
+  margin: 0 0 24px;
+  font-size: var(--body-sm);
+  color: var(--error);
+}
+.alert-error p { margin: 0; }
+.field input.field-error { border-color: var(--error); }
+.field input.field-error:focus-visible { outline-color: var(--error); }
+.hint-error {
+  margin: 4px 0 0;
+  font-size: var(--body-sm);
+  color: var(--error);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- footer ---------- */
+.site-footer { background: var(--surface-inverse); color: var(--on-inverse); }
+.footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 32px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.footer-inner .wordmark { color: var(--on-inverse); }
+.footer-meta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--label-sm);
+  color: var(--on-inverse);
+}
+
+@media (max-width: 640px) {
+  .site-header, .prefs-main, .footer-inner { padding-left: 16px; padding-right: 16px; }
+  .prefs-main > h1 { font-size: var(--headline-3); }
+  .panel { padding: 24px; }
+  .def-row { flex-direction: column; gap: 4px; }
+  .def-row dd { text-align: left; }
+  .def-helper { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="wordmark" href="index.html">jjhub</a>
+  <nav class="site-nav" aria-label="Account">
+    <a href="repo.html">Repos</a>
+    <a href="preferences.html" class="is-current" aria-current="page">Settings</a>
+    <a class="username" href="#profile">kennethlove</a>
+    <a href="auth.html">Log out</a>
+  </nav>
+</header>
+
+<main class="prefs-main">
+  <h1>Your preferences</h1>
+
+  <!-- ============ PANEL: ACCOUNT ============ -->
+
+  <!-- Resting state (no hash): read-only rows + change-password link. -->
+  <section class="panel" aria-labelledby="account-heading">
+    <div class="state state-rest" id="account">
+      <h2 id="account-heading">Account</h2>
+
+      <dl>
+        <div class="def-row">
+          <dt>Email</dt>
+          <dd>kennethlove@example.com</dd>
+        </div>
+        <div class="def-row">
+          <dt>Handle</dt>
+          <dd>
+            kennethlove
+            <p class="def-helper">Your handle appears in URLs: <code>jjhub.example/kennethlove</code></p>
+          </dd>
+        </div>
+        <div class="def-row">
+          <dt>Member since</dt>
+          <dd class="dd-sm">2026-01-14</dd>
+        </div>
+      </dl>
+
+      <a class="btn btn-secondary" href="#password">Change password</a>
+    </div>
+
+    <!-- Change-password state of the same panel (#password). -->
+    <div class="state" id="password">
+      <h2 id="password-heading">Account</h2>
+
+      <!-- Server alert component (class-based; renders only when the server adds it):
+           <div class="alert-error" role="alert"><p>Current password is incorrect.</p></div> -->
+      <form action="/settings/password" method="post">
+        <div class="field">
+          <label for="current-password">Current password</label>
+          <input id="current-password" name="current_password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="new-password">New password</label>
+          <input id="new-password" name="new_password" type="password"
+                 autocomplete="new-password" aria-describedby="new-password-hint" required>
+          <p class="hint" id="new-password-hint">At least 10 characters.</p>
+        </div>
+        <div class="field">
+          <!-- Invalid component (class-based; renders only when the server adds it):
+               add class="field-error" and aria-invalid="true" to the input, then follow with
+               <p class="hint-error">Passwords do not match.</p> -->
+          <label for="confirm-password">Confirm new password</label>
+          <input id="confirm-password" name="confirm_password" type="password"
+                 autocomplete="new-password" required>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">Update password</button>
+          <a class="quiet-link" href="#account">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ PANEL: ACCESS TOKENS ============ -->
+
+  <!-- Pregeneration state (no hash): intro + generate form, no reveal strip. -->
+  <section class="panel" aria-labelledby="tokens-heading">
+    <div class="state state-rest" id="tokens">
+      <h2 id="tokens-heading">Access tokens</h2>
+
+      <p class="lede">Tokens authenticate git over HTTP and the API. Each token is shown once at creation.</p>
+
+      <!-- Generate is an :target link: the prototype reveals the one-time
+           strip without JavaScript. Real route: POST /settings/tokens. -->
+      <div class="generate-form">
+        <div class="field">
+          <label for="token-label">Label</label>
+          <input id="token-label" name="label" type="text" placeholder="ci-deploy">
+        </div>
+        <a class="btn btn-primary" href="#token-new">Generate token</a>
+      </div>
+    </div>
+
+    <!-- One-time reveal state (#token-new): the strip shows exactly once,
+         above the same generate form and the ledger. -->
+    <div class="state" id="token-new">
+      <h2 id="token-new-heading">Access tokens</h2>
+
+      <div class="reveal-strip" role="status">
+        <p>Copy this token now — it will not be shown again.</p>
+        <div class="reveal-row">
+          <code class="token-value">jjp_9f2c4d8a1b</code>
+          <!-- Copy needs JavaScript; here it is the designed control only. -->
+          <button class="btn btn-secondary" type="button">Copy</button>
+        </div>
+      </div>
+
+      <div class="generate-form">
+        <div class="field">
+          <label for="token-label-new">Label</label>
+          <input id="token-label-new" name="label" type="text" value="ci-deploy">
+        </div>
+        <a class="btn btn-primary" href="#token-new">Generate token</a>
+      </div>
+    </div>
+
+    <!-- Token ledger: always visible, both states. -->
+    <div class="ledger-scroll">
+      <table class="ledger">
+        <thead>
+          <tr>
+            <th scope="col">Label</th>
+            <th scope="col">Prefix</th>
+            <th scope="col">Created</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="cell-label">ci-deploy</td>
+            <td class="cell-prefix">jjp_9f2c4d…</td>
+            <td class="cell-created">2026-02-10</td>
+            <!-- Revoke is a static stand-in for POST /settings/tokens/:id/revoke. -->
+            <td class="cell-actions"><a class="revoke" href="#revoke">Revoke</a></td>
+          </tr>
+          <tr>
+            <td class="cell-label">laptop</td>
+            <td class="cell-prefix">jjp_mzv8k1…</td>
+            <td class="cell-created">2025-11-03</td>
+            <td class="cell-actions"><a class="revoke" href="#revoke">Revoke</a></td>
+          </tr>
+          <tr>
+            <td class="cell-label">old-clone</td>
+            <td class="cell-prefix">jjp_9xwr4d…</td>
+            <td class="cell-created">2025-06-21</td>
+            <td class="cell-actions"><a class="revoke" href="#revoke">Revoke</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-help">Revoked tokens stop working immediately.</p>
+  </section>
+
+  <!-- ============ PANEL: DANGER ZONE (last on the page) ============ -->
+
+  <!-- Resting state: heading + body + delete button only. -->
+  <section class="panel" aria-labelledby="danger-heading">
+    <div class="state state-rest" id="danger">
+      <h2 id="danger-heading">Danger zone</h2>
+      <p class="panel-body">Deleting your account removes every repository you own, all access tokens, and your handle. This cannot be undone.</p>
+      <a class="btn btn-danger" href="#delete-1">Delete account</a>
+    </div>
+
+    <!-- Confirmation, step 1 of 2 (#delete-1). -->
+    <div class="state" id="delete-1">
+      <h2 id="danger-heading-1">Danger zone</h2>
+      <h3 class="state-heading" id="delete-1-heading">Are you sure?</h3>
+      <p class="panel-body">This deletes kennethlove@example.com and 3 repositories.</p>
+      <div class="actions">
+        <a class="btn btn-secondary" href="#danger">No, cancel</a>
+        <a class="quiet-link quiet-link-danger" href="#delete-2">Yes, continue</a>
+      </div>
+    </div>
+
+    <!-- Confirmation, step 2 of 2 (#delete-2): password gate.
+         Real route: DELETE /settings/account; the POST stands in for it. -->
+    <div class="state" id="delete-2">
+      <h2 id="danger-heading-2">Danger zone</h2>
+      <h3 class="state-heading" id="delete-2-heading">Confirm your password</h3>
+      <p class="panel-body">Enter your password to finalize deletion.</p>
+      <form action="/settings/account" method="post">
+        <div class="field">
+          <label for="delete-password">Password</label>
+          <input id="delete-password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <div class="actions">
+          <a class="btn btn-secondary" href="#danger">No, cancel</a>
+          <button class="quiet-link quiet-link-danger" type="submit">Permanently delete account</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="wordmark" href="index.html">jjhub</a>
+    <p class="footer-meta">Apache License 2.0 · jj-vcs.dev · GitHub</p>
+  </div>
+</footer>
+
+</body>
+</html>

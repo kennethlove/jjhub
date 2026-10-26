@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in · jjhub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   jjhub auth — tokens only, from repo DESIGN.md.
+   One card, four states swapped by CSS :target. No JavaScript.
+   Default (no hash) = login. Elevation: hairlines only, no shadows.
+   ============================================================ */
+:root {
+  --primary: #16211C;
+  --secondary: #4A574F;
+  --tertiary: #157F52;
+  --tertiary-hover: #116944;
+  --tertiary-pressed: #0D5436;
+  --neutral: #F4F6F4;
+  --surface: #FBFCFB;
+  --surface-sunken: #ECEFEC;
+  --surface-inverse: #1D2A24;
+  --border: #DCE2DD;
+  --on-accent: #F7FAF8;
+  --on-inverse: #E7ECE8;
+  --error: #A32218;
+  --error-surface: #FBEDEC;
+
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --headline-3: 31px;
+  --body: 16px;
+  --body-sm: 14px;
+  --label: 14px;
+  --label-sm: 12px;
+
+  --dur: 150ms;
+  --ease: ease-out;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--neutral);
+  color: var(--primary);
+  font-family: var(--sans);
+  font-size: var(--body);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- header ---------- */
+.site-header {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 24px 32px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.wordmark {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-nav a {
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.site-nav a:hover { color: var(--primary); border-bottom-color: var(--border); }
+.site-nav a:active { color: var(--secondary); }
+.site-nav a:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+}
+
+/* ---------- auth flow: one card, four :target states ---------- */
+.auth-flow {
+  flex: 1 0 auto;
+  max-width: 26rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 32px 64px;
+}
+.state { display: none; }
+.state:target { display: block; }
+/* Default state: login shows until another state is targeted. */
+.state-login { display: block; }
+.auth-flow:has(.state:target) .state-login:not(:target) { display: none; }
+.state { scroll-margin-top: 24px; }
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px;
+}
+.auth-card h1 {
+  margin: 0 0 24px;
+  font-size: var(--headline-3);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.auth-card .lede {
+  margin: 0 0 24px;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+.auth-card .lede code {
+  font-family: var(--mono);
+  font-size: var(--label-sm);
+  color: var(--primary);
+}
+
+/* ---------- form ---------- */
+.field { margin: 0 0 24px; }
+.field label {
+  display: block;
+  font-size: var(--label);
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: var(--primary);
+}
+.field input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: var(--body);
+  color: var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 16px;
+  transition: border-color var(--dur) var(--ease);
+}
+.field input::placeholder { color: var(--secondary); }
+.field input:hover { border-color: var(--secondary); }
+.field input:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+  border-color: var(--tertiary);
+}
+.field input:disabled {
+  background: var(--surface-sunken);
+  color: var(--secondary);
+  cursor: not-allowed;
+}
+.field .hint {
+  margin: 4px 0 0;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+
+/* ---------- error components (class-based; never rendered at load) ---------- */
+.alert-error {
+  background: var(--error-surface);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 16px;
+  margin: 0 0 24px;
+  font-size: var(--body-sm);
+  color: var(--error);
+}
+.alert-error p { margin: 0; }
+
+.field input.field-error { border-color: var(--error); }
+.field input.field-error:focus-visible { outline-color: var(--error); }
+.field .hint-error {
+  margin: 4px 0 0;
+  font-size: var(--body-sm);
+  color: var(--error);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: var(--label);
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+}
+.btn:disabled { cursor: not-allowed; }
+
+.btn-primary {
+  width: 100%;
+  background: var(--tertiary);
+  color: var(--on-accent);
+  border-color: var(--tertiary);
+}
+.btn-primary:hover { background: var(--tertiary-hover); border-color: var(--tertiary-hover); }
+.btn-primary:active { background: var(--tertiary-pressed); border-color: var(--tertiary-pressed); }
+.btn-primary:disabled {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  color: var(--secondary);
+}
+
+/* ---------- quiet line under the form ---------- */
+.quiet-line {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+/* Accent link text uses tertiary-hover: #157F52 fails APCA on light bg. */
+.quiet-line a {
+  color: var(--tertiary-hover);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease);
+}
+.quiet-line a:hover { color: var(--tertiary-pressed); }
+.quiet-line a:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+}
+
+/* ---------- footer ---------- */
+.site-footer {
+  background: var(--surface-inverse);
+  color: var(--on-inverse);
+  margin-top: auto;
+}
+.footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 32px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.footer-inner .wordmark { color: var(--on-inverse); }
+.footer-meta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--label-sm);
+  color: var(--on-inverse);
+}
+
+@media (max-width: 480px) {
+  .site-header, .footer-inner { padding: 16px; }
+  .auth-flow { padding: 32px 16px 48px; }
+  .auth-card { padding: 24px; }
+  .auth-card h1 { font-size: 25px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="wordmark" href="index.html">jjhub</a>
+  <nav class="site-nav" aria-label="Account">
+    <a href="#register">Create account</a>
+  </nav>
+</header>
+
+<main class="auth-flow">
+
+  <!-- ============ LOG IN (default state) ============ -->
+  <section id="login" class="state state-login auth-card" aria-labelledby="login-heading">
+    <h1 id="login-heading">Log in</h1>
+
+    <!-- Error strip component (class-based; renders only when server adds it):
+         <div class="alert-error" role="alert"><p>Email or password is incorrect.</p></div> -->
+
+    <form action="/login" method="post">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password"
+               autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary" type="submit">Log in</button>
+    </form>
+
+    <p class="quiet-line">New here? <a href="#register">Create an account</a></p>
+    <p class="quiet-line">Forgot your password? <a href="#reset">Reset it</a></p>
+  </section>
+
+  <!-- ============ REGISTER ============ -->
+  <section id="register" class="state auth-card" aria-labelledby="register-heading">
+    <h1 id="register-heading">Create your account</h1>
+
+    <form action="/register" method="post">
+      <div class="field">
+        <label for="register-email">Email</label>
+        <input id="register-email" name="email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="register-password">Password</label>
+        <input id="register-password" name="password" type="password"
+               autocomplete="new-password" aria-describedby="password-hint" required>
+        <p class="hint" id="password-hint">At least 10 characters.</p>
+      </div>
+      <div class="field">
+        <!-- Validation-error component (class-based; renders only when server adds it):
+             add class="field-error" and aria-invalid="true" to the input,
+             then follow it with:
+             <p class="hint-error" id="confirm-error">Passwords do not match.</p> -->
+        <label for="register-confirm">Confirm password</label>
+        <input id="register-confirm" name="confirm" type="password"
+               autocomplete="new-password" required>
+      </div>
+      <button class="btn btn-primary" type="submit">Create account</button>
+    </form>
+
+    <p class="quiet-line">Already have an account? <a href="#login">Log in</a></p>
+  </section>
+
+  <!-- ============ RESET ============ -->
+  <section id="reset" class="state auth-card" aria-labelledby="reset-heading">
+    <h1 id="reset-heading">Reset your password</h1>
+
+    <form action="/reset" method="post">
+      <div class="field">
+        <label for="reset-email">Email</label>
+        <input id="reset-email" name="email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
+      </div>
+      <!-- Prototype stand-in for form submit: navigates to the confirmation state. -->
+      <a class="btn btn-primary" href="#sent">Send reset link</a>
+    </form>
+
+    <p class="quiet-line">Remembered it? <a href="#login">Back to log in</a></p>
+  </section>
+
+  <!-- ============ RESET CONFIRMATION ============ -->
+  <section id="sent" class="state auth-card" aria-labelledby="sent-heading">
+    <h1 id="sent-heading">Check your inbox</h1>
+    <p class="lede">If <code>kennethlove@example.com</code> has an account, a reset link is on its way. The link expires in 1 hour.</p>
+    <p class="quiet-line"><a href="#login">Back to log in</a></p>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="wordmark" href="index.html">jjhub</a>
+    <p class="footer-meta">Apache License 2.0 · jj-vcs.dev · GitHub</p>
+  </div>
+</footer>
+
+</body>
+</html>
