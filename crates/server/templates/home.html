@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}jjhub{% endblock %}
+{% block title %}jjhub — a forge built around Jujutsu{% endblock %}
 {% block body %}
 {% include "nav.html" %}
-<h1>jjhub</h1>
 {% if user_handle %}
+<h1>jjhub</h1>
 <h2>Create repository</h2>
 <form method="post" action="/repos">
 <input type="hidden" name="_csrf" value="{{ csrf }}">
@@ -15,9 +15,139 @@
 <h2>Your repositories</h2>
 <ul>
 {% for repo in repos %}<li><a href="/{{ repo.owner }}/{{ repo.name }}">{{ repo.owner }}/{{ repo.name }}</a> <small>{{ repo.visibility }}</small></li>
-{% endfor %}</ul>
+{% endfor %}
+</ul>
 {% else %}
-<p>Forge-style hosting for Jujutsu repositories.</p>
-<p><a href="/register">Register</a> · <a href="/login">Log in</a></p>
+<!-- story: e23s01 — the approved landing design: hero + MR ledger,
+     why rows, inverse stack band, self-hosting, status/roadmap,
+     footer. Tokens only (assets/app.css). -->
+<main>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>A forge built around Jujutsu.</h1>
+      <p class="hero-sub">Merge reviews anchor to jj's change-id, stable across rebase, squash, and rewrite.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#self-hosting">Run it yourself</a>
+        <a class="btn btn-secondary" href="https://github.com/kennethlove/jjhub">View on GitHub</a>
+      </div>
+    </div>
+    <div class="ledger" role="table" aria-label="Example merge requests">
+      <div class="ledger-caption"><span class="title">acme/web-ui</span><span class="meta">4 open · 2 merged</span></div>
+      <div class="ledger-head" role="row"><span role="columnheader">Change</span><span role="columnheader">Revision</span><span role="columnheader">Branch</span><span class="col-status" role="columnheader">Status</span></div>
+      <div class="ledger-row" role="row"><span class="cell-id" role="cell">kqvryyuz</span><span class="cell-hash" role="cell">9e4c1ab7d0f2</span><span class="cell-branch" role="cell">rewrite-diff-viewer</span><span class="col-status" role="cell"><span class="pill pill-open">Open</span></span></div>
+      <div class="ledger-row" role="row"><span class="cell-id" role="cell">msuvntru</span><span class="cell-hash" role="cell">31f8ba40cc19</span><span class="cell-branch" role="cell">stack/review-threads</span><span class="col-status" role="cell"><span class="pill pill-open">Open</span></span></div>
+      <div class="ledger-row" role="row"><span class="cell-id" role="cell">pqrsvwxy</span><span class="cell-hash" role="cell">c70d2e55a1b8</span><span class="cell-branch" role="cell">fix/revset-pagination</span><span class="col-status" role="cell"><span class="pill">Merged</span></span></div>
+      <div class="ledger-row" role="row"><span class="cell-id" role="cell">zutqmloa</span><span class="cell-hash" role="cell">5a9f31c6be04</span><span class="cell-branch" role="cell">exp/immutable-heads</span><span class="col-status" role="cell"><span class="pill pill-open">Open</span></span></div>
+      <div class="ledger-row" role="row"><span class="cell-id" role="cell">hjkbwerr</span><span class="cell-hash" role="cell">e2b64d90f73a</span><span class="cell-branch" role="cell">chore/bump-jj-0.27</span><span class="col-status" role="cell"><span class="pill">Merged</span></span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Git forges model branches. Jujutsu models changes.</h2>
+      <p>jjhub hosts the model you actually work in. The merge request follows the change, not the ref.</p>
+    </div>
+    <div class="ruled-list">
+      <div class="ruled-row">
+        <h3>Change-anchored merge requests</h3>
+        <p>A merge request is a repository plus a change-id, for example <code>acme/web-ui@kqvryyuz</code>. It survives every history edit you make locally: rebase, squash, or amend, and the review stays attached.</p>
+      </div>
+      <div class="ruled-row">
+        <h3>Edit-in-place review</h3>
+        <p>Every push is a new Revision of the same change. Old revisions and their comments stay readable, so reviewers see what changed and why, not just the latest snapshot.</p>
+      </div>
+      <div class="ruled-row">
+        <h3>Stacks from the graph</h3>
+        <p>Stack parentage comes from commit parents, not from a manually maintained branch chain. Merge the bottom merge request and jjhub squashes it, then server-rebases the rest of the stack.</p>
+      </div>
+      <div class="ruled-row">
+        <h3>Git compatibility</h3>
+        <p>Plain <code>git clone</code> works. jjhub serves standard Git protocols, so CI, tooling, and collaborators on Git keep working while jj users get the full model.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band-inverse" id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Merge the bottom. The stack follows.</h2>
+      <p>Three changes stacked on <span class="mono">acme/web-ui</span>. Merge the parent and jjhub rebases its children onto the new trunk, keeping every change-id intact.</p>
+    </div>
+    <div class="stack-grid">
+      <div class="stack-copy">
+        <p>Stacked merge requests inherit their shape from the commit graph. There is no branch chain to maintain and nothing to re-request after a rebase: each review stays anchored to its change-id while the commits under it move.</p>
+        <p><a href="#self-hosting">Run this on your own hardware</a></p>
+      </div>
+      <div class="stack-diagram" role="table" aria-label="A stack of three changes">
+        <div class="stack-row" role="row"><span class="stack-marker" aria-hidden="true">^</span><span class="cell-id">weroxplq</span><span class="cell-hash">8c14d0a9e625</span><span class="stack-label">child: tests for diff viewer <span class="pill">Open</span></span></div>
+        <div class="stack-row" role="row"><span class="stack-marker" aria-hidden="true">|</span><span class="cell-id">msuvntru</span><span class="cell-hash">31f8ba40cc19</span><span class="stack-label">middle: review threads API <span class="pill">Open</span></span></div>
+        <div class="stack-row" role="row"><span class="stack-marker" aria-hidden="true">v</span><span class="cell-id">kqvryyuz</span><span class="cell-hash">9e4c1ab7d0f2</span><span class="stack-label">parent: rewrite diff viewer <span class="pill">Merging</span></span></div>
+        <p class="stack-note">$ jjhub merge acme/web-ui@kqvryyuz &nbsp;-&gt; squash, then server-rebase weroxplq and msuvntru</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="self-hosting">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Self-hosting takes one file and two secrets.</h2>
+      <p>jjhub ships as a container. Bring a host, a domain, and a Postgres volume.</p>
+    </div>
+    <div class="step-row">
+      <span class="step-num">1</span>
+      <h3>Start the stack</h3>
+      <div>
+        <p>Grab the compose file from the repository and bring it up. jjhub serves Git over SSH and HTTP, with a Postgres database beside it.</p>
+        <pre><code>curl -O https://raw.githubusercontent.com/kennethlove/jjhub/main/docker-compose.yml
+docker compose up -d</code></pre>
+      </div>
+    </div>
+    <div class="step-row">
+      <span class="step-num">2</span>
+      <h3>Set the secrets</h3>
+      <div>
+        <p>Put the database password and the session signing key in an environment file next to the compose file. Nothing else is required for a first run.</p>
+        <pre><code># .env
+POSTGRES_PASSWORD=change-me-per-host
+SESSION_SECRET=32-bytes-or-more-of-random</code></pre>
+      </div>
+    </div>
+    <p class="docs-link">Full instructions, backup notes, and reverse-proxy examples live in the <a href="https://github.com/kennethlove/jjhub#readme">README</a>.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="status-badge">Early development</span>
+      <h2>Honest about where this is.</h2>
+      <p class="status-copy">jjhub is pre-1.0 and runs on a single node. The core loop works: host repositories, push changes, review revisions, merge stacks. Expect breaking changes in the storage format while the MVP settles.</p>
+    </div>
+    <div class="roadmap-list">
+      <div class="roadmap-row"><span class="item">Conflict-tolerant hosting</span><span class="detail">Accept and store commits with conflicts; surface them in the review instead of rejecting the push.</span></div>
+      <div class="roadmap-row"><span class="item">Operation-log audit</span><span class="detail">A queryable log of every server-side operation, straight from jj's operation model.</span></div>
+      <div class="roadmap-row"><span class="item">Server-side immutability policy</span><span class="detail">Configure which heads the server refuses to rewrite, enforced before any merge runs.</span></div>
+      <div class="roadmap-row"><span class="item">Revset search</span><span class="detail">Query changes with real revsets instead of a keyword box bolted onto a filter.</span></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <a class="wordmark" href="/">jjhub</a>
+    <div class="footer-links">
+      <span>Apache License 2.0</span>
+      <a href="https://jj-vcs.dev">jj-vcs.dev</a>
+      <a href="https://github.com/kennethlove/jjhub">GitHub</a>
+    </div>
+  </div>
+</footer>
 {% endif %}
 {% endblock %}

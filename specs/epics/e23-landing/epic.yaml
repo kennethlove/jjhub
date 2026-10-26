@@ -1,0 +1,11 @@
+epic: e23
+slug: landing
+title: "Landing page — approved design into the visitor home"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e23s01
+    title: "Visitor landing: hero, ledger, why rows, stack band,
+      self-hosting, roadmap, footer"
+    bcps: 3
+    delta: ADDED
