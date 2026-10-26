@@ -109,26 +109,53 @@ struct Bucket {
     last: Instant,
 }
 
+/// Clone shares the bucket map: main builds one limiter and shares it
+/// with both transports (story: e20s03 — one policy row, two
+/// transports needs ONE counter).
+#[derive(Clone)]
 pub struct RateLimiter {
-    buckets: Mutex<HashMap<(Action, String), Bucket>>,
+    buckets: Arc<Mutex<HashMap<(Action, String), Bucket>>>,
     budgets: RateLimitConfig,
     idle_window: Duration,
 }
 
 impl RateLimiter {
     pub fn new(cfg: RateLimitConfig) -> Self {
-        let idle_window =
-            Duration::from_secs(cfg.window_secs.max(cfg.login_ip.window_secs).max(3600));
+        // story: e20s03 — a bucket may idle only as long as its LONGEST
+        // policy window: pruning earlier would hand out a fresh full
+        // burst sooner than the row's window allows. (Spec e20s03 §6:
+        // pruned after the window — the row's own window, not a fixed
+        // floor; the old 3600s floor made short windows unprunable.)
+        let idle_window = Duration::from_secs(
+            cfg.window_secs
+                .max(cfg.login_ip.window_secs)
+                .max(cfg.push_user.window_secs)
+                .max(cfg.push_ip.window_secs)
+                .max(cfg.create_user.window_secs)
+                .max(cfg.create_ip.window_secs)
+                .max(cfg.token_user.window_secs),
+        );
         RateLimiter {
-            buckets: Mutex::new(HashMap::new()),
+            buckets: Arc::new(Mutex::new(HashMap::new())),
             budgets: cfg,
             idle_window,
         }
     }
 
+    /// story: e20s03 — one env-built limiter shared by the HTTP app and
+    /// the SSH listener (same bucket map; a fresh map per transport
+    /// would double every budget).
+    pub fn limiter_from_env() -> Option<RateLimiter> {
+        let cfg = RateLimitConfig::from_env();
+        cfg.enabled.then(|| RateLimiter::new(cfg))
+    }
+
     /// Spend one token for (action, key). Err carries the suggested
     /// retry-after (whole seconds, at least 1).
     pub fn consume(&self, action: Action, key: &str) -> Result<(), Duration> {
+        // story: e20s03 — prune on access: the map stays bounded with
+        // no timer task.
+        self.prune_idle();
         let budget = match action {
             Action::Login => self.budgets.login_ip,
             Action::Push => self.budgets.push_user,
@@ -165,6 +192,9 @@ impl RateLimiter {
     /// one lock makes the pair atomic. Token has no IP row in the policy
     /// table: use `consume` for it.
     pub fn try_charge(&self, action: Action, user_key: &str, ip_key: &str) -> Result<(), Duration> {
+        // story: e20s03 — prune on access: the map stays bounded with
+        // no timer task.
+        self.prune_idle();
         let (user_budget, ip_budget) = match action {
             Action::Push => (self.budgets.push_user, self.budgets.push_ip),
             Action::Create => (self.budgets.create_user, self.budgets.create_ip),
@@ -203,11 +233,14 @@ impl RateLimiter {
         }
     }
 
-    /// Drop buckets that have been idle for a full window. story:
-    /// e20s01 lands the hook; e20s03's sweep calls it.
-    pub fn prune_idle(&self) {
+    /// Drop buckets that have been idle for a full window and report
+    /// how many went. story: e20s01 lands the hook; e20s03 wires it
+    /// into every charge (prune on access) and tests the count.
+    pub fn prune_idle(&self) -> usize {
         let mut buckets = self.buckets.lock().expect("rate-limit bucket lock");
+        let before = buckets.len();
         buckets.retain(|_, b| b.last.elapsed() < self.idle_window);
+        before - buckets.len()
     }
 }
 

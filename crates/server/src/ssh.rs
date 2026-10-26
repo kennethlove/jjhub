@@ -27,6 +27,8 @@ pub const DEFAULT_SSH_PORT: u16 = 2202;
 pub struct SshState {
     pub pool: sqlx::PgPool,
     pub storage_root: String,
+    // story: e20s03 — shared limiter (same bucket map as HTTP).
+    pub rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
 }
 
 /// story: e17s01 — SSH bind address/port and host-key directory from the
@@ -76,8 +78,11 @@ pub struct SshServer {
 impl Server for SshServer {
     type Handler = SshHandler;
 
-    fn new_client(&mut self, _peer_addr: Option<std::net::SocketAddr>) -> Self::Handler {
-        SshHandler::new(self.state.clone())
+    fn new_client(&mut self, peer_addr: Option<std::net::SocketAddr>) -> Self::Handler {
+        // story: e20s03 — the client IP keys the push row.
+        let mut handler = SshHandler::new(self.state.clone());
+        handler.peer = peer_addr;
+        handler
     }
 }
 
@@ -121,6 +126,8 @@ fn pkt_flush_end(buf: &[u8]) -> Option<usize> {
 pub struct SshHandler {
     state: SshState,
     user: Option<uuid::Uuid>,
+    /// story: e20s03 — client socket for the push-row IP dimension.
+    peer: Option<std::net::SocketAddr>,
     stdin: HashMap<ChannelId, ChildStdin>,
     /// story: e17s02 — the open receive-pack push on this connection:
     /// pkt-line capture until flush, consumed by the pump at child exit.
@@ -132,6 +139,7 @@ impl SshHandler {
         SshHandler {
             state,
             user: None,
+            peer: None,
             stdin: HashMap::new(),
             push: Arc::new(std::sync::Mutex::new(None)),
         }
@@ -139,7 +147,24 @@ impl SshHandler {
 
     /// story: e17s02 — explicit storage root for tests.
     pub fn with_storage(pool: sqlx::PgPool, storage_root: String) -> SshHandler {
-        SshHandler::new(SshState { pool, storage_root })
+        SshHandler::new(SshState {
+            pool,
+            storage_root,
+            rate_limiter: None,
+        })
+    }
+
+    /// story: e20s03 — limiter-aware handler for the disconnect tests.
+    pub fn with_storage_and_limiter(
+        pool: sqlx::PgPool,
+        storage_root: String,
+        rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
+    ) -> SshHandler {
+        SshHandler::new(SshState {
+            pool,
+            storage_root,
+            rate_limiter,
+        })
     }
 
     /// story: e17s01 — resolve the repo and run the SAME admission chain
@@ -147,6 +172,29 @@ impl SshHandler {
     /// neutral git config.
     async fn start_service(&mut self, command: &str) -> Result<(Child, ChildStdin), &'static str> {
         let (service, owner, name) = parse_git_exec(command).ok_or("unrecognized git command")?;
+        // story: e20s03 — receive-pack charges the SAME push row as
+        // smart HTTP (one policy row, two transports) before any
+        // admission work or git spawn; upload-pack is exempt, mirroring
+        // the HTTP read exemption. Over budget: clean disconnect
+        // message (russh has no status channel).
+        if service.git_op() == crate::transport::GitOp::ReceivePack {
+            if let Some(limiter) = self.state.rate_limiter.as_ref() {
+                let who = self
+                    .user
+                    .map(|u| u.to_string())
+                    .unwrap_or_else(|| "anonymous".to_string());
+                let ip = self
+                    .peer
+                    .map(|p| p.ip().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                if limiter
+                    .try_charge(crate::rate_limit::Action::Push, &who, &ip)
+                    .is_err()
+                {
+                    return Err("rate limited, retry later");
+                }
+            }
+        }
         let mut resolved = crate::transport::lookup_repo(&self.state.pool, &owner, &name).await;
         if resolved.is_none() {
             // story: e19s03 — missing row: ONE admission decision, the
@@ -161,8 +209,9 @@ impl SshHandler {
                 &name,
                 service.git_op(),
                 self.user,
-                // story: e20s02 — no create-row charge over SSH until
-                // e20s03 lands the SSH disconnect policy.
+                // story: e20s03 — the SSH push row is charged at the
+                // edge above; no SSH create-row charge (e20s03 scopes
+                // the push row only).
                 "unknown",
                 None,
             )
@@ -531,11 +580,12 @@ impl SshListener {
         key_dir: &std::path::Path,
         pool: sqlx::PgPool,
         storage_root: String,
+        rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
     ) -> Result<Self, String> {
         let addr: SocketAddr = format!("0.0.0.0:{port}")
             .parse()
             .map_err(|err| format!("invalid SSH bind 0.0.0.0:{port}: {err}"))?;
-        Self::bind_addr(addr, key_dir, pool, storage_root).await
+        Self::bind_addr(addr, key_dir, pool, storage_root, rate_limiter).await
     }
 
     /// story: e17s01 — binds before returning so a port conflict fails the
@@ -546,6 +596,7 @@ impl SshListener {
         key_dir: &std::path::Path,
         pool: sqlx::PgPool,
         storage_root: String,
+        rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
     ) -> Result<Self, String> {
         let (keys, fingerprint) = load_or_generate_keys(key_dir)?;
         let config = russh::server::Config {
@@ -557,7 +608,11 @@ impl SshListener {
             .map_err(|err| format!("bind {addr}: {err}"))?;
         Ok(Self {
             server: SshServer {
-                state: SshState { pool, storage_root },
+                state: SshState {
+                    pool,
+                    storage_root,
+                    rate_limiter,
+                },
             },
             config: std::sync::Arc::new(config),
             socket,

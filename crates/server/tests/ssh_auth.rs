@@ -18,7 +18,7 @@ impl client::Handler for TestClient {
 
 async fn spawn_listener(pool: sqlx::PgPool, storage_root: String) -> String {
     let dir = tempfile::tempdir().expect("key dir");
-    let listener = SshListener::bind("0", dir.path(), pool, storage_root)
+    let listener = SshListener::bind("0", dir.path(), pool, storage_root, None)
         .await
         .expect("bind ssh");
     let addr = listener.local_addr().expect("local addr");

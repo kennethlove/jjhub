@@ -48,11 +48,11 @@ pub fn app(pool: PgPool) -> Router {
         std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
     // story: e20s01 — production constructor builds the limiter from
     // env; JJHUB_RATE_LIMIT unset keeps it off.
-    let cfg = crate::rate_limit::RateLimitConfig::from_env();
-    let limiter = cfg
-        .enabled
-        .then(|| crate::rate_limit::RateLimiter::new(cfg));
-    app_with_limiter(pool, storage_root, limiter)
+    app_with_limiter(
+        pool,
+        storage_root,
+        crate::rate_limit::RateLimiter::limiter_from_env(),
+    )
 }
 
 /// story: e20s01 — explicit limiter wiring for tests; reads the same

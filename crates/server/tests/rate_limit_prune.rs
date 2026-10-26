@@ -8,7 +8,7 @@ use server::rate_limit::{Budget, RateLimitConfig, RateLimiter};
 fn budget(per_window: u32) -> Budget {
     Budget {
         per_window,
-        window_secs: 60,
+        window_secs: 1,
         burst: per_window,
     }
 }
@@ -16,7 +16,7 @@ fn budget(per_window: u32) -> Budget {
 fn cfg() -> RateLimitConfig {
     RateLimitConfig {
         enabled: true,
-        window_secs: 60,
+        window_secs: 1,
         login_ip: budget(20),
         push_user: budget(1),
         push_ip: budget(5),
@@ -34,11 +34,7 @@ async fn idle_buckets_pruned_after_window() {
 
     // Fresh access creates buckets; prune right away drops nothing.
     limiter
-        .try_charge(
-            server::rate_limit::Action::Push,
-            "user-1",
-            "10.0.0.1",
-        )
+        .try_charge(server::rate_limit::Action::Push, "user-1", "10.0.0.1")
         .expect("fresh buckets have budget");
     assert_eq!(limiter.prune_idle(), 0, "fresh buckets survive pruning");
 
@@ -47,8 +43,8 @@ async fn idle_buckets_pruned_after_window() {
     tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
     assert_eq!(
         limiter.prune_idle(),
-        1,
-        "the stale bucket pair is dropped"
+        2,
+        "the stale bucket pair (user row + ip row) is dropped"
     );
     assert_eq!(limiter.prune_idle(), 0, "second prune is a no-op");
 
