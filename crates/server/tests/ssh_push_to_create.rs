@@ -12,13 +12,6 @@ mod ssh_push_to_create {
     use super::*;
     use russh::server::Handler;
 
-    async fn tokentest_user(pool: &sqlx::PgPool) -> uuid::Uuid {
-        sqlx::query_scalar("SELECT id FROM users WHERE handle = 'tokentest'")
-            .fetch_one(pool)
-            .await
-            .unwrap()
-    }
-
     async fn handler(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> SshHandler {
         SshHandler::with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
     }
@@ -30,7 +23,6 @@ mod ssh_push_to_create {
     async fn owned_receive_pack_creates_private_repo(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let (token, _tok) = server::token::insert_test_token(&pool).await;
-        let owner = tokentest_user(&pool).await;
 
         let mut h = handler(&pool, &root).await;
         let auth = h.auth_password("tokentest", &token).await.unwrap();
@@ -78,10 +70,11 @@ mod ssh_push_to_create {
             .expect_err("clone of nothing must stay refused");
         assert_eq!(err, "repository not found");
 
-        let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM repositories WHERE name = 'fresh-clone'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let rows: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM repositories WHERE name = 'fresh-clone'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(rows, 0, "upload-pack must not create a row");
     }
 
@@ -102,10 +95,11 @@ mod ssh_push_to_create {
             .expect_err("foreign-namespace push must stay refused");
         assert_eq!(err, "repository not found");
 
-        let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM repositories WHERE name = 'squat'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let rows: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM repositories WHERE name = 'squat'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(rows, 0, "foreign namespace must not create a row");
     }
 }

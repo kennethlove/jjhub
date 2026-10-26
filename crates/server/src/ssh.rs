@@ -147,10 +147,25 @@ impl SshHandler {
     /// neutral git config.
     async fn start_service(&mut self, command: &str) -> Result<(Child, ChildStdin), &'static str> {
         let (service, owner, name) = parse_git_exec(command).ok_or("unrecognized git command")?;
-        let (repo_id, repo_owner, visibility) =
-            crate::transport::lookup_repo(&self.state.pool, &owner, &name)
-                .await
-                .ok_or("repository not found")?;
+        let mut resolved = crate::transport::lookup_repo(&self.state.pool, &owner, &name).await;
+        if resolved.is_none() {
+            // story: e19s03 — missing row: ONE admission decision, the
+            // same helper as smart HTTP. Receive-pack for the owning
+            // token presenter creates the repo PRIVATE; every other
+            // request stays not-found. No git process spawns before a
+            // row exists.
+            resolved = crate::transport::admit_create(
+                &self.state.pool,
+                &self.state.storage_root,
+                &owner,
+                &name,
+                service.git_op(),
+                self.user,
+            )
+            .await
+            .map_err(|_| "server error")?;
+        }
+        let (repo_id, repo_owner, visibility) = resolved.ok_or("repository not found")?;
         // story: e17s02 — receive-pack uses the SAME transport::authorize
         // chain as HTTP smart-http receive; no SSH-specific bypass.
         crate::transport::authorize(
