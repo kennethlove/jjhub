@@ -1,6 +1,6 @@
 story_id: e19s02
 title: "Smart-HTTP push-to-create admission"
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e19s02t1
@@ -9,7 +9,7 @@ tasks:
       decides create; else 404
     verify: "cargo test -p server push_to_create_admission"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -21,7 +21,7 @@ tasks:
       http-backend spawns
     verify: "cargo test -p server smart_http_create"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -33,7 +33,7 @@ tasks:
       and foreign namespace stay 404
     verify: "bash scripts/e2e-push-to-create.sh"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -43,7 +43,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

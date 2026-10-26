@@ -60,6 +60,62 @@ pub async fn require_token(
     }
 }
 
+/// story: e19s02 — one admission decision for a missing row on the
+/// smart-HTTP path: a valid token presenter pushing ReceivePack into
+/// their own namespace creates the repo (PRIVATE) through the shared
+/// creation service. That ownership gate is this path's
+/// authorization — it runs before any subprocess — and every other
+/// request falls through to 404, indistinguishable from a repo that
+/// does not exist.
+pub async fn admit_create(
+    pool: &sqlx::PgPool,
+    storage_root: &str,
+    owner: &str,
+    name: &str,
+    op: GitOp,
+    user: Option<Uuid>,
+) -> Result<Option<(Uuid, Uuid, String)>, StatusCode> {
+    if op != GitOp::ReceivePack {
+        return Ok(None);
+    }
+    let Some(user_id) = user else {
+        return Ok(None);
+    };
+    let handle: Option<String> = sqlx::query_scalar("SELECT handle FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+    let Some(handle) = handle else {
+        return Ok(None);
+    };
+    if owner != handle {
+        return Ok(None);
+    }
+    match crate::creation::create_repository(pool, storage_root, user_id, name, "private").await {
+        Ok(created) => Ok(Some((created.id, user_id, "private".to_string()))),
+        // story: e19s02 — race loser: the winner's row is the admission.
+        Err(crate::creation::CreateError::Duplicate) => {
+            let row: Option<(Uuid, Uuid, String)> = sqlx::query_as(
+                "SELECT id, owner_id, visibility FROM repositories WHERE owner_id = $1 AND name = $2",
+            )
+            .bind(user_id)
+            .bind(name)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+            Ok(row)
+        }
+        // story: e19s02 — validated upstream; treat as not-a-create.
+        Err(crate::creation::CreateError::InvalidName)
+        | Err(crate::creation::CreateError::InvalidVisibility) => Ok(None),
+        Err(crate::creation::CreateError::Storage(_))
+        | Err(crate::creation::CreateError::Db(_)) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+}
+
 /// story: e02s01 — git smart HTTP backend. Spawns `git http-backend` CGI for
 /// the resolved repo path. No shell: env + argv only, user input goes through
 /// validated owner/name before PATH_INFO construction.
@@ -74,19 +130,6 @@ pub async fn smart_http(
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
-        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
-    )
-    .bind(&owner)
-    .bind(&name)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
-    let Some((repo_id, repo_owner, visibility)) = repo else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-
     let (parts, body) = request.into_parts();
     let path_info = parts.uri.path().to_string();
 
@@ -99,6 +142,32 @@ pub async fn smart_http(
         GitOp::UploadPack
     };
     let user = token_user(&parts.headers, &state).await;
+
+    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    // story: e19s02 — a missing row decides create-or-404 here, once,
+    // in the shared transport path; http-backend never spawns before
+    // the row exists (the receive guard would reject it anyway).
+    let repo = match repo {
+        Some(repo) => Some(repo),
+        None => {
+            match admit_create(&state.pool, &state.storage_root, &owner, &name, op, user).await {
+                Ok(repo) => repo,
+                Err(status) => return status.into_response(),
+            }
+        }
+    };
+    let Some((repo_id, repo_owner, visibility)) = repo else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+
     if let Err((status, extra_headers)) =
         authorize(op, user, repo_owner, &visibility, &state.pool, repo_id).await
     {

@@ -39,11 +39,10 @@ mod smart_http_create {
         let cookie = register(&pool, &root).await;
         assert!(!cookie.is_empty(), "registration fixture works");
 
-        let alice: uuid::Uuid =
-            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let alice: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let token = server::token::create(&pool, alice, "push").await;
 
         // Seed a local commit to push (pattern: e02s01 clone test).
@@ -152,11 +151,10 @@ mod smart_http_create {
         let cookie = register(&pool, &root).await;
         assert!(!cookie.is_empty());
 
-        let alice: uuid::Uuid =
-            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let alice: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let token = server::token::create(&pool, alice, "push").await;
         use base64::Engine;
         let auth = base64::engine::general_purpose::STANDARD
@@ -183,10 +181,7 @@ mod smart_http_create {
                         .output()
                         .unwrap()
                 };
-                (
-                    run("/git/alice/nothing.git"),
-                    run("/git/bob/squat.git"),
-                )
+                (run("/git/alice/nothing.git"), run("/git/bob/squat.git"))
             })
             .await
             .unwrap()

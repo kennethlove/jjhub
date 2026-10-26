@@ -39,8 +39,7 @@ async fn owned_receive_pack_creates_private(pool: sqlx::PgPool) {
     )
     .await
     .expect("create failures are 500s, not silent falls");
-    let (repo_id, owner_id, visibility) =
-        admitted.expect("owned ReceivePack must admit-create");
+    let (repo_id, owner_id, visibility) = admitted.expect("owned ReceivePack must admit-create");
 
     assert_eq!(owner_id, alice, "row owner is the pushing user");
     assert_eq!(visibility, "private", "push-created repos start private");
@@ -97,7 +96,10 @@ async fn foreign_namespace_stays_404(pool: sqlx::PgPool) {
     )
     .await
     .unwrap();
-    assert!(admitted.is_none(), "foreign namespace must not admit-create");
+    assert!(
+        admitted.is_none(),
+        "foreign namespace must not admit-create"
+    );
     assert_eq!(rows_for(&pool, bob, "squat").await, 0, "no row for bob");
     assert_eq!(rows_for(&pool, alice, "squat").await, 0, "no row for alice");
 }
