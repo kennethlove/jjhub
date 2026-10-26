@@ -50,9 +50,14 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .unwrap_or_else(|e| panic!("failed to bind 0.0.0.0:{port}: {e}"));
-    axum::serve(listener, app(pool))
-        .await
-        .expect("server error");
+    // story: e20s01 — connect_info so the login rate limiter can key
+    // on the client IP.
+    axum::serve(
+        listener,
+        app(pool).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .expect("server error");
 }
 
 /// story: e03s01 — hook body: parse ref updates, read each new head's
