@@ -1,0 +1,39 @@
+story_id: e23s01
+title: "Visitor landing: approved design on the front door"
+status: failing
+bcps: 3
+tasks:
+  - id: e23s01t1
+    description: >
+      landing_page test: logged-out GET / asserts hero claim,
+      ledger change-id, stack band, badge, roadmap, footer; visitor
+      links /register and /login survive
+    verify: "cargo test -p server landing_page"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories:
+        - "landing"
+  - id: e23s01t2
+    description: >
+      home.html visitor branch + nav restyle + base font link +
+      app.css landing components (tokens only, states, reduced
+      motion)
+    verify: "cargo test -p server home_page site_shell landing_page"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories:
+        - "landing"
+  - id: e23s03t3
+    description: "design audit + workspace gates stay green"
+    verify: "ux_audit app.css; cargo clippy --workspace --all-targets;
+      cargo test; cargo build"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories:
+        - "gates"
