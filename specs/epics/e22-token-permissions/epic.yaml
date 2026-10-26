@@ -1,0 +1,18 @@
+epic: e22
+slug: token-permissions
+title: "Token permissions — scopes, expiry, pinning, IP allowlist"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: MODIFIED
+stories:
+  - id: e22s01
+    title: "Token permission columns + backfill migration"
+    bcps: 3
+    delta: MODIFIED
+  - id: e22s02
+    title: "Enforcement — authenticate rejects, authorize scopes"
+    bcps: 5
+    delta: MODIFIED
+  - id: e22s03
+    title: "Settings selectors and repo-page form pin"
+    bcps: 3
+    delta: MODIFIED

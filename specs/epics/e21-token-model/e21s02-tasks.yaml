@@ -1,0 +1,46 @@
+story_id: e21s02
+title: "Details screen preferences — name, theme, gravatar"
+status: failing
+bcps: 3
+tasks:
+  - id: e21s02t1
+    description: "display name persists; NULL falls back to handle"
+    verify: "cargo test -p server display_name"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-model"
+        - "unit"
+  - id: e21s02t2
+    description: >
+      theme dark|light|system persists and applies; invalid falls
+      back to system
+    verify: "cargo test -p server theme_preference"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-model"
+        - "integration"
+  - id: e21s02t3
+    description: "gravatar derived from email with gravatar.com link"
+    verify: "cargo test -p server gravatar"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "token-model"
+        - "unit"
+  - id: e21s02t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

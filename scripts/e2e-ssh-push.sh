@@ -180,4 +180,36 @@ test "$REVISIONS" -ge $((REVISIONS_BASE + 1)) || {
   echo "ssh re-push did not append a revision ($REVISIONS <= $REVISIONS_BASE)" >&2; exit 1;
 }
 
+echo "== ssh push to a fresh owned path creates the repo (e19s03) =="
+git init -q -b trunk "$TMP/ssh-create"
+(
+  cd "$TMP/ssh-create"
+  echo "created by ssh push" > new.txt
+  git add new.txt
+  git -c user.name="e2e" -c user.email="$EMAIL" commit -m "seed" >/dev/null
+  git push "ssh://${HANDLE}@127.0.0.1:${SSH_PORT}/${HANDLE}/ssh-created.git" trunk >/dev/null
+)
+CREATE_VIS=$(psql "$DB_URL" -tAc \
+  "SELECT visibility FROM repositories r JOIN users u ON u.id = r.owner_id \
+   WHERE u.handle = '$HANDLE' AND r.name = 'ssh-created'")
+test "$CREATE_VIS" = "private" || {
+  echo "ssh push-created repo is '$CREATE_VIS', want private" >&2; exit 1; }
+git -C "$TMP/repos/$HANDLE/ssh-created.git" show-ref --verify --quiet refs/heads/trunk || {
+  echo "push-created bare repo has no trunk" >&2; exit 1; }
+TIP=$(git -C "$TMP/repos/$HANDLE/ssh-created.git" log --oneline -1 refs/heads/trunk)
+case "$TIP" in
+  *seed*) ;;
+  *) echo "created repo does not hold the seed commit: $TIP" >&2; exit 1;;
+esac
+
+echo "== clone of nothing over ssh stays refused, no row (e19s03) =="
+if git ls-remote "ssh://${HANDLE}@127.0.0.1:${SSH_PORT}/${HANDLE}/never-ssh-created.git" \
+    >/dev/null 2>&1; then
+  echo "clone-of-nothing over ssh was accepted" >&2; exit 1
+fi
+NEVER=$(psql "$DB_URL" -tAc \
+  "SELECT COUNT(*) FROM repositories r JOIN users u ON u.id = r.owner_id \
+   WHERE u.handle = '$HANDLE' AND r.name = 'never-ssh-created'")
+test "$NEVER" = "0" || { echo "upload-pack over ssh created a row" >&2; exit 1; }
+
 echo "E2E SSH PUSH PASS"

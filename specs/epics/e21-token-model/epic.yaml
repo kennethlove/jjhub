@@ -1,0 +1,18 @@
+epic: e21
+slug: token-model
+title: "Token model — signup token, regenerate, demoted minting"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: MODIFIED
+stories:
+  - id: e21s01
+    title: "Signup auto-issues token; one-time details screen"
+    bcps: 5
+    delta: ADDED
+  - id: e21s02
+    title: "Details screen preferences — name, theme, gravatar"
+    bcps: 3
+    delta: ADDED
+  - id: e21s03
+    title: "Regenerate rotate + demote repo-page form"
+    bcps: 3
+    delta: MODIFIED

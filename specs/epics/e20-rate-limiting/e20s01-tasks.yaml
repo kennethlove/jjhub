@@ -1,0 +1,48 @@
+story_id: e20s01
+title: "Token bucket core, AppState Option, login row"
+status: failing
+bcps: 4
+tasks:
+  - id: e20s01t1
+    description: >
+      token bucket keyed (action, dimension, key); env parsing;
+      JJHUB_RATE_LIMIT off default
+    verify: "cargo test -p server rate_limit_config"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "unit"
+  - id: e20s01t2
+    description: >
+      Option<RateLimiter> on AppState; from_fn_with_state
+      middleware; None bypasses; 429 + Retry-After
+    verify: "cargo test -p server rate_limit_middleware"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "integration"
+  - id: e20s01t3
+    description: "login POST per-IP row per policy table"
+    verify: "cargo test -p server rate_limit_login"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "rate-limit"
+        - "Security Review"
+  - id: e20s01t4
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

@@ -1,0 +1,38 @@
+story_id: e19s03
+title: "SSH push-to-create parity + e2e"
+status: passing
+bcps: 4
+tasks:
+  - id: e19s03t1
+    description: >
+      SSH receive path calls the shared admission helper —
+      lookup_or_create on owned ReceivePack
+    verify: "cargo test -p server ssh_push_to_create"
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "push-to-create"
+        - "ssh"
+  - id: e19s03t2
+    description: >
+      e2e: ssh push to fresh owned path creates repo identical to
+      http
+    verify: "bash scripts/e2e-ssh-push.sh"
+    risk: P1
+    status: passing
+    allure:
+      severity: high
+      categories:
+        - "push-to-create"
+        - "e2e"
+  - id: e19s03t3
+    description: "workspace gates stay green"
+    verify: "cargo test --workspace"
+    risk: P2
+    status: passing
+    allure:
+      severity: normal
+      categories:
+        - "gates"

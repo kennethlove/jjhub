@@ -1,0 +1,18 @@
+epic: e20
+slug: rate-limiting
+title: "Rate limiting — per-user and per-IP budgets"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e20s01
+    title: "Token bucket core, AppState Option, login row"
+    bcps: 4
+    delta: ADDED
+  - id: e20s02
+    title: "Policy table routes — push, create, token HTTP 429"
+    bcps: 4
+    delta: ADDED
+  - id: e20s03
+    title: "SSH over-budget disconnect + pruning"
+    bcps: 3
+    delta: ADDED
