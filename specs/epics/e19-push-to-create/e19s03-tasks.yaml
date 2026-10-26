@@ -1,6 +1,6 @@
 story_id: e19s03
 title: "SSH push-to-create parity + e2e"
-status: failing
+status: passing
 bcps: 4
 tasks:
   - id: e19s03t1
@@ -9,7 +9,7 @@ tasks:
       lookup_or_create on owned ReceivePack
     verify: "cargo test -p server ssh_push_to_create"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       http
     verify: "bash scripts/e2e-ssh-push.sh"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
