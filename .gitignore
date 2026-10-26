@@ -6,3 +6,7 @@
 .beads/*
 !.beads/issues.jsonl
 .beads.gate.lock
+
+# story: runtime state — dev storage root (repos, meta) and generated
+# SSH host keys; the server writes these on startup, never versioned.
+data/
