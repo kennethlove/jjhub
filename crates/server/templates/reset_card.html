@@ -1,7 +1,7 @@
 <section id="auth-card" class="auth-card" aria-label="Reset password">
   <h1>Reset your password</h1>
   <p class="lede">Enter the email on your account. If a matching account exists, a reset link is on its way.</p>
-  <form method="post" action="/reset">
+  <form method="post" action="/reset" hx-post="/reset" hx-target="#auth-card" hx-swap="outerHTML">
     <div class="field">
       <label for="reset-email">Email</label>
       <input id="reset-email" name="email" type="email" autocomplete="email"

@@ -194,7 +194,15 @@ fn app_from_state(state: AppState) -> Router {
                 ),
             ),
         )
-        .route("/reset", get(routes::reset_form))
+        .route(
+            "/reset",
+            get(routes::reset_form).post(routes::request_reset).layer(
+                axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    crate::rate_limit::rate_limit_mw,
+                ),
+            ),
+        )
         .route(
             "/logout",
             post(routes::logout).layer(axum::middleware::from_fn_with_state(

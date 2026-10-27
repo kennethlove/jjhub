@@ -184,6 +184,75 @@ pub async fn reset_form(headers: axum::http::HeaderMap) -> Html<String> {
 }
 
 #[derive(Deserialize)]
+pub struct ResetForm {
+    email: String,
+}
+
+fn reset_sent(headers: &axum::http::HeaderMap) -> Response {
+    if htmx_fragment(headers) {
+        Html(reset_sent_card()).into_response()
+    } else {
+        Html(reset_sent_page()).into_response()
+    }
+}
+
+fn reset_sent_card() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_sent_card.html", &context)
+}
+
+fn reset_sent_page() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_sent.html", &context)
+}
+
+// story: e24s02 — one answer for known and unknown emails, so the form
+// cannot be used to discover which accounts exist
+pub async fn request_reset(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Form(form): Form<ResetForm>,
+) -> Response {
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT id::text FROM users WHERE email = $1")
+            .bind(&form.email)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+
+    if let Some(user_id) = existing {
+        let plaintext = crate::token::generate().0;
+        let token_hash = crate::token::hash(&plaintext);
+        let stored = sqlx::query(
+            "INSERT INTO reset_tokens (user_id, token_hash, expires_at) \
+             VALUES ($1::uuid, $2, now() + interval '1 hour')",
+        )
+        .bind(&user_id)
+        .bind(&token_hash)
+        .execute(&state.pool)
+        .await;
+        match stored {
+            // story: e24s02 — alpha delivery: the link is printed to the
+            // server log; a mailer replaces this once SMTP is justified
+            Ok(_) => {
+                let host = headers
+                    .get("host")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("localhost:3000");
+                eprintln!(
+                    "jjhub: password reset for {}: http://{host}/reset-password?token={plaintext}",
+                    form.email
+                );
+            }
+            Err(err) => eprintln!("jjhub: store reset token: {err}"),
+        }
+    }
+
+    reset_sent(&headers)
+}
+
+#[derive(Deserialize)]
 pub struct LoginForm {
     email: String,
     password: String,

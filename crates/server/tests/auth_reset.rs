@@ -32,24 +32,19 @@ mod auth_reset {
     }
 
     async fn register(pool: &sqlx::PgPool, email: &str) {
-        let form = format!(
-            "email={email}&password=hunter2tracker&password_confirm=hunter2tracker"
-        );
+        let form = format!("email={email}&password=hunter2tracker&password_confirm=hunter2tracker");
         send(pool.clone(), "/register", &form, false).await;
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn unknown_email_answers_with_sent_card_and_no_row(pool: sqlx::PgPool) {
-        let response = send(
-            pool.clone(),
-            "/reset",
-            "email=nobody%40example.com",
-            true,
-        )
-        .await;
+        let response = send(pool.clone(), "/reset", "email=nobody%40example.com", true).await;
         assert_eq!(response.status(), StatusCode::OK);
         let html = body(response).await;
-        assert!(!html.contains("<!doctype html>"), "fragment expected: {html}");
+        assert!(
+            !html.contains("<!doctype html>"),
+            "fragment expected: {html}"
+        );
         assert!(html.contains("auth-card"));
         assert!(html.contains("Check your inbox"), "{html}");
 
@@ -64,23 +59,11 @@ mod auth_reset {
     async fn known_email_gets_identical_answer_plus_token(pool: sqlx::PgPool) {
         register(&pool, "resetme@example.com").await;
 
-        let known = send(
-            pool.clone(),
-            "/reset",
-            "email=resetme%40example.com",
-            true,
-        )
-        .await;
+        let known = send(pool.clone(), "/reset", "email=resetme%40example.com", true).await;
         assert_eq!(known.status(), StatusCode::OK);
         let known_body = body(known).await;
 
-        let unknown = send(
-            pool.clone(),
-            "/reset",
-            "email=nobody%40example.com",
-            true,
-        )
-        .await;
+        let unknown = send(pool.clone(), "/reset", "email=nobody%40example.com", true).await;
         assert_eq!(unknown.status(), StatusCode::OK);
         let unknown_body = body(unknown).await;
 
@@ -101,13 +84,7 @@ mod auth_reset {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn native_post_gets_full_sent_page(pool: sqlx::PgPool) {
-        let response = send(
-            pool.clone(),
-            "/reset",
-            "email=ghost%40example.com",
-            false,
-        )
-        .await;
+        let response = send(pool.clone(), "/reset", "email=ghost%40example.com", false).await;
         assert_eq!(response.status(), StatusCode::OK);
         let html = body(response).await;
         assert!(html.contains("<!doctype html>"));
