@@ -1217,6 +1217,12 @@ fieldset.field legend {
   word-break: break-all;
 }
 
+/* WHY: the ledger's min-content is wider than a 390px phone —
+   scroll inside the box, never on the page */
+.table-wrap {
+  overflow-x: auto;
+}
+
 .prefs-main .ledger {
   width: 100%;
   border-collapse: collapse;
@@ -1250,10 +1256,23 @@ fieldset.field legend {
 
 .revoke {
   color: var(--color-error);
+  /* WHY: a button so the row posts — a link cannot revoke */
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .revoke:hover {
+  color: var(--color-error);
   text-decoration: underline;
+}
+
+.revoke:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
 }
 
 .table-help {

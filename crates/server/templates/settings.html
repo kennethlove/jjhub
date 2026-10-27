@@ -85,6 +85,7 @@
       <button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('{{ new_token }}')">Copy</button>
       {%- endif -%}
     </div>
+    <div class="table-wrap">
     <table class="ledger">
       <thead>
         <tr><th>Label</th><th>Prefix</th><th>Created</th><th>Actions</th></tr>
@@ -94,12 +95,18 @@
         <tr data-token-id="{{ token.id }}">
           <td class="cell-label">{{ token.label }}</td>
           <td class="cell-prefix">{{ token.prefix }}…</td>
-          <td class="cell-created">{{ token.created }}</td>
-          <td class="cell-actions"><a class="revoke" href="#revoke">Revoke</a></td>
+        <td class="cell-created">{{ token.created }}</td>
+        <td class="cell-actions">
+          <form method="post" action="/settings/tokens/{{ token.id }}/revoke">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+            <button type="submit" class="revoke">Revoke</button>
+          </form>
+        </td>
         </tr>
         {%- endfor -%}
       </tbody>
     </table>
+    </div>
     <p class="table-help">Revoke stops a token immediately; the row disappears once it is revoked.</p>
     <div class="actions">
       <form method="post" action="/settings/regenerate">

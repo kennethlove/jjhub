@@ -616,6 +616,37 @@ pub async fn change_password(
     }
 }
 
+// story: e25s03 — scope the update to the caller: unknown and
+// foreign ids answer the same 404
+// WHY: parse here — workspace uuid has no serde feature, so Path
+// hands over the raw segment
+pub async fn revoke_token(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Response {
+    let Ok(id) = id.parse::<uuid::Uuid>() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let result = sqlx::query(
+        "UPDATE tokens SET revoked_at = now() \
+         WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL",
+    )
+    .bind(id)
+    .bind(current.0)
+    .execute(&state.pool)
+    .await;
+    match result {
+        Ok(out) if out.rows_affected() == 1 => Redirect::to("/settings").into_response(),
+        Ok(_) => StatusCode::NOT_FOUND.into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+
 // story: e25s01 — keep the e21s03 regenerate button: every active
 // token dies now, one replacement rides the shown-once cookie.
 // WHY: no rate-limit charge here — rotation is a single deliberate

@@ -152,6 +152,7 @@ fn app_from_state(state: AppState) -> Router {
         .route("/settings/profile", post(routes::settings_profile))
         .route("/settings/regenerate", post(routes::settings_regenerate))
         .route("/settings/password", post(routes::change_password))
+        .route("/settings/tokens/{id}/revoke", post(routes::revoke_token))
         .route("/settings/tokens", post(routes::create_token))
         // story: e02s03 — repo-page generate button (session + CSRF, same group)
         .route("/{owner}/{name}/tokens", post(routes::create_repo_token))
