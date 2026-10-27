@@ -74,4 +74,37 @@ mod auth_htmx {
             "login link must push its URL: {html}"
         );
     }
+
+    // ---- slice 1: GET /reset — the reset-request card ----
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn reset_full_page_without_htmx_header(pool: sqlx::PgPool) {
+        let response = get(pool, "/reset", false).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body(response).await;
+        assert!(html.contains("<!doctype html>"));
+        assert!(html.contains("/assets/app.css"), "full page keeps the shell");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn reset_returns_card_fragment_for_htmx(pool: sqlx::PgPool) {
+        let response = get(pool, "/reset", true).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let html = body(response).await;
+        assert!(!html.contains("<!doctype html>"), "{html}");
+        assert!(html.contains("auth-card"));
+        assert!(html.contains("Send reset link"));
+        // the reset card carries the forgot-password link back to login
+        assert!(html.contains(r#"hx-get="/login""#));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn login_card_links_to_reset(pool: sqlx::PgPool) {
+        let response = get(pool, "/login", false).await;
+        let html = body(response).await;
+        assert!(
+            html.contains(r#"hx-get="/reset" hx-push-url="/reset""#),
+            "login card needs the forgot-password link: {html}"
+        );
+    }
 }
