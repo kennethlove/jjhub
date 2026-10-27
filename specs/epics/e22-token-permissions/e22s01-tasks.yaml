@@ -5,7 +5,7 @@ bcps: 3
 tasks:
   - id: e22s01t1
     description: >
-      migration 0011: scopes TEXT[] default {read,write},
+      migration 0012: scopes TEXT[] default {read,write},
       expires_at, repo_id FK, allowed_inets INET[]
     verify: "cargo test -p server token_permissions_migration"
     risk: P1
