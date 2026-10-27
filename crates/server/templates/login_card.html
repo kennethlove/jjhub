@@ -1,0 +1,19 @@
+<section id="auth-card" class="auth-card" aria-label="Log in">
+  <h1>Log in</h1>
+  {% if error %}<div class="alert-error" role="alert"><p>{{ error }}</p></div>{% endif %}
+  <form method="post" action="/login">
+    <div class="field">
+      <label for="login-email">Email</label>
+      <input id="login-email" name="email" type="email" autocomplete="email"
+             placeholder="you@example.com" required>
+    </div>
+    <div class="field">
+      <label for="login-password">Password</label>
+      <input id="login-password" name="password" type="password"
+             autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Log in</button>
+  </form>
+  <p class="quiet-line">New here? <a href="/register" hx-get="/register" hx-push-url="/register" hx-target="#auth-card" hx-swap="outerHTML">Create an account</a></p>
+  <p class="quiet-line">Forgot your password? <a href="/reset" hx-get="/reset" hx-push-url="/reset" hx-target="#auth-card" hx-swap="outerHTML">Reset it</a></p>
+</section>

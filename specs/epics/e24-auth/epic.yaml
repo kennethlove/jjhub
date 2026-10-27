@@ -1,0 +1,20 @@
+epic: e24
+slug: auth
+title: "Auth flows — approved design: htmx cards, password reset"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e24s01
+    title: "htmx auth cards: fragment negotiation, push URLs, restyled
+      login/register"
+    bcps: 3
+    delta: ADDED
+  - id: e24s02
+    title: "Reset request: GET /reset card, POST /reset token with
+      no-enumeration sent state"
+    bcps: 3
+    delta: ADDED
+  - id: e24s03
+    title: "Set a new password from an unexpired, unused reset link"
+    bcps: 3
+    delta: ADDED

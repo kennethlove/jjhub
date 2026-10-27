@@ -1,0 +1,48 @@
+story_id: e24s01
+title: "htmx auth cards: negotiation, push URLs, restyle"
+status: completed
+bcps: 3
+tasks:
+  - id: e24s01t1
+    description: >
+      auth_htmx tests: full page without HX-Request, card fragment
+      with it, for login and register
+    verify: "cargo test -p server --test auth_htmx"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s01t2
+    description: >
+      card templates, htmx_fragment negotiation, render.rs
+      registration, base.html htmx script, auth CSS on DESIGN.md
+      tokens (quiet link uses tertiary-hover for APCA)
+    verify: >
+      cargo test -p server --test auth_htmx extract_login auth_ux
+      site_shell
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s01t3
+    description: >
+      push URLs: hx-push-url on card links with a RED test proving
+      the pushed URL cold-loads the full page
+    verify: "cargo test -p server --test auth_htmx"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s01t4
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

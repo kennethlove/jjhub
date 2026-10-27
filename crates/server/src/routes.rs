@@ -37,8 +37,25 @@ fn register_page(error: &str, email: &str) -> String {
     crate::render::render("register.html", &context)
 }
 
-pub async fn register_form() -> Html<String> {
-    Html(register_page("", ""))
+// story: e24s01 — htmx card swaps ask for the section alone (HX-Request),
+// browsers get the full page; one route serves both
+fn htmx_fragment(headers: &axum::http::HeaderMap) -> bool {
+    headers.contains_key("hx-request")
+}
+
+fn register_card(error: &str, email: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("email", email);
+    crate::render::render("register_card.html", &context)
+}
+
+pub async fn register_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(register_card("", ""))
+    } else {
+        Html(register_page("", ""))
+    }
 }
 
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
@@ -134,8 +151,196 @@ fn login_page(error: &str) -> String {
     crate::render::render("login.html", &context)
 }
 
-pub async fn login_form() -> Html<String> {
-    Html(login_page(""))
+fn login_card(error: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    crate::render::render("login_card.html", &context)
+}
+
+pub async fn login_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(login_card(""))
+    } else {
+        Html(login_page(""))
+    }
+}
+
+fn reset_page() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset.html", &context)
+}
+
+fn reset_card() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_card.html", &context)
+}
+
+pub async fn reset_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(reset_card())
+    } else {
+        Html(reset_page())
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ResetForm {
+    email: String,
+}
+
+fn reset_sent(headers: &axum::http::HeaderMap) -> Response {
+    if htmx_fragment(headers) {
+        Html(reset_sent_card()).into_response()
+    } else {
+        Html(reset_sent_page()).into_response()
+    }
+}
+
+fn reset_sent_card() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_sent_card.html", &context)
+}
+
+fn reset_sent_page() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_sent.html", &context)
+}
+
+// story: e24s02 — one answer for known and unknown emails, so the form
+// cannot be used to discover which accounts exist
+pub async fn request_reset(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Form(form): Form<ResetForm>,
+) -> Response {
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT id::text FROM users WHERE email = $1")
+            .bind(&form.email)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+
+    if let Some(user_id) = existing {
+        let plaintext = crate::token::generate().0;
+        let token_hash = crate::token::hash(&plaintext);
+        let stored = sqlx::query(
+            "INSERT INTO reset_tokens (user_id, token_hash, expires_at) \
+             VALUES ($1::uuid, $2, now() + interval '1 hour')",
+        )
+        .bind(&user_id)
+        .bind(&token_hash)
+        .execute(&state.pool)
+        .await;
+        match stored {
+            // story: e24s02 — alpha delivery: the link is printed to the
+            // server log; a mailer replaces this once SMTP is justified
+            Ok(_) => {
+                let host = headers
+                    .get("host")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("localhost:3000");
+                eprintln!(
+                    "jjhub: password reset for {}: http://{host}/reset-password?token={plaintext}",
+                    form.email
+                );
+            }
+            Err(err) => eprintln!("jjhub: store reset token: {err}"),
+        }
+    }
+
+    reset_sent(&headers)
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordQuery {
+    token: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordForm {
+    token: String,
+    password: String,
+    password_confirm: String,
+}
+
+const RESET_REFUSED: &str = "This reset link is invalid or expired.";
+
+fn reset_password_page(error: &str, token: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("token", token);
+    crate::render::render("password_reset.html", &context)
+}
+
+// story: e24s03 — GET /reset-password?token=... renders the set-password
+// form only while the link is unexpired and unused
+pub async fn reset_password_form(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<ResetPasswordQuery>,
+) -> Response {
+    match crate::token::find_reset(&state.pool, &query.token).await {
+        Some(_) => (StatusCode::OK, Html(reset_password_page("", &query.token))).into_response(),
+        None => (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response(),
+    }
+}
+
+// story: e24s03 — validate, burn the link, then store the new password
+pub async fn set_new_password(
+    State(state): State<AppState>,
+    Form(form): Form<ResetPasswordForm>,
+) -> Response {
+    let Some((token_id, user_id)) = crate::token::find_reset(&state.pool, &form.token).await else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response();
+    };
+
+    if form.password != form.password_confirm {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(reset_password_page("passwords do not match", &form.token)),
+        )
+            .into_response();
+    }
+    if form.password.chars().count() < domain::MIN_PASSWORD_LEN {
+        let too_short = domain::RegistrationError::PasswordTooShort.to_string();
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(reset_password_page(&too_short, &form.token)),
+        )
+            .into_response();
+    }
+
+    if !crate::token::consume_reset(&state.pool, token_id).await {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response();
+    }
+
+    let password_hash = hash_password(&form.password);
+    if let Err(err) = sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+        .bind(&password_hash)
+        .bind(user_id)
+        .execute(&state.pool)
+        .await
+    {
+        eprintln!("jjhub: store new password: {err}");
+    }
+
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/login".to_string())],
+    )
+        .into_response()
 }
 
 #[derive(Deserialize)]

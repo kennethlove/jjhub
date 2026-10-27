@@ -854,3 +854,146 @@ input:focus-visible {
     align-items: flex-start;
   }
 }
+
+/* ---------- auth card — story: e24s01 (approved design specs/designs/auth.html) ---------- */
+.auth-flow {
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+}
+
+.auth-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.auth-card h1 {
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-headline-md);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.auth-card .lede {
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+}
+
+.auth-card .lede code {
+  font-family: var(--font-mono);
+  font-size: var(--text-label-sm);
+  color: var(--color-primary);
+}
+
+.field {
+  margin: 0 0 var(--space-md);
+}
+
+.field label {
+  display: block;
+  font-size: var(--text-label-md);
+  font-weight: 500;
+  margin: 0 0 var(--space-half);
+  color: var(--color-primary);
+}
+
+.field input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-md);
+  color: var(--color-primary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.field input::placeholder {
+  color: var(--color-secondary);
+}
+
+.field input:hover {
+  border-color: var(--color-secondary);
+}
+
+.field input:disabled {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-secondary);
+  cursor: not-allowed;
+}
+
+.field .hint {
+  margin: var(--space-half) 0 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+}
+
+/* error components — rendered only when the server adds the class */
+.alert-error {
+  background-color: var(--color-error-surface);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-body-sm);
+  color: var(--color-error);
+}
+
+.alert-error p {
+  margin: 0;
+}
+
+.field input.field-error {
+  border-color: var(--color-error);
+}
+
+.field input.field-error:focus-visible {
+  outline-color: var(--color-error);
+}
+
+.field .hint-error {
+  margin: var(--space-half) 0 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-error);
+}
+
+.auth-card .btn-primary {
+  width: 100%;
+}
+
+.quiet-line {
+  margin: var(--space-md) 0 0;
+  text-align: center;
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+}
+
+/* accent link text uses the darker hover token: #157F52 fails APCA on light bg */
+.quiet-line a {
+  color: var(--color-tertiary-hover);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.quiet-line a:hover {
+  color: var(--color-tertiary-pressed);
+}
+
+@media (max-width: 480px) {
+  .auth-flow {
+    padding: var(--space-lg) var(--space-sm) var(--space-xl);
+  }
+
+  .auth-card {
+    padding: var(--space-md);
+  }
+
+  .auth-card h1 {
+    font-size: var(--text-headline-sm);
+  }
+}

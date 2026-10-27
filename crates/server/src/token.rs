@@ -64,6 +64,34 @@ pub async fn revoke(pool: &PgPool, token_id: Uuid) {
         .expect("revoke token");
 }
 
+/// story: e24s03 — resolve a presented reset link to its row and owner
+/// while it is unexpired and unused. Compares by argon2-verifying
+/// candidates, same as authenticate: salts differ per row, so lookup
+/// can never be an equality match.
+pub async fn find_reset(pool: &PgPool, plaintext: &str) -> Option<(Uuid, Uuid)> {
+    let rows: Vec<(Uuid, Uuid, String)> = sqlx::query_as(
+        "SELECT id, user_id, token_hash FROM reset_tokens WHERE used_at IS NULL AND expires_at > now()",
+    )
+    .fetch_all(pool)
+    .await
+    .ok()?;
+    rows.into_iter()
+        .find(|(_, _, token_hash)| verify(plaintext, token_hash))
+        .map(|(id, user_id, _)| (id, user_id))
+}
+
+/// Burns the link atomically; false means it was already used or expired.
+pub async fn consume_reset(pool: &PgPool, id: Uuid) -> bool {
+    sqlx::query(
+        "UPDATE reset_tokens SET used_at = now() WHERE id = $1 AND used_at IS NULL AND expires_at > now()",
+    )
+    .bind(id)
+    .execute(pool)
+    .await
+    .map(|done| done.rows_affected() == 1)
+    .unwrap_or(false)
+}
+
 fn verify(plaintext: &str, token_hash: &str) -> bool {
     match PasswordHash::new(token_hash) {
         Ok(parsed) => Argon2::default()

@@ -1,0 +1,46 @@
+story_id: e24s03
+title: "Set a new password from an unexpired, unused reset link"
+status: completed
+bcps: 3
+tasks:
+  - id: e24s03t1
+    description: >
+      RED tests: form renders for a fresh token; unknown, expired,
+      and used tokens return 400 with the refused message
+    verify: "cargo test -p server --test auth_reset_password"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s03t2
+    description: >
+      RED tests: success sets password (old 401, new 303) and burns
+      the link (replay 400); mismatch returns 422 and keeps the link
+    verify: "cargo test -p server --test auth_reset_password"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s03t3
+    description: >
+      find_reset/consume_reset, password_reset.html shell,
+      reset_password_form/set_new_password handlers, /reset-password
+      route, render.rs registration
+    verify: "cargo test -p server --test auth_reset_password"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s03t4
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

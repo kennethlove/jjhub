@@ -1,0 +1,24 @@
+<section id="auth-card" class="auth-card" aria-label="Create your account">
+  <h1>Create your account</h1>
+  {% if error %}<div class="alert-error" role="alert"><p>{{ error }}</p></div>{% endif %}
+  <form method="post" action="/register">
+    <div class="field">
+      <label for="register-email">Email</label>
+      <input id="register-email" name="email" type="email" autocomplete="email"
+             value="{{ email }}" placeholder="you@example.com" required>
+    </div>
+    <div class="field">
+      <label for="register-password">Password</label>
+      <input id="register-password" name="password" type="password"
+             autocomplete="new-password" aria-describedby="password-hint" required>
+      <p class="hint" id="password-hint">At least 10 characters.</p>
+    </div>
+    <div class="field">
+      <label for="register-confirm">Confirm password</label>
+      <input id="register-confirm" name="password_confirm" type="password"
+             autocomplete="new-password" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Create account</button>
+  </form>
+  <p class="quiet-line">Already have an account? <a href="/login" hx-get="/login" hx-push-url="/login" hx-target="#auth-card" hx-swap="outerHTML">Log in</a></p>
+</section>
