@@ -125,10 +125,29 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
         }
     };
 
-    session_response(&state, user_id)
+    // story: e21s01 — signup mints the account's one transport token;
+    // its plaintext waits in the one-time handoff for the details screen
+    let created = crate::token::create(&state.pool, user_id, "signup").await;
+    if let Err(err) = sqlx::query(
+        "INSERT INTO token_details_handoff (user_id, token_id, plaintext) VALUES ($1, $2, $3)",
+    )
+    .bind(user_id)
+    .bind(created.id)
+    .bind(&created.plaintext)
+    .execute(&state.pool)
+    .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response();
+    }
+
+    session_response(&state, user_id, "/token-details")
 }
 
-fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
+fn session_response(state: &AppState, user_id: uuid::Uuid, location: &str) -> Response {
     let value = session::issue(&state.session_secret, user_id);
     let cookie = format!(
         "{SESSION_COOKIE}={value}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
@@ -138,9 +157,9 @@ fn session_response(state: &AppState, user_id: uuid::Uuid) -> Response {
         StatusCode::SEE_OTHER,
         [
             (header::SET_COOKIE, cookie),
-            (header::LOCATION, "/settings".to_string()),
+            (header::LOCATION, location.to_string()),
         ],
-        Redirect::to("/settings"),
+        Redirect::to(location),
     )
         .into_response()
 }
@@ -359,7 +378,9 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
             .unwrap_or(None);
 
     match row {
-        Some((id, hash)) if verify_password(&form.password, &hash) => session_response(&state, id),
+        Some((id, hash)) if verify_password(&form.password, &hash) => {
+            session_response(&state, id, "/settings")
+        }
         // story: e01s03 — same message for unknown email and wrong
         // password: the page must not say which one was wrong
         _ => (
@@ -467,6 +488,91 @@ pub async fn settings(
         }
         None => Redirect::to("/login").into_response(),
     }
+}
+
+// story: e21s01 — the one-time details screen: reading the handoff
+// destroys it, so the plaintext renders exactly once; every later
+// visit (abandoned or completed) lands on the ordinary home page
+pub async fn token_details(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+) -> Response {
+    let csrf = jar
+        .get(crate::session::SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let plaintext: Option<String> = sqlx::query_scalar(
+        "DELETE FROM token_details_handoff WHERE user_id = $1 RETURNING plaintext",
+    )
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some(plaintext) = plaintext else {
+        return Redirect::to("/").into_response();
+    };
+    let row: Option<(String, Option<String>, String)> =
+        sqlx::query_as("SELECT handle, display_name, theme FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((handle, display_name, theme)) = row else {
+        return Redirect::to("/login").into_response();
+    };
+    let mut context = page_context(Some(&handle), &csrf);
+    context.insert("token", &plaintext);
+    context.insert(
+        "display_name",
+        &display_name.unwrap_or_else(|| handle.clone()),
+    );
+    let checked = |wanted: &str| {
+        if theme == wanted {
+            "checked"
+        } else {
+            ""
+        }
+    };
+    context.insert("checked_system", checked("system"));
+    context.insert("checked_light", checked("light"));
+    context.insert("checked_dark", checked("dark"));
+    Html(crate::render::render("token_details.html", &context)).into_response()
+}
+
+// story: e21s01 — completion marks the screen done (once); the
+// display-name and theme inputs land with the same save
+pub async fn token_details_complete(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<TokenDetailsForm>,
+) -> Response {
+    let display_name = form.display_name.filter(|s| !s.trim().is_empty());
+    let theme = form
+        .theme
+        .filter(|t| matches!(t.as_str(), "dark" | "light" | "system"));
+    sqlx::query(
+        "UPDATE users
+         SET display_name = COALESCE($2, display_name),
+             theme = COALESCE($3, theme),
+             token_details_completed_at = COALESCE(token_details_completed_at, now())
+         WHERE id = $1",
+    )
+    .bind(current.0)
+    .bind(&display_name)
+    .bind(&theme)
+    .execute(&state.pool)
+    .await
+    .ok();
+    Redirect::to("/").into_response()
+}
+
+#[derive(Deserialize)]
+pub struct TokenDetailsForm {
+    pub display_name: Option<String>,
+    pub theme: Option<String>,
 }
 
 #[derive(Deserialize)]
