@@ -30,6 +30,7 @@ async fn extract_login_serves_login_template(pool: sqlx::PgPool) {
     // the page body is the rendered login.html, not a string literal
     let mut context = Context::new();
     context.insert("error", "");
+    context.insert("theme", "system"); // e21s02: base.html declares theme
     let expected = server::render::render("login.html", &context);
     assert_eq!(body, expected, "GET /login must render login.html");
 

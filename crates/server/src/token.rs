@@ -92,6 +92,30 @@ pub async fn consume_reset(pool: &PgPool, id: Uuid) -> bool {
     .unwrap_or(false)
 }
 
+/// story: e21s03 — rotate: revoke every active token and issue one
+/// replacement in a single transaction (no window where old and new
+/// tokens both authenticate).
+pub async fn regenerate(pool: &PgPool, user_id: Uuid) -> NewToken {
+    let mut tx = pool.begin().await.expect("begin regenerate");
+    sqlx::query("UPDATE tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .expect("revoke active tokens");
+    let (plaintext, prefix) = generate();
+    let token_hash = hash(&plaintext);
+    let id: Uuid =
+        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash) VALUES ($1, 'rotated', $2, $3) RETURNING id")
+            .bind(user_id)
+            .bind(&prefix)
+            .bind(&token_hash)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("insert regenerated token");
+    tx.commit().await.expect("commit regenerate");
+    NewToken { id, plaintext }
+}
+
 fn verify(plaintext: &str, token_hash: &str) -> bool {
     match PasswordHash::new(token_hash) {
         Ok(parsed) => Argon2::default()

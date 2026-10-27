@@ -11,6 +11,7 @@ mod extract_shell {
         let mut ctx = Context::new();
         ctx.insert("user_handle", user_handle);
         ctx.insert("csrf", csrf);
+        ctx.insert("theme", "system"); // e21s02: base.html declares theme
         ctx.insert("repos", &Vec::<serde_json::Value>::new());
         ctx
     }

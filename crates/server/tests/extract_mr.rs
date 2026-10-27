@@ -131,6 +131,7 @@ mod extract_mr {
         revision.insert("name", "demo");
         revision.insert("change_id", "aaa");
         revision.insert("csrf", "");
+        revision.insert("theme", "system"); // e21s02: base.html declares theme
         revision.insert("commit", commit);
         revision.insert(
             "diff_html",
@@ -143,6 +144,7 @@ mod extract_mr {
         page.insert("change_id", "aaa");
         page.insert("mr_state", "open");
         page.insert("csrf", "");
+        page.insert("theme", "system"); // e21s02: base.html declares theme
         page.insert("badges", &Vec::<String>::new());
         page.insert(
             "sections",

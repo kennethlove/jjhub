@@ -33,12 +33,16 @@
 <p>Clone: <code>http://{{ host }}/git/{{ owner }}/{{ name }}.git</code></p>
 {# story: e17s02 — ssh:// clone line, gated on the listener config #}
 {% if ssh_enabled %}<p>Clone over SSH: <code>ssh://{{ owner }}@{{ ssh_host }}:{{ ssh_port }}/{{ owner }}/{{ name }}.git</code></p>{% endif %}
-{% if generate %}
+{% if generate %}{# story: e21s03 — the clone-token form sits behind a
+   closed Advanced disclosure; the route itself is unchanged #}
+<details>
+<summary>Advanced</summary>
 <form method="post" action="/{{ owner }}/{{ name }}/tokens">
 <input type="hidden" name="label" value="clone-{{ owner }}/{{ name }}">
 <input type="hidden" name="_csrf" value="{{ csrf }}">
 <button type="submit">Generate token</button>
 </form>
+</details>
 {% endif %}
 <pre class="code-block">jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
 jj git push --all</pre>

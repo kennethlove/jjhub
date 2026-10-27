@@ -15,6 +15,9 @@ tera.workspace = true
 argon2 = { workspace = true, features = ["std"] }
 hmac = "0.12"
 sha2 = "0.10"
+# WHY: story e21s02 — gravatar derives md5(lowercase email); md-5 0.10
+# is already in the dependency tree (transitive), so no new download.
+md-5 = "0.10"
 # WHY: story e17s01 upgraded 0.8 -> 0.10: ssh-key (via russh) needs the
 # rand_core 0.10 CryptoRng for host-key generation; one rand in the tree.
 rand = "0.10"

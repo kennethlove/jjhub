@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Save your token · jjhub{% endblock %}
+{% block body %}
+<h1>Save your token</h1>
+{% include "nav.html" %}
+<p><img src="{{ gravatar | safe }}" alt="" width="48" height="48"> Profile image from <a href="https://gravatar.com">Gravatar</a> (derived from your email, never stored).</p>
+<p>Copy this token now. It will not be shown again:</p>
+<p><code id="token-value">{{ token }}</code></p>
+<button type="button" id="copy-token">Copy token</button>
+<form method="post" action="/token-details">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<label>Display name <input name="display_name" value="{{ display_name }}"></label>
+<p>Theme</p>
+<label><input type="radio" name="theme" value="system" {{ checked_system }}> System</label>
+<label><input type="radio" name="theme" value="light" {{ checked_light }}> Light</label>
+<label><input type="radio" name="theme" value="dark" {{ checked_dark }}> Dark</label>
+<p><button type="submit" name="saved" value="1">Save details</button></p>
+</form>
+<script>
+document.getElementById("copy-token").addEventListener("click", function () {
+  navigator.clipboard.writeText(document.getElementById("token-value").textContent);
+});
+</script>
+{% endblock %}

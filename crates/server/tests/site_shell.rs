@@ -315,6 +315,7 @@ mod site_repo_token_pages {
         context.insert("change_id", "abc123");
         context.insert("mr_state", "open");
         context.insert("csrf", "token");
+        context.insert("theme", "system"); // e21s02: base.html declares theme
         context.insert("badges", &Vec::<String>::new());
         context.insert("sections", &Vec::<String>::new());
         context.insert("review_href", &Option::<String>::None);

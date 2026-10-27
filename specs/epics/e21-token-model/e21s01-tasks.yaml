@@ -1,6 +1,6 @@
 story_id: e21s01
 title: "Signup auto-issues token; one-time details screen"
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e21s01t1
@@ -9,7 +9,7 @@ tasks:
       default 'system'; existing rows valid
     verify: "cargo test -p server users_prefs_migration"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       one-time details screen
     verify: "cargo test -p server signup_auto_token"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -33,7 +33,7 @@ tasks:
       re-renders, abandonment does not re-trigger
     verify: "cargo test -p server details_once"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -43,7 +43,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
