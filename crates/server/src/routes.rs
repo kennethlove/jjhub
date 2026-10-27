@@ -37,8 +37,25 @@ fn register_page(error: &str, email: &str) -> String {
     crate::render::render("register.html", &context)
 }
 
-pub async fn register_form() -> Html<String> {
-    Html(register_page("", ""))
+// story: e24s01 — htmx card swaps ask for the section alone (HX-Request),
+// browsers get the full page; one route serves both
+fn htmx_fragment(headers: &axum::http::HeaderMap) -> bool {
+    headers.contains_key("hx-request")
+}
+
+fn register_card(error: &str, email: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("email", email);
+    crate::render::render("register_card.html", &context)
+}
+
+pub async fn register_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(register_card("", ""))
+    } else {
+        Html(register_page("", ""))
+    }
 }
 
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
@@ -134,8 +151,18 @@ fn login_page(error: &str) -> String {
     crate::render::render("login.html", &context)
 }
 
-pub async fn login_form() -> Html<String> {
-    Html(login_page(""))
+fn login_card(error: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    crate::render::render("login_card.html", &context)
+}
+
+pub async fn login_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(login_card(""))
+    } else {
+        Html(login_page(""))
+    }
 }
 
 #[derive(Deserialize)]

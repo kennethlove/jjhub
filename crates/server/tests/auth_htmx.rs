@@ -40,7 +40,10 @@ mod auth_htmx {
             !html.contains("<!doctype html>"),
             "fragment must not be a full document: {html}"
         );
-        assert!(html.contains("auth-card"), "fragment carries the card markup");
+        assert!(
+            html.contains("auth-card"),
+            "fragment carries the card markup"
+        );
         assert!(html.contains("Create your account"));
     }
 

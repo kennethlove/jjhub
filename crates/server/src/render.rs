@@ -20,7 +20,15 @@ fn engine() -> &'static Tera {
             ("nav.html", include_str!("../templates/nav.html")),
             ("home.html", include_str!("../templates/home.html")),
             ("login.html", include_str!("../templates/login.html")),
+            (
+                "login_card.html",
+                include_str!("../templates/login_card.html"),
+            ),
             ("register.html", include_str!("../templates/register.html")),
+            (
+                "register_card.html",
+                include_str!("../templates/register_card.html"),
+            ),
             ("settings.html", include_str!("../templates/settings.html")),
             ("repo.html", include_str!("../templates/repo.html")),
             ("tree.html", include_str!("../templates/tree.html")),
