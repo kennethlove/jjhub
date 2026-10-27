@@ -29,6 +29,11 @@ fn engine() -> &'static Tera {
                 "register_card.html",
                 include_str!("../templates/register_card.html"),
             ),
+            ("reset.html", include_str!("../templates/reset.html")),
+            (
+                "reset_card.html",
+                include_str!("../templates/reset_card.html"),
+            ),
             ("settings.html", include_str!("../templates/settings.html")),
             ("repo.html", include_str!("../templates/repo.html")),
             ("tree.html", include_str!("../templates/tree.html")),

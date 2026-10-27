@@ -83,7 +83,10 @@ mod auth_htmx {
         assert_eq!(response.status(), StatusCode::OK);
         let html = body(response).await;
         assert!(html.contains("<!doctype html>"));
-        assert!(html.contains("/assets/app.css"), "full page keeps the shell");
+        assert!(
+            html.contains("/assets/app.css"),
+            "full page keeps the shell"
+        );
     }
 
     #[sqlx::test(migrations = "./migrations")]

@@ -194,6 +194,7 @@ fn app_from_state(state: AppState) -> Router {
                 ),
             ),
         )
+        .route("/reset", get(routes::reset_form))
         .route(
             "/logout",
             post(routes::logout).layer(axum::middleware::from_fn_with_state(

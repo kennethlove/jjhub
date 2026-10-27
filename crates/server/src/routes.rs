@@ -165,6 +165,24 @@ pub async fn login_form(headers: axum::http::HeaderMap) -> Html<String> {
     }
 }
 
+fn reset_page() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset.html", &context)
+}
+
+fn reset_card() -> String {
+    let context = page_context(None, "");
+    crate::render::render("reset_card.html", &context)
+}
+
+pub async fn reset_form(headers: axum::http::HeaderMap) -> Html<String> {
+    if htmx_fragment(&headers) {
+        Html(reset_card())
+    } else {
+        Html(reset_page())
+    }
+}
+
 #[derive(Deserialize)]
 pub struct LoginForm {
     email: String,
