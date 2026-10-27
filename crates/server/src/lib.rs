@@ -149,6 +149,8 @@ pub fn app_with_ssh(
 fn app_from_state(state: AppState) -> Router {
     let protected = Router::new()
         .route("/settings", get(routes::settings))
+        .route("/settings/profile", post(routes::settings_profile))
+        .route("/settings/regenerate", post(routes::settings_regenerate))
         .route("/settings/tokens", post(routes::create_token))
         // story: e02s03 — repo-page generate button (session + CSRF, same group)
         .route("/{owner}/{name}/tokens", post(routes::create_repo_token))

@@ -86,11 +86,26 @@ mod extract_auth {
         let secret = std::env::var("SESSION_SECRET").unwrap();
         let value = cookie.strip_prefix("session=").unwrap_or(&cookie);
         let csrf = server::session::csrf_token(secret.as_bytes(), value);
+        let member_since: String = sqlx::query_scalar(
+            "SELECT to_char(created_at, 'YYYY-MM-DD') FROM users WHERE email = $1",
+        )
+        .bind("alice@example.com")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
         let html = get(pool, &root, "/settings", Some(&cookie)).await;
         let mut expected = ctx("alice", &csrf);
         expected.insert("email", "alice@example.com");
         expected.insert("new_token", "");
         expected.insert("tokens", &Vec::<serde_json::Value>::new());
+        // story: e25s01 — the settings context grew profile fields
+        expected.insert("display_name", "");
+        expected.insert("checked_system", &true);
+        expected.insert("checked_light", &false);
+        expected.insert("checked_dark", &false);
+        expected.insert("member_since", &member_since);
+        expected.insert("repo_count", &0i64);
+        expected.insert("nav_section", "settings");
         assert_eq!(html, server::render::render("settings.html", &expected));
     }
 }

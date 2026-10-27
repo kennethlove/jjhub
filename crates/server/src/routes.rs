@@ -432,13 +432,29 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let tokens: Vec<(String, String)> = sqlx::query_as(
-        "SELECT label, prefix FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
+    let tokens: Vec<(String, String, String, String)> = sqlx::query_as(
+        "SELECT id, label, prefix, to_char(created_at, 'YYYY-MM-DD') \
+         FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
     )
     .bind(current.0)
     .fetch_all(&state.pool)
     .await
     .unwrap_or_default();
+    let prefs: Option<(Option<String>, String, String)> = sqlx::query_as(
+        "SELECT display_name, theme, to_char(created_at, 'YYYY-MM-DD') \
+         FROM users WHERE id = $1",
+    )
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let repo_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM repositories WHERE owner_id = $1")
+            .bind(current.0)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap_or(0);
 
     // story: e15s02 — the plaintext rides the template context once;
     // the template escapes it like any other value
@@ -449,10 +465,12 @@ pub async fn settings(
 
     let token_items: Vec<serde_json::Value> = tokens
         .iter()
-        .map(|(label, prefix)| {
+        .map(|(id, label, prefix, created)| {
             serde_json::json!({
+                "id": id,
                 "label": label,
-                "prefix": prefix
+                "prefix": prefix,
+                "created": created
             })
         })
         .collect();
@@ -463,10 +481,86 @@ pub async fn settings(
             context.insert("email", &email);
             context.insert("new_token", &new_token);
             context.insert("tokens", &token_items);
+            // story: e25s01 — profile fields the page writes
+            let (display_name, theme, member_since) =
+                prefs
+                    .clone()
+                    .unwrap_or((None, "system".to_string(), "".to_string()));
+            context.insert("display_name", &display_name.unwrap_or_default());
+            context.insert("checked_system", &(theme == "system"));
+            context.insert("checked_light", &(theme == "light"));
+            context.insert("checked_dark", &(theme == "dark"));
+            context.insert("member_since", &member_since);
+            context.insert("repo_count", &repo_count);
+            context.insert("nav_section", "settings");
             Html(crate::render::render("settings.html", &context)).into_response()
         }
         None => Redirect::to("/login").into_response(),
     }
+}
+
+#[derive(Deserialize)]
+pub struct ProfileForm {
+    display_name: String,
+    theme: String,
+}
+
+// story: e25s01 — the profile controls the approved design kept:
+// display name + theme. Unknown theme values fall back to system.
+pub async fn settings_profile(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<ProfileForm>,
+) -> Response {
+    let theme = if ["dark", "light", "system"].contains(&form.theme.as_str()) {
+        form.theme
+    } else {
+        "system".to_string()
+    };
+    let result = sqlx::query("UPDATE users SET display_name = $1, theme = $2 WHERE id = $3")
+        .bind(form.display_name.trim())
+        .bind(&theme)
+        .bind(current.0)
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(_) => Redirect::to("/settings").into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+
+// story: e25s01 — keep the e21s03 regenerate button: every active
+// token dies now, one replacement rides the shown-once cookie.
+// WHY: no rate-limit charge here — rotation is a single deliberate
+// action and charging the create row would 429 honest re-clicks.
+pub async fn settings_regenerate(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+) -> Response {
+    let revoked = sqlx::query(
+        "UPDATE tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+    )
+    .bind(current.0)
+    .execute(&state.pool)
+    .await;
+    if let Err(err) = revoked {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response();
+    }
+    let new = crate::token::create(&state.pool, current.0, "regenerated").await;
+    let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+        "new_token",
+        new.plaintext,
+    ));
+    (jar, Redirect::to("/settings")).into_response()
 }
 
 #[derive(Deserialize)]

@@ -20,10 +20,7 @@ mod settings_shell {
     ) -> axum::response::Response {
         let mut request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
-            .body(Body::from(format!(
-                "{body}&_csrf={}",
-                csrf(cookie)
-            )))
+            .body(Body::from(format!("{body}&_csrf={}", csrf(cookie))))
             .unwrap();
         request
             .headers_mut()
@@ -61,6 +58,9 @@ mod settings_shell {
             .unwrap()
             .to_str()
             .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
             .to_string()
     }
 
@@ -76,16 +76,31 @@ mod settings_shell {
         // Account panel: read-only rows and the password state link.
         assert!(body.contains("<h1>Your preferences</h1>"), "page h1");
         assert!(body.contains(">Email<"), "email row");
-        assert!(body.contains("Your handle appears in URLs"), "handle helper");
+        assert!(
+            body.contains("Your handle appears in URLs"),
+            "handle helper"
+        );
         assert!(body.contains(">Member since<"), "member-since row");
-        assert!(body.contains(r##"href="#password""##), "change-password link");
+        assert!(
+            body.contains(r##"href="#password""##),
+            "change-password link"
+        );
         assert!(body.contains(r#"id="password""#), "password state");
-        assert!(body.contains(r#"action="/settings/password""#), "password form");
+        assert!(
+            body.contains(r#"action="/settings/password""#),
+            "password form"
+        );
 
         // Kept features: profile form and regenerate button (user decision).
-        assert!(body.contains(r#"action="/settings/profile""#), "profile form");
+        assert!(
+            body.contains(r#"action="/settings/profile""#),
+            "profile form"
+        );
         assert!(body.contains(r#"name="theme""#), "theme radios");
-        assert!(body.contains(r#"action="/settings/regenerate""#), "regenerate");
+        assert!(
+            body.contains(r#"action="/settings/regenerate""#),
+            "regenerate"
+        );
 
         // Tokens panel: generate form, reveal state, ledger columns.
         assert!(
@@ -93,7 +108,10 @@ mod settings_shell {
             "tokens panel"
         );
         assert!(body.contains(r#"id="token-new""#), "reveal state");
-        assert!(body.contains(r#"action="/settings/tokens""#), "generate form");
+        assert!(
+            body.contains(r#"action="/settings/tokens""#),
+            "generate form"
+        );
         assert!(body.contains(">Prefix<"), "ledger prefix column");
         assert!(body.contains(">Created<"), "ledger created column");
 
@@ -106,12 +124,18 @@ mod settings_shell {
             .expect("danger panel present");
         assert!(tokens < danger, "danger zone comes last");
         assert!(body.contains(r##"href="#delete-1""##), "delete step 1 link");
-        assert!(body.contains(r#"action="/settings/account""#), "delete form");
+        assert!(
+            body.contains(r#"action="/settings/account""#),
+            "delete form"
+        );
         assert!(
             body.matches("No, cancel").count() >= 2,
             "both confirm states cancel"
         );
-        assert!(body.contains("0 repositories"), "repo count in confirm copy");
+        assert!(
+            body.contains("0 repositories"),
+            "repo count in confirm copy"
+        );
         assert!(
             body.contains(r#"aria-current="page""#),
             "nav marks Settings current"
@@ -175,13 +199,7 @@ mod settings_shell {
                 .await?;
         assert_eq!(active_before, 2);
 
-        let response = post(
-            pool.clone(),
-            "/settings/regenerate",
-            "",
-            &cookie,
-        )
-        .await;
+        let response = post(pool.clone(), "/settings/regenerate", "", &cookie).await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let set_cookie = response
             .headers()
