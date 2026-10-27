@@ -1,6 +1,6 @@
 story_id: e21s03
 title: "Regenerate rotate + demote repo-page form"
-status: failing
+status: passing
 bcps: 3
 tasks:
   - id: e21s03t1
@@ -9,7 +9,7 @@ tasks:
       plaintext shown once; old token rejected
     verify: "cargo test -p server token_regenerate"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       route and tests unchanged
     verify: "cargo test -p server create_repo_token"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "regenerate consumes the token-creation budget"
     verify: "cargo test -p server rate_limit_token"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -41,7 +41,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

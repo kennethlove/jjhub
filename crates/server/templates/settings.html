@@ -24,4 +24,11 @@
 <ul>
 {% for token in tokens %}<li>{{ token.label }} — {{ token.prefix }}…</li>
 {% endfor %}</ul>
+{# story: e21s03 — rotation: every current token stops working the
+   moment this runs; the replacement appears once in the banner above #}
+<form method="post" action="/settings/regenerate">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<button type="submit">Regenerate token</button>
+</form>
+<p>All current tokens stop working immediately; the new token is shown once.</p>
 {% endblock %}

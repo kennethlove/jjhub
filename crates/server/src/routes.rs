@@ -899,6 +899,30 @@ pub async fn create_token(
     (jar, Redirect::to("/settings")).into_response()
 }
 
+// story: e21s03 — rotate is one operation: revoke every active token
+// and issue the replacement in a single transaction (no window where
+// old and new both work), then show the plaintext once.
+pub async fn regenerate_token(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+) -> Response {
+    // story: e20s02 — regenerate charges the same token row as minting.
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) =
+            limiter.consume(crate::rate_limit::Action::Token, &current.0.to_string())
+        {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
+    let new = crate::token::regenerate(&state.pool, current.0).await;
+    let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+        "new_token",
+        new.plaintext,
+    ));
+    (jar, Redirect::to("/settings")).into_response()
+}
+
 // story: e16s02 — the one seam MR surfaces use for divergence
 // detection. e16s01 owns the predicate: crate::divergence takes the
 // bare repo path plus the pushed commit ids of ONE change and returns
