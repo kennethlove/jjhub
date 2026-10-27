@@ -56,4 +56,22 @@ mod auth_htmx {
         assert!(html.contains("auth-card"));
         assert!(html.contains("Log in"));
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn card_links_push_shareable_urls(pool: sqlx::PgPool) {
+        // story: e24s01 — the address bar must track the swapped card so a
+        // URL can be copied and sent to someone else
+        let response = get(pool.clone(), "/login", false).await;
+        let html = body(response).await;
+        assert!(
+            html.contains(r#"hx-get="/register" hx-push-url="/register""#),
+            "register link must push its URL: {html}"
+        );
+        let response = get(pool, "/register", false).await;
+        let html = body(response).await;
+        assert!(
+            html.contains(r#"hx-get="/login" hx-push-url="/login""#),
+            "login link must push its URL: {html}"
+        );
+    }
 }
