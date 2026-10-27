@@ -16,8 +16,8 @@ tasks:
       categories: ["settings"]
   - id: e25s02t2
     description: >
-      change_password handler + #password state fragment rendering +
-      error cookie fallback for native POST
+      change_password handler + one-shot pw_err error cookie so
+      /settings#password reopens the state with the inline message
     verify: "cargo test -p server --test settings_password settings_shell"
     risk: P2
     status: passing

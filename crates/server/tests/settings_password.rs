@@ -111,7 +111,10 @@ mod settings_password {
             "error cookie is one-shot"
         );
         let body = text(response).await;
-        assert!(body.contains("Current password is incorrect"), "inline error");
+        assert!(
+            body.contains("Current password is incorrect"),
+            "inline error"
+        );
         assert!(body.contains(r#"id="password""#), "state markup present");
         Ok(())
     }

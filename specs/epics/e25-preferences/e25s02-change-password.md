@@ -23,10 +23,11 @@ feat
 
 risk: P2 (credential change) — context: `routes.rs`
 `change_password` handler (Form last extractor), reuses
-`password::verify_password`/`hash_password`; htmx form swaps the
-`#password` state fragment; native POST path redirects to
-`/settings#password` with a short-lived error cookie (the
-`new_token` cookie pattern) so `:target` shows the state.
+`password::verify_password`/`hash_password`; the form posts
+natively and failures redirect to `/settings#password` with a
+one-shot error key (`pw_err` cookie, the `new_token` cookie
+pattern) so `:target` reopens the state with the inline message;
+success lands on `/settings`.
 
 ## 5. Verification
 

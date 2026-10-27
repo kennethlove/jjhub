@@ -106,6 +106,7 @@ mod extract_auth {
         expected.insert("member_since", &member_since);
         expected.insert("repo_count", &0i64);
         expected.insert("nav_section", "settings");
+        expected.insert("pw_error", "");
         assert_eq!(html, server::render::render("settings.html", &expected));
     }
 }

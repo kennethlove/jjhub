@@ -23,6 +23,7 @@
       <h3 class="state-heading">Change password</h3>
       <a class="quiet-line" href="#">Back to Account</a>
     </div>
+    {% if pw_error %}<div class="alert-error" role="alert">{{ pw_error }}</div>{% endif %}
     <form method="post" action="/settings/password">
       <input type="hidden" name="_csrf" value="{{ csrf }}">
       <label class="field">Current password

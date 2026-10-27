@@ -3,7 +3,7 @@ use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::Form;
-use axum_extra::extract::CookieJar;
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 
 use crate::password::{hash_password, verify_password};
@@ -433,7 +433,9 @@ pub async fn settings(
         .ok()
         .flatten();
     let tokens: Vec<(String, String, String, String)> = sqlx::query_as(
-        "SELECT id, label, prefix, to_char(created_at, 'YYYY-MM-DD') \
+        // WHY: id::text — a uuid column does not decode into String and
+        // the old unwrap_or_default hid the row error as an empty ledger
+        "SELECT id::text, label, prefix, to_char(created_at, 'YYYY-MM-DD') \
          FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
     )
     .bind(current.0)
@@ -493,7 +495,27 @@ pub async fn settings(
             context.insert("member_since", &member_since);
             context.insert("repo_count", &repo_count);
             context.insert("nav_section", "settings");
-            Html(crate::render::render("settings.html", &context)).into_response()
+            // story: e25s02 — one-shot error key left by a failed
+            // change-password post so #password reopens with copy
+            let pw_error = jar
+                .get("pw_err")
+                .map(|c| match c.value() {
+                    "current" => "Current password is incorrect.".to_string(),
+                    "mismatch" => "Passwords do not match.".to_string(),
+                    "short" => domain::RegistrationError::PasswordTooShort.to_string(),
+                    _ => String::new(),
+                })
+                .unwrap_or_default();
+            context.insert("pw_error", &pw_error);
+            let mut response =
+                Html(crate::render::render("settings.html", &context)).into_response();
+            if jar.get("pw_err").is_some() {
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    "pw_err=; Path=/; Max-Age=0".parse().unwrap(),
+                );
+            }
+            response
         }
         None => Redirect::to("/login").into_response(),
     }
@@ -525,6 +547,67 @@ pub async fn settings_profile(
         .await;
     match result {
         Ok(_) => Redirect::to("/settings").into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ChangePasswordForm {
+    current_password: String,
+    new_password: String,
+    confirm_password: String,
+}
+
+// story: e25s02 — native form post; a failure bounces to
+// /settings#password with a one-shot error key so the :target state
+// reopens with the inline message, success lands on the resting page
+pub async fn change_password(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<ChangePasswordForm>,
+) -> Response {
+    let refuse = |reason: &str| -> Response {
+        let jar = jar.add(Cookie::new("pw_err", reason.to_string()));
+        (jar, Redirect::to("/settings#password")).into_response()
+    };
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    match stored {
+        Some(hash) if verify_password(&form.current_password, &hash) => {}
+        _ => return refuse("current"),
+    }
+    if form.new_password != form.confirm_password {
+        return refuse("mismatch");
+    }
+    if form.new_password.chars().count() < domain::MIN_PASSWORD_LEN {
+        return refuse("short");
+    }
+    let result = sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+        .bind(hash_password(&form.new_password))
+        .bind(current.0)
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(_) => (
+            StatusCode::SEE_OTHER,
+            [
+                // success also clears a stale error key from an
+                // earlier failed attempt
+                (header::SET_COOKIE, "pw_err=; Path=/; Max-Age=0".to_string()),
+                (header::LOCATION, "/settings".to_string()),
+            ],
+        )
+            .into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("db error: {err}"),
