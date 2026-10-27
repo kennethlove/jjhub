@@ -1,6 +1,6 @@
 story_id: e22s01
 title: "Token permission columns + backfill migration"
-status: failing
+status: passing
 bcps: 3
 tasks:
   - id: e22s01t1
@@ -9,7 +9,7 @@ tasks:
       expires_at, repo_id FK, allowed_inets INET[]
     verify: "cargo test -p server token_permissions_migration"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       restrictions
     verify: "cargo test -p server token_scopes_backfill"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

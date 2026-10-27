@@ -15,7 +15,7 @@ async fn permission_columns_have_documented_shape(pool: sqlx::PgPool) {
     .unwrap();
     assert_eq!(data_type, "ARRAY", "scopes is a TEXT[] array");
     assert!(
-        default.unwrap_or_default().contains("{{read,write}}"),
+        default.unwrap_or_default().contains("{read,write}"),
         "scopes defaults to exactly {{read,write}}"
     );
     assert_eq!(is_nullable, "NO", "scopes is NOT NULL");
