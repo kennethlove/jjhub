@@ -11,6 +11,7 @@ mod extract_auth {
         let mut ctx = Context::new();
         ctx.insert("user_handle", user_handle);
         ctx.insert("csrf", csrf);
+        ctx.insert("theme", "system"); // e21s02: base.html declares theme
         ctx
     }
 
@@ -103,6 +104,10 @@ mod extract_auth {
         .collect();
         let mut expected = ctx("alice", &csrf);
         expected.insert("email", "alice@example.com");
+        expected.insert("display_name", "alice");
+        expected.insert("checked_system", "checked");
+        expected.insert("checked_light", "");
+        expected.insert("checked_dark", "");
         expected.insert("new_token", "");
         expected.insert("tokens", &token_items);
         assert_eq!(html, server::render::render("settings.html", &expected));

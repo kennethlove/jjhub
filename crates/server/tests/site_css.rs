@@ -46,7 +46,7 @@ mod site_css {
         let (_, _, body) = get_stylesheet(&pool, &root).await;
         assert!(body.contains(":root"), "token block missing: {body}");
         assert!(
-            body.contains("--color-tertiary: #157F52"),
+            body.contains("--color-tertiary: #106845"),
             "tertiary token from DESIGN.md missing"
         );
         assert!(

@@ -105,11 +105,10 @@ mod theme_preference {
 
         post_theme(&app, "/token-details", &cookie, "dark").await;
 
-        let (stored,): (String,) =
-            sqlx::query_scalar("SELECT theme FROM users WHERE handle = 'bob'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let stored: String = sqlx::query_scalar("SELECT theme FROM users WHERE handle = 'bob'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(stored, "dark");
 
         // authed page shows it... no client script needed
@@ -149,11 +148,10 @@ mod theme_preference {
             .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-        let (stored,): (String,) =
-            sqlx::query_scalar("SELECT theme FROM users WHERE handle = 'carol'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let stored: String = sqlx::query_scalar("SELECT theme FROM users WHERE handle = 'carol'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(stored, "system", "unknown values never persist");
     }
 

@@ -4,6 +4,16 @@
 <h1>Settings</h1>
 {% include "nav.html" %}
 <p>Signed in as {{ email }}</p>
+<h2>Profile</h2>
+<form method="post" action="/settings/profile">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<label>Display name <input name="display_name" value="{{ display_name }}"></label>
+<p>Theme</p>
+<label><input type="radio" name="theme" value="system" {{ checked_system }}> System</label>
+<label><input type="radio" name="theme" value="light" {{ checked_light }}> Light</label>
+<label><input type="radio" name="theme" value="dark" {{ checked_dark }}> Dark</label>
+<button type="submit">Save profile</button>
+</form>
 <h2>Access tokens</h2>
 {% if new_token %}<p><strong>Copy this token now, it will not be shown again:</strong> <code>{{ new_token }}</code></p>{% endif %}
 <form method="post" action="/settings/tokens">

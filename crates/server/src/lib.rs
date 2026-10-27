@@ -150,6 +150,7 @@ fn app_from_state(state: AppState) -> Router {
     let protected = Router::new()
         .route("/settings", get(routes::settings))
         .route("/settings/tokens", post(routes::create_token))
+        .route("/settings/profile", post(routes::settings_profile))
         .route(
             "/token-details",
             get(routes::token_details).post(routes::token_details_complete),

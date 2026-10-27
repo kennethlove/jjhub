@@ -109,7 +109,7 @@ mod display_name {
         .await;
         assert_eq!(status, StatusCode::SEE_OTHER);
 
-        let (saved,): (Option<String>,) =
+        let saved: Option<String> =
             sqlx::query_scalar("SELECT display_name FROM users WHERE handle = 'bob'")
                 .fetch_one(&pool)
                 .await
@@ -138,7 +138,7 @@ mod display_name {
         .await;
         assert_eq!(status, StatusCode::SEE_OTHER);
 
-        let (saved,): (Option<String>,) =
+        let saved: Option<String> =
             sqlx::query_scalar("SELECT display_name FROM users WHERE handle = 'carol'")
                 .fetch_one(&pool)
                 .await

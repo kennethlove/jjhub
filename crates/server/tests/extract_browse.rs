@@ -11,6 +11,7 @@ mod extract_browse {
         let mut ctx = Context::new();
         ctx.insert("user_handle", "");
         ctx.insert("csrf", "");
+        ctx.insert("theme", "system"); // e21s02: base.html declares theme
         ctx
     }
 

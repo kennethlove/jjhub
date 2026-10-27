@@ -3,6 +3,7 @@
 {% block body %}
 <h1>Save your token</h1>
 {% include "nav.html" %}
+<p><img src="{{ gravatar | safe }}" alt="" width="48" height="48"> Profile image from <a href="https://gravatar.com">Gravatar</a> (derived from your email, never stored).</p>
 <p>Copy this token now. It will not be shown again:</p>
 <p><code id="token-value">{{ token }}</code></p>
 <button type="button" id="copy-token">Copy token</button>

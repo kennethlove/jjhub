@@ -447,12 +447,18 @@ pub async fn settings(
         .await
         .ok()
         .flatten();
-    let email: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
-        .bind(current.0)
-        .fetch_optional(&state.pool)
-        .await
-        .ok()
-        .flatten();
+    // story: e21s02 — profile fields ride one row read with the email
+    let row: Option<(String, Option<String>, String)> =
+        sqlx::query_as("SELECT email, display_name, theme FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let (email, display_name, theme) = match row {
+        Some((email, display_name, theme)) => (Some(email), display_name, theme),
+        None => (None, None, "system".to_string()),
+    };
     let tokens: Vec<(String, String)> = sqlx::query_as(
         "SELECT label, prefix FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
     )
@@ -481,13 +487,51 @@ pub async fn settings(
     match email {
         Some(email) => {
             let mut context = page_context(handle.as_deref(), &csrf);
+            context.insert("theme", &theme);
             context.insert("email", &email);
+            context.insert(
+                "display_name",
+                &display_name
+                    .clone()
+                    .unwrap_or_else(|| handle.clone().unwrap_or_default()),
+            );
+            let checked = |wanted: &str| if theme == wanted { "checked" } else { "" };
+            context.insert("checked_system", checked("system"));
+            context.insert("checked_light", checked("light"));
+            context.insert("checked_dark", checked("dark"));
             context.insert("new_token", &new_token);
             context.insert("tokens", &token_items);
             Html(crate::render::render("settings.html", &context)).into_response()
         }
         None => Redirect::to("/login").into_response(),
     }
+}
+
+// story: e21s02 — settings carries the profile form (§19 lets users
+// clear the name; an empty value stores NULL so the handle fallback
+// returns). Same fields and struct as the details screen save.
+pub async fn settings_profile(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<ProfileForm>,
+) -> Response {
+    let display_name = form.display_name.filter(|s| !s.trim().is_empty());
+    let theme = form
+        .theme
+        .filter(|t| matches!(t.as_str(), "dark" | "light" | "system"));
+    sqlx::query(
+        "UPDATE users
+         SET display_name = $2,
+             theme = COALESCE($3, theme)
+         WHERE id = $1",
+    )
+    .bind(current.0)
+    .bind(&display_name)
+    .bind(&theme)
+    .execute(&state.pool)
+    .await
+    .ok();
+    Redirect::to("/settings").into_response()
 }
 
 // story: e21s01 — the one-time details screen: reading the handoff
@@ -513,18 +557,20 @@ pub async fn token_details(
     let Some(plaintext) = plaintext else {
         return Redirect::to("/").into_response();
     };
-    let row: Option<(String, Option<String>, String)> =
-        sqlx::query_as("SELECT handle, display_name, theme FROM users WHERE id = $1")
+    let row: Option<(String, Option<String>, String, String)> =
+        sqlx::query_as("SELECT handle, display_name, theme, email FROM users WHERE id = $1")
             .bind(current.0)
             .fetch_optional(&state.pool)
             .await
             .ok()
             .flatten();
-    let Some((handle, display_name, theme)) = row else {
+    let Some((handle, display_name, theme, email)) = row else {
         return Redirect::to("/login").into_response();
     };
     let mut context = page_context(Some(&handle), &csrf);
+    context.insert("theme", &theme);
     context.insert("token", &plaintext);
+    context.insert("gravatar", &gravatar_url(&email));
     context.insert(
         "display_name",
         &display_name.unwrap_or_else(|| handle.clone()),
@@ -547,7 +593,7 @@ pub async fn token_details(
 pub async fn token_details_complete(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
-    Form(form): Form<TokenDetailsForm>,
+    Form(form): Form<ProfileForm>,
 ) -> Response {
     let display_name = form.display_name.filter(|s| !s.trim().is_empty());
     let theme = form
@@ -570,7 +616,9 @@ pub async fn token_details_complete(
 }
 
 #[derive(Deserialize)]
-pub struct TokenDetailsForm {
+// story: e21s02 — one struct for both profile saves (details screen +
+// settings); unknown themes are ignored, empty names store NULL
+pub struct ProfileForm {
     pub display_name: Option<String>,
     pub theme: Option<String>,
 }
@@ -760,7 +808,7 @@ pub async fn repo_page(
     // slash inside interpolated values).
     let ssh_host = host.split(':').next().unwrap_or(host.as_str()).to_string();
 
-    let mut context = page_context(viewer.as_deref(), &csrf);
+    let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("owner", &owner);
     context.insert("name", &name);
     context.insert("visibility", &visibility);
@@ -1470,7 +1518,43 @@ pub(crate) fn page_context(user_handle: Option<&str>, csrf: &str) -> tera::Conte
     let mut context = tera::Context::new();
     context.insert("user_handle", &user_handle.unwrap_or_default());
     context.insert("csrf", csrf);
+    // story: e21s02 — default theme on every page (no flash); authed
+    // pages overwrite with the stored choice below
+    context.insert("theme", "system");
     context
+}
+
+// story: e21s02 — authed pages carry the stored theme so the first
+// byte renders it; visitors and logged-out pages stay on 'system'
+pub(crate) async fn themed_page_context(
+    state: &AppState,
+    handle: Option<&str>,
+    csrf: &str,
+) -> tera::Context {
+    let mut context = page_context(handle, csrf);
+    if let Some(handle) = handle {
+        if let Some(theme) =
+            sqlx::query_scalar::<_, String>("SELECT theme FROM users WHERE handle = $1")
+                .bind(handle)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+        {
+            context.insert("theme", &theme);
+        }
+    }
+    context
+}
+
+// story: e21s02 — gravatar = md5(lowercased, trimmed email), derived
+// per render and never stored. WHY md-5: gravatar spec requires md5
+// and md-5 is already in the dependency tree (no new download).
+pub(crate) fn gravatar_url(email: &str) -> String {
+    use md5::{Digest, Md5};
+    let digest = Md5::digest(email.trim().to_lowercase().as_bytes());
+    let hash: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    format!("https://www.gravatar.com/avatar/{hash}")
 }
 
 pub(crate) async fn viewer_handle(state: &AppState, jar: &CookieJar) -> Option<String> {
@@ -1516,7 +1600,7 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
         })
         .collect();
 
-    let mut context = page_context(Some(&handle), &csrf);
+    let mut context = themed_page_context(&state, Some(&handle), &csrf).await;
     context.insert("repos", &repo_items);
     Html(crate::render::render("home.html", &context)).into_response()
 }
@@ -1828,7 +1912,7 @@ pub async fn operations_page(
         .get(SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
-    let mut context = page_context(viewer.as_deref(), &csrf);
+    let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("owner", &owner);
     context.insert("name", &name);
     context.insert("operations", &operations);
@@ -1865,7 +1949,7 @@ pub async fn operation_detail_page(
         .get(SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
-    let mut context = page_context(viewer.as_deref(), &csrf);
+    let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("owner", &owner);
     context.insert("name", &name);
     match detail {

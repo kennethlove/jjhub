@@ -6,9 +6,9 @@
   /* colors */
   --color-primary: #16211C;
   --color-secondary: #4A574F;
-  --color-tertiary: #157F52;
-  --color-tertiary-hover: #116944;
-  --color-tertiary-pressed: #0D5436;
+  --color-tertiary: #106845;
+  --color-tertiary-hover: #0D5739;
+  --color-tertiary-pressed: #0A4730;
   --color-neutral: #F4F6F4;
   --color-surface: #FBFCFB;
   --color-surface-sunken: #ECEFEC;
@@ -854,6 +854,7 @@ input:focus-visible {
     align-items: flex-start;
   }
 }
++++++++ vqwwpkto 0c2a2c09 "test: display name, theme first-byte, gravatar RED (e21s02)" (rebase destination)
 
 /* ---------- auth card — story: e24s01 (approved design specs/designs/auth.html) ---------- */
 .auth-flow {
@@ -997,3 +998,83 @@ input:focus-visible {
     font-size: var(--text-headline-sm);
   }
 }
+/* story: e21s02 — one dark palette, warm-green tinted like the light
+
+   one, selected server-side (data-theme attribute) so the first byte
+
+   is already right: explicit choice, or system preference when the
+
+   attribute says "system". Hex stays in :root-style blocks only. */
+
+:root[data-theme="dark"],
+
+[data-theme="dark"] {
+
+  --color-primary: #E7ECE8;
+
+  --color-secondary: #C7D0CA;
+
+  --color-tertiary: #7AE5B6;
+
+  --color-tertiary-hover: #93EDC7;
+
+  --color-tertiary-pressed: #5BD39B;
+
+  --color-neutral: #131A16;
+
+  --color-surface: #1B241F;
+
+  --color-surface-sunken: #141B17;
+
+  --color-surface-inverse: #26312B;
+
+  --color-border: #2E3B34;
+
+  --color-on-accent: #0D1411;
+
+  --color-on-inverse: #E7ECE8;
+
+  --color-error: #FFC4BD;
+
+  --color-error-surface: #3A1E1B;
+
+}
+
+
+
+@media (prefers-color-scheme: dark) {
+
+  [data-theme="system"] {
+
+    --color-primary: #E7ECE8;
+
+    --color-secondary: #C7D0CA;
+
+    --color-tertiary: #7AE5B6;
+
+    --color-tertiary-hover: #93EDC7;
+
+    --color-tertiary-pressed: #5BD39B;
+
+    --color-neutral: #131A16;
+
+    --color-surface: #1B241F;
+
+    --color-surface-sunken: #141B17;
+
+    --color-surface-inverse: #26312B;
+
+    --color-border: #2E3B34;
+
+    --color-on-accent: #0D1411;
+
+    --color-on-inverse: #E7ECE8;
+
+    --color-error: #FFC4BD;
+
+    --color-error-surface: #3A1E1B;
+
+  }
+
+}
+
