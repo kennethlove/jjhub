@@ -1,0 +1,36 @@
+story_id: e25s02
+title: "Change password form wired to POST /settings/password"
+status: completed
+bcps: 3
+tasks:
+  - id: e25s02t1
+    description: >
+      RED tests: wrong current password 422, mismatched confirm 422,
+      short new password 422, success 303 and the new password logs
+      in while the old one stops
+    verify: "cargo test -p server --test settings_password"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s02t2
+    description: >
+      change_password handler + #password state fragment rendering +
+      error cookie fallback for native POST
+    verify: "cargo test -p server --test settings_password settings_shell"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s02t3
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

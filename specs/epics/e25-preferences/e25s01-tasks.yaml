@@ -1,0 +1,47 @@
+story_id: e25s01
+title: "Settings shell: Account + Profile, tokens ledger, danger zone"
+status: completed
+bcps: 3
+tasks:
+  - id: e25s01t1
+    description: >
+      RED test: /settings renders designed structure — Account
+      def-rows (email, handle helper, member since), Profile form,
+      tokens ledger columns (id data, created), danger zone last,
+      :target state links
+    verify: "cargo test -p server --test settings_shell"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s01t2
+    description: >
+      settings context enrichment (member since, repo count, tokens
+      with id/prefix/created) + settings.html panel rewrite
+    verify: "cargo test -p server --test settings_shell theme_preference"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s01t3
+    description: >
+      wire POST /settings/profile and POST /settings/regenerate
+      (404 on trunk today) and RED-test both round-trips
+    verify: "cargo test -p server --test settings_shell"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s01t4
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

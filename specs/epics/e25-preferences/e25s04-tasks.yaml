@@ -1,0 +1,35 @@
+story_id: e25s04
+title: "Delete account: two-step confirm, password gate, session end"
+status: completed
+bcps: 3
+tasks:
+  - id: e25s04t1
+    description: >
+      RED tests: wrong password refuses (account intact), success
+      deletes user + cascades tokens, session no longer resolves
+    verify: "cargo test -p server --test settings_delete"
+    risk: P1
+    status: passing
+    allure:
+      severity: critical
+      categories: ["settings"]
+  - id: e25s04t2
+    description: >
+      delete_account handler, /settings/account route, session
+      clearing, danger-zone states in settings.html
+    verify: "cargo test -p server --test settings_delete settings_shell"
+    risk: P1
+    status: passing
+    allure:
+      severity: critical
+      categories: ["settings"]
+  - id: e25s04t3
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]
