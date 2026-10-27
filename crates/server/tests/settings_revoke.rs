@@ -164,9 +164,7 @@ mod settings_revoke {
     }
 
     #[sqlx::test]
-    async fn unknown_id_is_404(
-        pool: sqlx::PgPool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn unknown_id_is_404(pool: sqlx::PgPool) -> Result<(), Box<dyn std::error::Error>> {
         let session = register(&pool, "alice%40example.com").await;
         let response = post(
             pool,
