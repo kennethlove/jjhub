@@ -13,6 +13,13 @@ pub struct NewToken {
     pub plaintext: String,
 }
 
+/// story: e22s02 — sha256 of the presented value; tokens are CSPRNG,
+/// so this is the stored verification secret (see 0013 migration WHY).
+fn lookup_key(plaintext: &str) -> Vec<u8> {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(plaintext.as_bytes()).to_vec()
+}
+
 pub fn hash(token: &str) -> String {
     let salt = SaltString::generate(&mut OsRng);
     Argon2::default()
@@ -32,28 +39,150 @@ pub async fn create(pool: &PgPool, user_id: Uuid, label: &str) -> NewToken {
     let (plaintext, prefix) = generate();
     let token_hash = hash(&plaintext);
     let id: Uuid =
-        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash) VALUES ($1, $2, $3, $4) RETURNING id")
+        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash, lookup_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id")
             .bind(user_id)
             .bind(label)
             .bind(&prefix)
             .bind(&token_hash)
+            .bind(lookup_key(&plaintext))
             .fetch_one(pool)
             .await
             .expect("insert token");
     NewToken { id, plaintext }
 }
 
+/// story: e22s02 — the transport authz bundle: identity PLUS the
+/// restriction columns the shared admission decision enforces.
+pub struct TransportAuth {
+    pub user_id: Uuid,
+    pub token_id: Uuid,
+    pub scopes: Vec<String>,
+    pub pinned_repo: Option<Uuid>,
+    /// IPv4/6 allowlist; None = any client IP.
+    pub allowed_inets: Option<Vec<std::net::IpAddr>>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 /// story: e01s02 — resolve a presented token value to its owning user, or None.
 /// Compares by argon2-verifying candidates; MVP scale (few tokens per user).
-pub async fn authenticate(pool: &PgPool, plaintext: &str) -> Option<Uuid> {
-    let rows: Vec<(Uuid, String)> =
-        sqlx::query_as("SELECT t.user_id, t.token_hash FROM tokens t WHERE t.revoked_at IS NULL")
-            .fetch_all(pool)
+/// story: e22s02 — one authentication stage now also enforces expiry
+/// (in SQL, same stage as revoked) and the IP allowlist (fail-closed:
+/// a listed token from an unverifiable or off-list client is None).
+/// WHY argon2 full-scan kept: salts differ per row, so lookup can
+/// never be an equality match; expiry filtering only narrows the scan.
+// WHY type alias: clippy's type_complexity — the row shape stays inline
+// once; a named struct would need FromRow derive for one caller.
+type AuthRow = (
+    Uuid,
+    Uuid,
+    Vec<String>,
+    Option<chrono::DateTime<chrono::Utc>>,
+    Option<Uuid>,
+    Option<String>,
+    String,
+);
+
+pub async fn authenticate(
+    pool: &PgPool,
+    plaintext: &str,
+    client_ip: Option<std::net::IpAddr>,
+) -> Option<TransportAuth> {
+    let rows: Vec<AuthRow> = sqlx::query_as(
+        "SELECT t.id, t.user_id, t.scopes, t.expires_at, t.repo_id, t.allowed_inets::text, t.token_hash FROM tokens t WHERE t.revoked_at IS NULL AND t.lookup_hash IS NULL AND (t.expires_at IS NULL OR t.expires_at > now())",
+    )
+    .fetch_all(pool)
+    .await
+    .ok()?;
+    // story: e22s02 — fast path first: an indexed exact match on the
+    // sha256 lookup key finds the row without touching argon2; the
+    // verify-scan below only ever sees legacy rows (lookup_hash NULL).
+    let found = match sqlx::query_as::<_, AuthRow>(
+        "SELECT t.id, t.user_id, t.scopes, t.expires_at, t.repo_id, t.allowed_inets::text, t.token_hash FROM tokens t WHERE t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > now()) AND t.lookup_hash = $1",
+    )
+    .bind(lookup_key(plaintext))
+    .fetch_optional(pool)
+    .await
+    .ok()?
+    {
+        Some(row) => Some(row),
+        // WHY spawn_blocking: argon2-verifying every active token is
+        // synchronous CPU. On the async workers it stalled accept/route
+        // tasks for seconds per request once rows piled up — the
+        // shared-DB e2e wedged the whole server until the scan moved
+        // to the blocking pool.
+        None => {
+            let plaintext = plaintext.to_string();
+            tokio::task::spawn_blocking(move || {
+                rows.into_iter()
+                    .find(|(_, _, _, _, _, _, token_hash)| verify(&plaintext, token_hash))
+            })
             .await
-            .ok()?;
-    rows.into_iter()
-        .find(|(_, token_hash)| verify(plaintext, token_hash))
-        .map(|(user_id, _)| user_id)
+            .ok()
+            .flatten()
+        }
+    };
+    let (token_id, user_id, scopes, expires_at, pinned_repo, allowed_text, _) = found?;
+    let allowed_inets = allowed_text.as_deref().map(parse_inet_list);
+    if let Some(list) = allowed_inets.as_ref() {
+        let on_list = client_ip.is_some_and(|ip| list.contains(&ip));
+        if !on_list {
+            return None;
+        }
+    }
+    Some(TransportAuth {
+        user_id,
+        token_id,
+        scopes,
+        pinned_repo,
+        allowed_inets,
+        expires_at,
+    })
+}
+
+/// `inet[]::text` = `{10.0.0.1,10.0.0.2}`. WHY manual parse: the
+/// `ipnetwork` crate is not in this workspace and a text round-trip
+/// keeps the dependency out. Unparseable content fails closed (deny-all).
+fn parse_inet_list(text: &str) -> Vec<std::net::IpAddr> {
+    let inner = text.trim().trim_start_matches('{').trim_end_matches('}');
+    if inner.is_empty() {
+        return Vec::new();
+    }
+    inner
+        .split(',')
+        .map(|part| part.trim().trim_matches('"').parse::<std::net::IpAddr>())
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_default()
+}
+
+/// story: e22s02 — ONE admission gate for scope and repo pin, shared by
+/// both transports: authorize calls it with the resolved repo id;
+/// push-to-create calls it with None (repo_id absent = a pinned token
+/// can never create a different repo, and scope gates admission
+/// itself — the denied create never happens). None = no token
+/// presented; anonymous rules stay in authorize.
+// WHY Result<(),()>: the two callers map it straight onto their own
+// denial shapes (HTTP 403 "forbidden" / SSH "forbidden"); no payload.
+#[allow(clippy::result_unit_err)]
+pub fn transport_gate(
+    auth: Option<&TransportAuth>,
+    op: crate::transport::GitOp,
+    repo_id: Option<Uuid>,
+) -> Result<(), ()> {
+    let Some(auth) = auth else {
+        return Ok(());
+    };
+    let needed = match op {
+        crate::transport::GitOp::ReceivePack => "write",
+        crate::transport::GitOp::UploadPack => "read",
+    };
+    if !auth.scopes.iter().any(|scope| scope == needed) {
+        return Err(());
+    }
+    match (auth.pinned_repo, repo_id) {
+        (Some(pinned), Some(id)) if pinned == id => Ok(()),
+        (Some(_), _) => Err(()),
+        (None, _) => Ok(()),
+    }
 }
 
 pub async fn revoke(pool: &PgPool, token_id: Uuid) {

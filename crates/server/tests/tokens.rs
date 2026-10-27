@@ -203,11 +203,11 @@ mod token_crud {
     #[sqlx::test(migrations = "./migrations")]
     async fn revoked_token_stops_authenticating(pool: sqlx::PgPool) {
         let (plaintext, token_id) = server::token::insert_test_token(&pool).await;
-        assert!(server::token::authenticate(&pool, &plaintext)
+        assert!(server::token::authenticate(&pool, &plaintext, None)
             .await
             .is_some());
         server::token::revoke(&pool, token_id).await;
-        assert!(server::token::authenticate(&pool, &plaintext)
+        assert!(server::token::authenticate(&pool, &plaintext, None)
             .await
             .is_none());
     }

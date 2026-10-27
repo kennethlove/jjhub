@@ -125,7 +125,9 @@ fn pkt_flush_end(buf: &[u8]) -> Option<usize> {
 
 pub struct SshHandler {
     state: SshState,
-    user: Option<uuid::Uuid>,
+    // story: e22s02 — the full authz bundle (identity + scopes/pin),
+    // not just the uid: the shared admission gate reads it.
+    auth: Option<crate::token::TransportAuth>,
     /// story: e20s03 — client socket for the push-row IP dimension.
     peer: Option<std::net::SocketAddr>,
     stdin: HashMap<ChannelId, ChildStdin>,
@@ -138,7 +140,7 @@ impl SshHandler {
     fn new(state: SshState) -> SshHandler {
         SshHandler {
             state,
-            user: None,
+            auth: None,
             peer: None,
             stdin: HashMap::new(),
             push: Arc::new(std::sync::Mutex::new(None)),
@@ -167,6 +169,19 @@ impl SshHandler {
         })
     }
 
+    /// story: e22s02 — client address for allowlist checks; the real
+    /// path fills it in new_client, tests set it directly.
+    pub fn with_peer(mut self, peer: std::net::SocketAddr) -> Self {
+        self.peer = Some(peer);
+        self
+    }
+
+    /// story: e22s02 — change the assumed client address between
+    /// authentications (tests exercise allowlist pass and fail).
+    pub fn set_peer(&mut self, peer: std::net::SocketAddr) {
+        self.peer = Some(peer);
+    }
+
     /// story: e17s01 — resolve the repo and run the SAME admission chain
     /// as HTTP (transport::authorize), then spawn the git service with
     /// neutral git config.
@@ -180,8 +195,9 @@ impl SshHandler {
         if service.git_op() == crate::transport::GitOp::ReceivePack {
             if let Some(limiter) = self.state.rate_limiter.as_ref() {
                 let who = self
-                    .user
-                    .map(|u| u.to_string())
+                    .auth
+                    .as_ref()
+                    .map(|auth| auth.user_id.to_string())
                     .unwrap_or_else(|| "anonymous".to_string());
                 let ip = self
                     .peer
@@ -197,6 +213,11 @@ impl SshHandler {
         }
         let mut resolved = crate::transport::lookup_repo(&self.state.pool, &owner, &name).await;
         if resolved.is_none() {
+            // story: e22s02 — scope and pin gate admission ITSELF: a
+            // denied push-to-create never creates (same helper as HTTP).
+            if crate::token::transport_gate(self.auth.as_ref(), service.git_op(), None).is_err() {
+                return Err("forbidden");
+            }
             // story: e19s03 — missing row: ONE admission decision, the
             // same helper as smart HTTP. Receive-pack for the owning
             // token presenter creates the repo PRIVATE; every other
@@ -208,7 +229,7 @@ impl SshHandler {
                 &owner,
                 &name,
                 service.git_op(),
-                self.user,
+                self.auth.as_ref().map(|auth| auth.user_id),
                 // story: e20s03 — the SSH push row is charged at the
                 // edge above; no SSH create-row charge (e20s03 scopes
                 // the push row only).
@@ -223,11 +244,12 @@ impl SshHandler {
         // chain as HTTP smart-http receive; no SSH-specific bypass.
         crate::transport::authorize(
             service.git_op(),
-            self.user,
+            self.auth.as_ref().map(|auth| auth.user_id),
             repo_owner,
             &visibility,
             &self.state.pool,
             repo_id,
+            self.auth.as_ref(),
         )
         .await
         .map_err(|(status, _)| match status {
@@ -300,10 +322,14 @@ impl Handler for SshHandler {
 
     // story: e17s01 — one credential model: the transport token. The ssh
     // username is ignored; the token decides identity (GitHub model).
+    // story: e22s02 — authentication also enforces expiry and the IP
+    // allowlist against this connection's peer, so dead tokens are
+    // rejected at the password stage, before any repo context exists.
     async fn auth_password(&mut self, _user: &str, password: &str) -> Result<Auth, Self::Error> {
-        match token::authenticate(&self.state.pool, password).await {
-            Some(uid) => {
-                self.user = Some(uid);
+        match token::authenticate(&self.state.pool, password, self.peer.map(|peer| peer.ip())).await
+        {
+            Some(auth) => {
+                self.auth = Some(auth);
                 Ok(Auth::Accept)
             }
             None => Ok(Auth::reject()),
@@ -348,7 +374,7 @@ impl Handler for SshHandler {
                         channel,
                         owner,
                         name,
-                        pusher: self.user,
+                        pusher: self.auth.as_ref().map(|auth| auth.user_id),
                         buf: Vec::new(),
                         done: false,
                     });

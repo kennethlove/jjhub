@@ -17,8 +17,7 @@ mod token_scope_authorize {
         use base64::Engine;
         format!(
             "Basic {}",
-            base64::engine::general_purpose::STANDARD
-                .encode(format!("x-access-token:{plaintext}"))
+            base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{plaintext}"))
         )
     }
 
@@ -30,16 +29,22 @@ mod token_scope_authorize {
                 "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         response
             .headers()
             .get_all(header::SET_COOKIE)
             .iter()
-            .find_map(|v| v.to_str().ok().and_then(|s| s.split(';').next()).map(String::from))
+            .find_map(|v| {
+                v.to_str()
+                    .ok()
+                    .and_then(|s| s.split(';').next())
+                    .map(String::from)
+            })
             .expect("session cookie")
     }
 
@@ -48,12 +53,7 @@ mod token_scope_authorize {
         server::session::csrf_token(SECRET.as_bytes(), value)
     }
 
-    async fn create_repo(
-        pool: &sqlx::PgPool,
-        root: &tempfile::TempDir,
-        cookie: &str,
-        name: &str,
-    ) {
+    async fn create_repo(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str, name: &str) {
         let mut request = Request::post("/repos")
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(format!(
@@ -61,11 +61,14 @@ mod token_scope_authorize {
                 csrf(cookie).await
             )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
@@ -148,7 +151,7 @@ mod token_scope_authorize {
     #[sqlx::test(migrations = "./migrations")]
     async fn read_only_token_cannot_push_to_create(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
-        let cookie = register(&pool, &root).await;
+        let _cookie = register(&pool, &root).await;
         let token = server::token::create(&pool, alice_id(&pool).await, "ro").await;
         set_scopes(&pool, token.id, "read").await;
 
@@ -239,7 +242,10 @@ mod token_scope_authorize {
 
         let mut handler =
             server::ssh::SshHandler::with_storage(pool, root.path().to_str().unwrap().to_string());
-        let auth = handler.auth_password("tokentest", &plaintext).await.unwrap();
+        let auth = handler
+            .auth_password("tokentest", &plaintext)
+            .await
+            .unwrap();
         assert!(matches!(auth, russh::server::Auth::Accept));
 
         let denied = handler

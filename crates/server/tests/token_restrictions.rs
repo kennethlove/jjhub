@@ -16,8 +16,7 @@ mod token_restrictions {
         use base64::Engine;
         format!(
             "Basic {}",
-            base64::engine::general_purpose::STANDARD
-                .encode(format!("x-access-token:{plaintext}"))
+            base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{plaintext}"))
         )
     }
 
@@ -29,16 +28,22 @@ mod token_restrictions {
                 "email=alice%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
             ))
             .unwrap();
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         response
             .headers()
             .get_all(header::SET_COOKIE)
             .iter()
-            .find_map(|v| v.to_str().ok().and_then(|s| s.split(';').next()).map(String::from))
+            .find_map(|v| {
+                v.to_str()
+                    .ok()
+                    .and_then(|s| s.split(';').next())
+                    .map(String::from)
+            })
             .expect("session cookie")
     }
 
@@ -55,11 +60,14 @@ mod token_restrictions {
                 csrf(cookie).await
             )))
             .unwrap();
-        request.headers_mut().insert("cookie", cookie.parse().unwrap());
-        let response = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
-            .oneshot(request)
-            .await
-            .unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
@@ -74,9 +82,9 @@ mod token_restrictions {
             .header(header::AUTHORIZATION, basic(token))
             .body(Body::empty())
             .unwrap();
-        request.extensions_mut().insert(ConnectInfo(
-            std::net::SocketAddr::from((ip, 0)),
-        ));
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(std::net::SocketAddr::from((ip, 0))));
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -95,9 +103,9 @@ mod token_restrictions {
             .header(header::AUTHORIZATION, basic(token))
             .body(Body::empty())
             .unwrap();
-        request.extensions_mut().insert(ConnectInfo(
-            std::net::SocketAddr::from((ip, 0)),
-        ));
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(std::net::SocketAddr::from((ip, 0))));
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -142,11 +150,10 @@ mod token_restrictions {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(&pool, &root).await;
         create_repo(&pool, &root, &cookie).await;
-        let user_id: uuid::Uuid =
-            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let dead = server::token::create(&pool, user_id, "dead").await;
         sqlx::query("UPDATE tokens SET expires_at = now() - interval '1 minute' WHERE id = $1")
             .bind(dead.id)
@@ -170,11 +177,10 @@ mod token_restrictions {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(&pool, &root).await;
         create_repo(&pool, &root, &cookie).await;
-        let user_id: uuid::Uuid =
-            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let listed = server::token::create(&pool, user_id, "listed").await;
         sqlx::query("UPDATE tokens SET allowed_inets = '{127.0.0.1}'::inet[] WHERE id = $1")
             .bind(listed.id)
@@ -225,25 +231,76 @@ mod token_restrictions {
             .await
             .unwrap();
 
-        let mut handler = server::ssh::SshHandler::with_storage(pool, root.path().to_str().unwrap().to_string())
-            .with_peer(std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
-        let auth = handler.auth_password("sshexpuser", &live.plaintext).await.unwrap();
-        assert!(matches!(auth, russh::server::Auth::Accept), "live token accepted");
+        let mut handler =
+            server::ssh::SshHandler::with_storage(pool, root.path().to_str().unwrap().to_string())
+                .with_peer(std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+        let auth = handler
+            .auth_password("sshexpuser", &live.plaintext)
+            .await
+            .unwrap();
+        assert!(
+            matches!(auth, russh::server::Auth::Accept),
+            "live token accepted"
+        );
 
-        let auth = handler.auth_password("sshexpuser", &dead.plaintext).await.unwrap();
-        assert!(!matches!(auth, russh::server::Auth::Accept), "expired token rejected");
+        let auth = handler
+            .auth_password("sshexpuser", &dead.plaintext)
+            .await
+            .unwrap();
+        assert!(
+            !matches!(auth, russh::server::Auth::Accept),
+            "expired token rejected"
+        );
 
-        let auth = handler.auth_password("sshexpuser", &listed.plaintext).await.unwrap();
+        let auth = handler
+            .auth_password("sshexpuser", &listed.plaintext)
+            .await
+            .unwrap();
         assert!(
             matches!(auth, russh::server::Auth::Accept),
             "on-list IP accepted"
         );
 
         handler.set_peer(std::net::SocketAddr::from(([10, 9, 9, 7], 0)));
-        let auth = handler.auth_password("sshexpuser", &listed.plaintext).await.unwrap();
+        let auth = handler
+            .auth_password("sshexpuser", &listed.plaintext)
+            .await
+            .unwrap();
         assert!(
             !matches!(auth, russh::server::Auth::Accept),
             "off-list IP rejected at the password stage"
         );
     }
+}
+
+/// story: e22s02 — a row minted before the lookup migration (no
+/// lookup_hash) is still honored by the legacy argon2 verify scan.
+#[sqlx::test(migrations = "./migrations")]
+async fn legacy_row_without_lookup_hash_still_authenticates(pool: sqlx::PgPool) {
+    sqlx::query("INSERT INTO users (email, password_hash, handle) VALUES ('legacy@example.com', 'x', 'legacy')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'legacy'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let plaintext = "jjh_".to_string() + &"a".repeat(96);
+    // argon2 PHC of the same shape create() stores; params come from
+    // the PHC string, so password-hash params verify fine here.
+    let token_hash = server::password::hash_password(&plaintext);
+    sqlx::query("INSERT INTO tokens (user_id, label, token_hash, prefix) VALUES ($1, 'legacy', $2, 'jjh_aaaaaa')")
+        .bind(user_id)
+        .bind(token_hash)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let auth = server::token::authenticate(&pool, &plaintext, None)
+        .await
+        .expect("legacy row authenticates via the verify scan");
+    assert_eq!(auth.user_id, user_id);
+
+    let none = server::token::authenticate(&pool, "jjh_deadbeef", None).await;
+    assert!(none.is_none());
 }
