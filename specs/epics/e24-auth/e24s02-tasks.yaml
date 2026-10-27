@@ -1,0 +1,55 @@
+story_id: e24s02
+title: "Reset request: GET card, POST token, no-enumeration sent state"
+status: completed
+bcps: 3
+tasks:
+  - id: e24s02t1
+    description: >
+      RED test: GET /reset serves the reset-request card with the
+      no-enumeration lede and the htmx post link
+    verify: "cargo test -p server --test auth_reset"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s02t2
+    description: >
+      reset.html/reset_card.html, reset_form handler, lib.rs route,
+      render.rs registration, forgot-password link on login card
+    verify: "cargo test -p server --test auth_reset auth_htmx"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s02t3
+    description: >
+      RED test: POST /reset issues a one-hour hashed token, logs the
+      link, and answers known/unknown addresses identically
+    verify: "cargo test -p server --test auth_reset"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s02t4
+    description: >
+      request_reset handler, sent shells, Action::Login rate-limit
+      layer on POST /reset, eprintln delivery
+    verify: "cargo test -p server --test auth_reset rate_limit_login"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["auth"]
+  - id: e24s02t5
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]
