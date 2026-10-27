@@ -7,6 +7,7 @@ pub mod merge;
 pub mod middleware;
 pub mod mr;
 pub mod password;
+pub mod rate_limit;
 pub mod receive_guard;
 pub mod render;
 pub mod repo;
@@ -34,6 +35,9 @@ pub struct AppState {
     pub kata_public_base: String,
     // story: e17s02 — SSH listener config; gates the ssh:// clone line.
     pub ssh: crate::ssh::SshConfig,
+    // story: e20s01 — in-memory rate limiter; None in every test
+    // constructor so handler behavior is unchanged.
+    pub rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
 }
 
 #[derive(Clone, Copy)]
@@ -42,7 +46,35 @@ pub struct CurrentUser(pub uuid::Uuid);
 pub fn app(pool: PgPool) -> Router {
     let storage_root =
         std::env::var("JJHUB_STORAGE_ROOT").unwrap_or_else(|_| "./data/repos".into());
-    app_with_storage(pool, storage_root)
+    // story: e20s01 — production constructor builds the limiter from
+    // env; JJHUB_RATE_LIMIT unset keeps it off.
+    app_with_limiter(
+        pool,
+        storage_root,
+        crate::rate_limit::RateLimiter::limiter_from_env(),
+    )
+}
+
+/// story: e20s01 — explicit limiter wiring for tests; reads the same
+/// envs as app_with_storage/app_with_kata.
+pub fn app_with_limiter(
+    pool: PgPool,
+    storage_root: impl Into<String>,
+    rate_limiter: Option<crate::rate_limit::RateLimiter>,
+) -> Router {
+    let kata_upstream =
+        std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    let kata_public_base = std::env::var("KATA_PUBLIC_BASE").unwrap_or_default();
+    let state = AppState {
+        pool,
+        session_secret: session_secret_from_env(),
+        storage_root: storage_root.into(),
+        kata_upstream,
+        kata_public_base,
+        ssh: crate::ssh::SshConfig::from_env(),
+        rate_limiter: rate_limiter.map(crate::rate_limit::share),
+    };
+    app_from_state(state)
 }
 
 pub fn app_with_storage(pool: PgPool, storage_root: String) -> Router {
@@ -109,7 +141,12 @@ pub fn app_with_ssh(
         kata_upstream,
         kata_public_base,
         ssh,
+        rate_limiter: None,
     };
+    app_from_state(state)
+}
+
+fn app_from_state(state: AppState) -> Router {
     let protected = Router::new()
         .route("/settings", get(routes::settings))
         .route("/settings/tokens", post(routes::create_token))
@@ -148,7 +185,15 @@ pub fn app_with_ssh(
             "/register",
             get(routes::register_form).post(routes::register),
         )
-        .route("/login", get(routes::login_form).post(routes::login))
+        .route(
+            "/login",
+            get(routes::login_form).post(routes::login).layer(
+                axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    crate::rate_limit::rate_limit_mw,
+                ),
+            ),
+        )
         .route(
             "/logout",
             post(routes::logout).layer(axum::middleware::from_fn_with_state(

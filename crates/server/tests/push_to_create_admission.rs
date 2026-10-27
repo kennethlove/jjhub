@@ -36,6 +36,8 @@ async fn owned_receive_pack_creates_private(pool: sqlx::PgPool) {
         "newproj",
         GitOp::ReceivePack,
         Some(alice),
+        "unknown",
+        None,
     )
     .await
     .expect("create failures are 500s, not silent falls");
@@ -73,6 +75,8 @@ async fn upload_pack_missing_stays_404(pool: sqlx::PgPool) {
         "nothing",
         GitOp::UploadPack,
         Some(alice),
+        "unknown",
+        None,
     )
     .await
     .unwrap();
@@ -93,6 +97,8 @@ async fn foreign_namespace_stays_404(pool: sqlx::PgPool) {
         "squat",
         GitOp::ReceivePack,
         Some(alice),
+        "unknown",
+        None,
     )
     .await
     .unwrap();
@@ -115,6 +121,8 @@ async fn anonymous_receive_pack_stays_404(pool: sqlx::PgPool) {
         "alice",
         "anon",
         GitOp::ReceivePack,
+        None,
+        "unknown",
         None,
     )
     .await

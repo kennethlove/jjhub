@@ -1,6 +1,6 @@
 story_id: e20s01
 title: "Token bucket core, AppState Option, login row"
-status: failing
+status: passing
 bcps: 4
 tasks:
   - id: e20s01t1
@@ -9,7 +9,7 @@ tasks:
       JJHUB_RATE_LIMIT off default
     verify: "cargo test -p server rate_limit_config"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       middleware; None bypasses; 429 + Retry-After
     verify: "cargo test -p server rate_limit_middleware"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "login POST per-IP row per policy table"
     verify: "cargo test -p server rate_limit_login"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -41,7 +41,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

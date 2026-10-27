@@ -1,5 +1,5 @@
-// story: e01s01
-use server::app;
+// story: e01s01 — main wires one shared rate limiter into both
+// transports (app_with_limiter is referenced fully-qualified below).
 
 #[tokio::main]
 async fn main() {
@@ -32,6 +32,12 @@ async fn main() {
     // with the template's ssh:// gate; binds before the HTTP listener so a
     // port conflict fails boot loudly. JJHUB_SSH_ENABLED=0 is the
     // HTTP-only opt-out.
+    // story: e20s03 — ONE rate limiter for both transports: SSH gets a
+    // shared handle (same bucket map), the HTTP app keeps the owner.
+    let limiter = server::rate_limit::RateLimiter::limiter_from_env();
+    let ssh_limiter = limiter
+        .as_ref()
+        .map(|l| server::rate_limit::share(l.clone()));
     let ssh_cfg = server::ssh::SshConfig::from_env();
     if ssh_cfg.enabled {
         let ssh = server::ssh::SshListener::bind_addr(
@@ -39,6 +45,7 @@ async fn main() {
             &ssh_cfg.host_key_dir,
             pool.clone(),
             storage_root.clone(),
+            ssh_limiter,
         )
         .await
         .unwrap_or_else(|e| panic!("failed to start SSH listener: {e}"));
@@ -50,9 +57,15 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .unwrap_or_else(|e| panic!("failed to bind 0.0.0.0:{port}: {e}"));
-    axum::serve(listener, app(pool))
-        .await
-        .expect("server error");
+    // story: e20s01 — connect_info so the login rate limiter can key
+    // on the client IP.
+    axum::serve(
+        listener,
+        server::app_with_limiter(pool, storage_root, limiter)
+            .into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .expect("server error");
 }
 
 /// story: e03s01 — hook body: parse ref updates, read each new head's

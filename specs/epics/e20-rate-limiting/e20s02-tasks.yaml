@@ -1,6 +1,6 @@
 story_id: e20s02
 title: "Policy table routes — push, create, token HTTP 429"
-status: failing
+status: passing
 bcps: 4
 tasks:
   - id: e20s02t1
@@ -9,7 +9,7 @@ tasks:
       dimensions, defaults and env knobs per planning-context
     verify: "cargo test -p server rate_limit_policy"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -21,7 +21,7 @@ tasks:
       429 + Retry-After past budget; reads untouched
     verify: "cargo test -p server rate_limit_routes"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "push-to-create charges the create budget"
     verify: "cargo test -p server rate_limit_push_create"
     risk: P1
-    status: failing
+    status: passing
     allure:
       severity: high
       categories:
@@ -41,7 +41,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
