@@ -13,11 +13,7 @@ mod auth_reset_password {
             .unwrap()
     }
 
-    async fn post(
-        pool: sqlx::PgPool,
-        path: &str,
-        form: &str,
-    ) -> axum::response::Response {
+    async fn post(pool: sqlx::PgPool, path: &str, form: &str) -> axum::response::Response {
         let request = Request::post(path)
             .header("content-type", "application/x-www-form-urlencoded")
             .body(Body::from(form.to_owned()))
@@ -33,23 +29,16 @@ mod auth_reset_password {
     }
 
     async fn register(pool: &sqlx::PgPool, email: &str) {
-        let form =
-            format!("email={email}&password=oldpassword1&password_confirm=oldpassword1");
+        let form = format!("email={email}&password=oldpassword1&password_confirm=oldpassword1");
         post(pool.clone(), "/register", &form).await;
     }
 
-    async fn mint(
-        pool: &sqlx::PgPool,
-        email: &str,
-        lifetime: &str,
-        used: bool,
-    ) -> String {
-        let user_id: String =
-            sqlx::query_scalar("SELECT id::text FROM users WHERE email = $1")
-                .bind(email)
-                .fetch_one(pool)
-                .await
-                .unwrap();
+    async fn mint(pool: &sqlx::PgPool, email: &str, lifetime: &str, used: bool) -> String {
+        let user_id: String = sqlx::query_scalar("SELECT id::text FROM users WHERE email = $1")
+            .bind(email)
+            .fetch_one(pool)
+            .await
+            .unwrap();
         let (plaintext, _) = server::token::generate();
         let token_hash = server::token::hash(&plaintext);
         sqlx::query(
@@ -106,9 +95,7 @@ mod auth_reset_password {
         let response = post(
             pool.clone(),
             "/reset-password",
-            &format!(
-                "token={token}&password=newpassword9&password_confirm=newpassword9"
-            ),
+            &format!("token={token}&password=newpassword9&password_confirm=newpassword9"),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -117,19 +104,25 @@ mod auth_reset_password {
         let login = |pw: &'static str| {
             let pool = pool.clone();
             async move {
-                post(pool, "/login", &format!("email=rotate%40example.com&password={pw}")).await
+                post(
+                    pool,
+                    "/login",
+                    &format!("email=rotate%40example.com&password={pw}"),
+                )
+                .await
             }
         };
-        assert_eq!(login("oldpassword1").await.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            login("oldpassword1").await.status(),
+            StatusCode::UNAUTHORIZED
+        );
         assert_eq!(login("newpassword9").await.status(), StatusCode::SEE_OTHER);
 
         // the link is single-use
         let replay = post(
             pool.clone(),
             "/reset-password",
-            &format!(
-                "token={token}&password=anotherpass1&password_confirm=anotherpass1"
-            ),
+            &format!("token={token}&password=anotherpass1&password_confirm=anotherpass1"),
         )
         .await;
         assert_eq!(replay.status(), StatusCode::BAD_REQUEST);
@@ -151,7 +144,12 @@ mod auth_reset_password {
         assert!(html.contains("passwords do not match"), "{html}");
 
         // old password still works: nothing burned the link
-        let login = post(pool.clone(), "/login", "email=mismatch%40example.com&password=oldpassword1").await;
+        let login = post(
+            pool.clone(),
+            "/login",
+            "email=mismatch%40example.com&password=oldpassword1",
+        )
+        .await;
         assert_eq!(login.status(), StatusCode::SEE_OTHER);
     }
 }

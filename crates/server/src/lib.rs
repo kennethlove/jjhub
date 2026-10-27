@@ -204,6 +204,10 @@ fn app_from_state(state: AppState) -> Router {
             ),
         )
         .route(
+            "/reset-password",
+            get(routes::reset_password_form).post(routes::set_new_password),
+        )
+        .route(
             "/logout",
             post(routes::logout).layer(axum::middleware::from_fn_with_state(
                 state.clone(),

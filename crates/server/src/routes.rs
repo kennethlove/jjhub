@@ -253,6 +253,97 @@ pub async fn request_reset(
 }
 
 #[derive(Deserialize)]
+pub struct ResetPasswordQuery {
+    token: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordForm {
+    token: String,
+    password: String,
+    password_confirm: String,
+}
+
+const RESET_REFUSED: &str = "This reset link is invalid or expired.";
+
+fn reset_password_page(error: &str, token: &str) -> String {
+    let mut context = page_context(None, "");
+    context.insert("error", error);
+    context.insert("token", token);
+    crate::render::render("password_reset.html", &context)
+}
+
+// story: e24s03 — GET /reset-password?token=... renders the set-password
+// form only while the link is unexpired and unused
+pub async fn reset_password_form(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<ResetPasswordQuery>,
+) -> Response {
+    match crate::token::find_reset(&state.pool, &query.token).await {
+        Some(_) => (StatusCode::OK, Html(reset_password_page("", &query.token))).into_response(),
+        None => (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response(),
+    }
+}
+
+// story: e24s03 — validate, burn the link, then store the new password
+pub async fn set_new_password(
+    State(state): State<AppState>,
+    Form(form): Form<ResetPasswordForm>,
+) -> Response {
+    let Some((token_id, user_id)) = crate::token::find_reset(&state.pool, &form.token).await else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response();
+    };
+
+    if form.password != form.password_confirm {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(reset_password_page("passwords do not match", &form.token)),
+        )
+            .into_response();
+    }
+    if form.password.chars().count() < domain::MIN_PASSWORD_LEN {
+        let too_short = domain::RegistrationError::PasswordTooShort.to_string();
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(reset_password_page(&too_short, &form.token)),
+        )
+            .into_response();
+    }
+
+    if !crate::token::consume_reset(&state.pool, token_id).await {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html(reset_password_page(RESET_REFUSED, "")),
+        )
+            .into_response();
+    }
+
+    let password_hash = hash_password(&form.password);
+    if let Err(err) = sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+        .bind(&password_hash)
+        .bind(user_id)
+        .execute(&state.pool)
+        .await
+    {
+        eprintln!("jjhub: store new password: {err}");
+    }
+
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/login".to_string())],
+    )
+        .into_response()
+}
+
+#[derive(Deserialize)]
 pub struct LoginForm {
     email: String,
     password: String,
