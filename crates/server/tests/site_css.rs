@@ -58,4 +58,20 @@ mod site_css {
             "base type must use the DESIGN.md typeface: {body}"
         );
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn site_css_clone_copy_button_has_visible_focus(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let (_, _, body) = get_stylesheet(&pool, &root).await;
+        // the copy button is an interactive control; keyboard focus must be
+        // visible and its disabled state must not be mistakable for enabled
+        assert!(
+            body.contains(".copy-btn:focus-visible"),
+            "copy button focus ring missing: {body}"
+        );
+        assert!(
+            body.contains(".copy-btn:disabled"),
+            "copy button disabled state missing: {body}"
+        );
+    }
 }

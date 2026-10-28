@@ -139,4 +139,23 @@ mod repo_design {
             "no form for anonymous"
         );
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn clone_command_copies(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, &root).await;
+        create_repo(&pool, &root, &cookie).await;
+
+        // the clone command is one click to the clipboard
+        let body = repo_page(&pool, &root, &cookie).await;
+        assert!(body.contains("class=\"clone-row\""), "clone row");
+        assert!(
+            body.contains("data-target=\"clone-command\""),
+            "copy button targets the clone command"
+        );
+        assert!(
+            body.contains("navigator.clipboard.writeText"),
+            "copies to clipboard"
+        );
+    }
 }

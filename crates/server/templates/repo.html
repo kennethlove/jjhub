@@ -48,8 +48,11 @@
       </form>
     </details>
     {% endif %}
-    <pre class="code-block">jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
+    <div class="clone-row">
+      <pre id="clone-command" class="code-block">jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
 jj git push --all</pre>
+      <button type="button" class="copy-btn" aria-label="Copy clone command" data-target="clone-command" onclick="navigator.clipboard.writeText(document.getElementById('clone-command').textContent).then(() => { this.textContent = 'Copied'; setTimeout(() => { this.textContent = 'Copy'; }, 2000); })">Copy</button>
+    </div>
   </aside>
 
   <section class="files-panel">

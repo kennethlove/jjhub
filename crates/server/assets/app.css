@@ -1650,6 +1650,55 @@ fieldset.field legend {
   color: var(--color-secondary);
 }
 
+/* clone row + copy control — story: e26s01 */
+.clone-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.clone-row .code-block {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  /* the clone URL is one unbreakable run; wrap it so the About rail
+     (and the whole page) fits a 390px viewport instead of forcing a
+     696px min-content grid track. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* .code-block is overflow-x:auto; as a flex item that resists shrink
+     and nudges the row out of the page gutter. The URL wraps now, so
+     scroll is dead weight. */
+  overflow-x: hidden;
+}
+
+.copy-btn {
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--text-label-sm);
+  color: var(--color-secondary);
+  cursor: pointer;
+  transition: color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.copy-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-secondary);
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.copy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
