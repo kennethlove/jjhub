@@ -64,11 +64,14 @@ mod repo_design {
         app(pool.clone(), root).oneshot(request).await.unwrap();
     }
 
-    async fn repo_page(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> String {
-        let request = Request::get("/alice/demo")
+    async fn repo_page(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) -> String {
+        let mut request = Request::get("/alice/demo")
             .header("host", "example.test:3210")
             .body(Body::empty())
             .unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
         let response = app(pool.clone(), root).oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         body_of(response).await
@@ -80,7 +83,7 @@ mod repo_design {
         let cookie = register(&pool, &root).await;
         create_repo(&pool, &root, &cookie).await;
 
-        let body = repo_page(&pool, &root).await;
+        let body = repo_page(&pool, &root, &cookie).await;
 
         // header: wordmark eyebrow, repo title, status pill,
         // visibility note, clone command
@@ -106,20 +109,34 @@ mod repo_design {
         let cookie = register(&pool, &root).await;
         create_repo(&pool, &root, &cookie).await;
 
-        let body = repo_page(&pool, &root).await;
+        let body = repo_page(&pool, &root, &cookie).await;
 
         // the snippet stays (pinned by clone_snippet_token)
         assert!(body.contains("jj git remote add origin"), "clone snippet");
         assert!(body.contains("class=\"code-block\""), "code block");
 
-        // the token form posts to the scoped mint endpoint
+        // the token form posts to the scoped mint endpoint (viewer is
+        // logged in, so generate is true)
         assert!(body.contains("action=\"/alice/demo/tokens\""), "token form");
         assert!(body.contains("name=\"label\""), "token label input");
+        assert!(body.contains("name=\"_csrf\""), "token csrf input");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn anonymous_placeholder_survives(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, &root).await;
+        create_repo(&pool, &root, &cookie).await;
+
+        // no cookie -> anonymous viewer
+        let body = repo_page(&pool, &root, "").await;
 
         // logged-out placeholder in the snippet
+        assert!(body.contains("x-access-token:&lt;TOKEN&gt;"), "placeholder");
+        // anonymous viewers get no generate button
         assert!(
-            body.contains("x-access-token:&lt;TOKEN&gt;"),
-            "placeholder"
+            !body.contains("action=\"/alice/demo/tokens\""),
+            "no form for anonymous"
         );
     }
 }

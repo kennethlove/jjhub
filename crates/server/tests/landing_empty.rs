@@ -65,9 +65,15 @@ mod landing_empty {
             !html.contains(r#"class="file-list""#),
             "no entry list rendered: {html}"
         );
-        assert!(
-            !html.contains("/alice/demo/tree") && !html.contains("/alice/demo/blob"),
-            "no dead tree or blob links: {html}"
-        );
+        // the file-list block must carry no tree/blob entry links (the
+        // page's Browse tab links to /tree, but an empty repo lists no
+        // entries and thus no dead per-commit blob/tree links)
+        if let Some(list) = html.split(r#"class="file-list""#).nth(1) {
+            let block = list.split("</ul>").next().unwrap_or("");
+            assert!(
+                !block.contains("/alice/demo/tree") && !block.contains("/alice/demo/blob"),
+                "no dead tree or blob links in the entry list: {html}"
+            );
+        }
     }
 }
