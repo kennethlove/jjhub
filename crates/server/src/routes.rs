@@ -507,12 +507,28 @@ pub async fn settings(
                 })
                 .unwrap_or_default();
             context.insert("pw_error", &pw_error);
+            // story: e25s04 — one-shot key left by a failed
+            // delete-account post so #delete-2 reopens with copy
+            let del_error = jar
+                .get("del_err")
+                .map(|c| match c.value() {
+                    "wrong" => "Password is incorrect.".to_string(),
+                    _ => String::new(),
+                })
+                .unwrap_or_default();
+            context.insert("del_error", &del_error);
             let mut response =
                 Html(crate::render::render("settings.html", &context)).into_response();
             if jar.get("pw_err").is_some() {
                 response.headers_mut().insert(
                     header::SET_COOKIE,
                     "pw_err=; Path=/; Max-Age=0".parse().unwrap(),
+                );
+            }
+            if jar.get("del_err").is_some() {
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    "del_err=; Path=/; Max-Age=0".parse().unwrap(),
                 );
             }
             response
@@ -616,6 +632,58 @@ pub async fn change_password(
     }
 }
 
+// story: e25s04 — danger-zone delete: wrong password keeps the
+// account and reopens step two; success cascades rows (FK), clears
+// the session, and lands on the visitor home page. Disk reaping
+// stays a separate follow-up (story).
+#[derive(Deserialize)]
+pub struct DeleteAccountForm {
+    password: String,
+}
+
+pub async fn delete_account(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<DeleteAccountForm>,
+) -> Response {
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    match stored {
+        Some(hash) if verify_password(&form.password, &hash) => {}
+        _ => {
+            let jar = jar.add(Cookie::new("del_err", "wrong".to_string()));
+            return (jar, Redirect::to("/settings#delete-2")).into_response();
+        }
+    }
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(current.0)
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(_) => (
+            StatusCode::SEE_OTHER,
+            [
+                (
+                    header::SET_COOKIE,
+                    format!("{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"),
+                ),
+                (header::LOCATION, "/".to_string()),
+            ],
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
 // story: e25s03 — scope the update to the caller: unknown and
 // foreign ids answer the same 404
 // WHY: parse here — workspace uuid has no serde feature, so Path

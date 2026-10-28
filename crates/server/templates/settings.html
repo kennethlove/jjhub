@@ -141,6 +141,7 @@
     </div>
   </div>
   <div class="state" id="delete-2">
+    {% if del_error %}<div class="alert-error" role="alert">{{ del_error }}</div>{% endif %}
     <form method="post" action="/settings/account">
       <input type="hidden" name="_csrf" value="{{ csrf }}">
       <div class="panel-body">

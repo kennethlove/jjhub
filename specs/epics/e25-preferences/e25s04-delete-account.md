@@ -30,6 +30,7 @@ recorded in the story notes, not this route.
 
 ## 5. Verification
 
-`cargo test --workspace` (delete tests: wrong password 401/422,
+`cargo test --workspace` (delete tests: wrong password keeps the
+account and reopens step two via 303 + one-shot del_err cookie,
 success 303 + user gone + tokens gone + old session rejected);
 CDP walk of the two :target confirm states.

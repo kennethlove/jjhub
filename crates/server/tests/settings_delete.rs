@@ -145,10 +145,11 @@ mod settings_delete {
         let res = get(pool.clone(), "/settings", &session).await;
         assert_ne!(res.status(), StatusCode::OK, "old session rejected");
 
-        let gone: i64 =
-            sqlx::query_scalar("SELECT count(*) FROM users WHERE email = 'del@example.com'::citext")
-                .fetch_one(&pool)
-                .await?;
+        let gone: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM users WHERE email = 'del@example.com'::citext",
+        )
+        .fetch_one(&pool)
+        .await?;
         assert_eq!(gone, 0, "user row deleted");
         Ok(())
     }
