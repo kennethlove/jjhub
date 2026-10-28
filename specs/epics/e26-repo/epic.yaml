@@ -1,0 +1,11 @@
+epic: e26
+slug: repo
+title: "Repo landing page — approved design: header, tabs, split grid"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e26s01
+    title: "repo landing shell per specs/designs/repo.html with
+      pinned behaviours preserved"
+    bcps: 3
+    delta: ADDED
