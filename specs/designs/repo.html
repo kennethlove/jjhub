@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kennethlove / jjhub · jjhub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   jjhub — repository landing view (owner/name).
+   Tokens only (repo DESIGN.md). Commit-ledger look:
+   hairline rules, mono data, background shifts. No shadows.
+   One :target state (token reveal). No JavaScript.
+   ============================================================ */
+:root {
+  --primary: #16211C;
+  --secondary: #4A574F;
+  --tertiary: #157F52;
+  --tertiary-hover: #116944;
+  --tertiary-pressed: #0D5436;
+  --neutral: #F4F6F4;
+  --surface: #FBFCFB;
+  --surface-sunken: #ECEFEC;
+  --surface-inverse: #1D2A24;
+  --border: #DCE2DD;
+  --on-accent: #F7FAF8;
+  --on-inverse: #E7ECE8;
+  --error: #A32218;
+  --error-surface: #FBEDEC;
+
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --headline-2: 39px;
+  --body: 16px;
+  --body-sm: 14px;
+  --label: 14px;
+  --label-sm: 12px;
+  --data: 14px;
+  --data-sm: 12px;
+
+  --dur: 150ms;
+  --ease: ease-out;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--neutral);
+  color: var(--primary);
+  font-family: var(--sans);
+  font-size: var(--body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: var(--mono); }
+
+/* ---------- shared header ---------- */
+.site-header {
+  max-width: 72rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.wordmark {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-nav { display: flex; align-items: center; gap: 24px; }
+.site-nav a {
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.site-nav a:hover { color: var(--primary); border-bottom-color: var(--border); }
+.site-nav a:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: var(--label);
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+.btn:disabled { cursor: not-allowed; }
+
+.btn-primary { background: var(--tertiary); color: var(--on-accent); border-color: var(--tertiary); }
+.btn-primary:hover { background: var(--tertiary-hover); border-color: var(--tertiary-hover); }
+.btn-primary:active { background: var(--tertiary-pressed); border-color: var(--tertiary-pressed); }
+.btn-primary:disabled { background: var(--surface-sunken); border-color: var(--border); color: var(--secondary); }
+
+.btn-secondary { background: var(--surface); color: var(--primary); border-color: var(--border); }
+.btn-secondary:hover { background: var(--surface-sunken); border-color: var(--secondary); }
+.btn-secondary:active { background: var(--border); }
+.btn-secondary:disabled { background: var(--surface-sunken); color: var(--secondary); border-color: var(--border); }
+
+/* ---------- repo head + tab band ---------- */
+.repo-band { border-bottom: 1px solid var(--border); }
+.band-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 48px 32px 0;
+}
+.repo-title {
+  margin: 0;
+  font-size: var(--headline-2);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.repo-title .owner { color: var(--secondary); font-weight: 500; }
+.repo-title .slash { color: var(--border); font-weight: 400; padding: 0 8px; }
+.repo-title .name { color: var(--primary); }
+.repo-desc { margin: 16px 0 0; font-size: var(--body); color: var(--secondary); }
+.repo-meta {
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--data-sm);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.repo-meta .vis { color: var(--tertiary-pressed); font-weight: 500; }
+.repo-meta .sep { color: var(--secondary); }
+
+.repo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 24px;
+  margin-bottom: -1px;
+}
+.repo-tabs a {
+  font-size: var(--label);
+  font-weight: 500;
+  color: var(--secondary);
+  text-decoration: none;
+  padding: 8px 0;
+  border-bottom: 2px solid transparent;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.repo-tabs a:hover { color: var(--primary); border-bottom-color: var(--border); }
+.repo-tabs a:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; border-radius: 4px; }
+.repo-tabs a:active { color: var(--tertiary-pressed); }
+.repo-tabs a.is-active { color: var(--primary); border-bottom-color: var(--tertiary); }
+
+/* ---------- layout ---------- */
+.repo-main {
+  flex: 1 0 auto;
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 32px 64px;
+}
+.repo-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 48px;
+  align-items: start;
+}
+
+/* ---------- clone panel ---------- */
+.clone-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+.clone-panel h2 {
+  margin: 0 0 16px;
+  font-size: var(--body);
+  font-weight: 600;
+}
+.code-field {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: var(--data-sm);
+  color: var(--primary);
+  user-select: all;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.code-field + .code-field { margin-top: 8px; }
+.clone-note {
+  margin: 8px 0 24px;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+
+/* logged-out placeholder inside the jj remote snippet */
+.token-ph {
+  color: var(--secondary);
+  font-weight: 500;
+  border-bottom: 1px dashed var(--secondary);
+}
+.token-actions { margin-top: 16px; }
+
+/* the one interactive state: :target reveals the one-time strip */
+.token-strip { display: none; }
+#token-generated:target .token-default { display: none; }
+#token-generated:target .token-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--tertiary);
+  border-radius: 4px;
+  padding: 8px 16px;
+}
+.token-strip .code-field { flex: 1 1 auto; }
+
+/* ---------- section headings ---------- */
+.section { margin: 48px 0 0; }
+/* first section follows the tab bar — the 48px main padding is the gap */
+.repo-cols > div > .section:first-child { margin-top: 0; }
+.section h2 {
+  margin: 0;
+  font-size: var(--headline-2);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.protected-strip {
+  margin: 16px 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+.protected-strip code {
+  font-family: var(--mono);
+  font-size: var(--data);
+  font-weight: 500;
+  color: var(--tertiary-pressed);
+}
+
+/* ---------- ledger tables ---------- */
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ledger caption {
+  text-align: left;
+  padding: 0 0 8px;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+.ledger th {
+  text-align: left;
+  font-size: var(--label-sm);
+  font-weight: 500;
+  color: var(--primary);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+.ledger th.num { text-align: right; }
+.ledger td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--body-sm);
+  vertical-align: middle;
+}
+.ledger tr:last-child td { border-bottom: none; }
+.ledger tbody tr { transition: background-color var(--dur) var(--ease); }
+.ledger tbody tr:hover { background: var(--surface-sunken); }
+
+.cell-name { font-family: var(--mono); font-size: var(--data); font-weight: 500; }
+.cell-name a, .cell-changeid a {
+  color: var(--primary);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease);
+}
+.cell-name a:hover, .cell-changeid a:hover {
+  color: var(--tertiary-pressed);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cell-name a:focus-visible, .cell-changeid a:focus-visible {
+  outline: 2px solid var(--tertiary);
+  outline-offset: 2px;
+}
+.cell-type { color: var(--secondary); }
+.cell-size {
+  font-family: var(--mono);
+  font-size: var(--data-sm);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cell-changeid {
+  font-family: var(--mono);
+  font-size: var(--data);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cell-title { font-size: var(--body); }
+.cell-bookmark { font-family: var(--mono); font-size: var(--data-sm); color: var(--secondary); }
+
+.ledger-note {
+  margin: 8px 0 0;
+  font-size: var(--body-sm);
+  color: var(--secondary);
+}
+.quiet-line { margin: 8px 0 0; font-size: var(--body-sm); color: var(--secondary); }
+.quiet-line a {
+  color: var(--tertiary-pressed);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 4px;
+  transition: color var(--dur) var(--ease);
+}
+.quiet-line a:hover { color: var(--tertiary); }
+.quiet-line a:focus-visible { outline: 2px solid var(--tertiary); outline-offset: 2px; }
+
+/* ---------- status pills (landing ledger) ---------- */
+.pill {
+  display: inline-block;
+  font-size: var(--label-sm);
+  font-weight: 500;
+  border-radius: 9999px;
+  padding: 0 8px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.pill-open { color: var(--tertiary-pressed); background: var(--surface-sunken); border: 1px solid var(--tertiary); }
+.pill-merged { color: var(--secondary); background: var(--surface-sunken); border: 1px solid var(--border); }
+.pill-diverged {
+  color: var(--error);
+  background: var(--error-surface);
+  border: 1px solid var(--error);
+  font-family: var(--mono);
+  font-size: var(--data-sm);
+}
+
+/* ---------- designed states (rendered only when the route sets them) ---------- */
+.conflict-flag {
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  background: var(--error-surface);
+  color: var(--error);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  font-size: var(--body-sm);
+}
+.empty-repo {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+}
+.empty-repo p { margin: 0; font-size: var(--body); color: var(--secondary); }
+
+/* ---------- footer ---------- */
+.site-footer { background: var(--surface-inverse); color: var(--on-inverse); }
+.footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.footer-inner .wordmark { color: var(--on-inverse); }
+.footer-meta { font-family: var(--mono); font-size: var(--label-sm); color: var(--on-inverse); margin: 0; }
+
+@media (max-width: 900px) {
+  .repo-cols { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+}
+@media (max-width: 640px) {
+  .site-header, .band-inner, .repo-main, .footer-inner { padding-left: 16px; padding-right: 16px; }
+  .repo-title { font-size: 31px; }
+  .section h2 { font-size: 25px; }
+  .ledger th, .ledger td { padding: 8px; }
+  .cell-type { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="wordmark" href="index.html">jjhub</a>
+  <nav class="site-nav" aria-label="Primary">
+    <a href="repo.html" class="is-current" aria-current="page">Repositories</a>
+    <a href="auth.html">Log in</a>
+    <a href="auth.html#register">Create account</a>
+  </nav>
+</header>
+
+<div class="repo-band">
+  <div class="band-inner">
+    <h1 class="repo-title">
+      <span class="owner">kennethlove</span><span class="slash" aria-hidden="true">/</span><span class="name">jjhub</span>
+    </h1>
+    <p class="repo-desc">A forge built around Jujutsu.</p>
+    <p class="repo-meta">
+      <span class="vis">public</span>
+      <span class="sep" aria-hidden="true">·</span>
+      <span>trunk: trunk</span>
+      <span class="sep" aria-hidden="true">·</span>
+      <span>Last push 2 hours ago</span>
+    </p>
+    <nav class="repo-tabs" aria-label="Repository">
+      <a href="repo.html" class="is-active" aria-current="page">Files</a>
+      <a href="#mrs">Merge requests</a>
+      <a href="#search">Search</a>
+      <a href="#operations">Operations</a>
+      <a href="#settings">Settings</a>
+    </nav>
+  </div>
+</div>
+
+<main class="repo-main">
+  <div class="repo-cols">
+    <div>
+      <!-- designed, not shown: route sets trunk_conflicted — uncomment to render
+      <p class="conflict-flag" role="status">Trunk is in a conflict state.</p>
+      -->
+
+      <!-- ============ FILES ============ -->
+      <section class="section" aria-labelledby="files-heading">
+        <h2 id="files-heading">Files</h2>
+        <p class="protected-strip"><code>refs/heads/trunk</code> is protected — direct pushes are rejected.</p>
+
+        <table class="ledger">
+          <caption>Root tree at <span class="mono">8f2c91ab04de</span></caption>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+              <th scope="col" class="num">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-name"><a href="#github">.github/</a></td>
+              <td class="cell-type">dir</td>
+              <td class="cell-size">—</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#crates">crates/</a></td>
+              <td class="cell-type">dir</td>
+              <td class="cell-size">—</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#docs">docs/</a></td>
+              <td class="cell-type">dir</td>
+              <td class="cell-size">—</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#specs">specs/</a></td>
+              <td class="cell-type">dir</td>
+              <td class="cell-size">—</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#gitignore">.gitignore</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">184 B</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#cargo-lock">Cargo.lock</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">96.4 KB</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#cargo-toml">Cargo.toml</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">1.1 KB</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#dockerfile">Dockerfile</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">612 B</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#compose">docker-compose.yml</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">438 B</td>
+            </tr>
+            <tr>
+              <td class="cell-name"><a href="#readme">README.md</a></td>
+              <td class="cell-type">file</td>
+              <td class="cell-size">3.7 KB</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="quiet-line"><a href="#kata-browse">Browse (kata)</a> — opens the trunk head in the read-only viewer.</p>
+
+        <!-- designed, not shown: trunk has no commits — onboarding replaces the ledger, no dead links
+        <div class="empty-repo">
+          <p>No files yet — push your first commit.</p>
+        </div>
+        -->
+      </section>
+
+      <!-- ============ OPEN MERGE REQUESTS ============ -->
+      <section class="section" id="mrs" aria-labelledby="mrs-heading">
+        <h2 id="mrs-heading">Open merge requests</h2>
+
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th scope="col">Change</th>
+              <th scope="col">Title</th>
+              <th scope="col">Bookmark</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-changeid"><a href="#mr-kxqvmnzslqpa">kxqvmnzslqpa</a></td>
+              <td class="cell-title">Rate-limit policy on login</td>
+              <td class="cell-bookmark">login-throttle</td>
+              <td><span class="pill pill-open">Open</span></td>
+            </tr>
+            <tr>
+              <td class="cell-changeid"><a href="#mr-npvutofmzmrk">npvutofmzmrk</a></td>
+              <td class="cell-title">Push admission audit trail</td>
+              <td class="cell-bookmark">audit-log</td>
+              <td><span class="pill pill-open">Open</span></td>
+            </tr>
+            <tr>
+              <td class="cell-changeid"><a href="#mr-zbormlqtkyja">zbormlqtkyja</a></td>
+              <td class="cell-title">Revset search backend</td>
+              <td class="cell-bookmark">revset-search</td>
+              <td><span class="pill pill-open">Open</span></td>
+            </tr>
+            <tr>
+              <td class="cell-changeid"><a href="#mr-htxmwpvqkfrc">htxmwpvqkfrc</a> <span class="pill pill-diverged" title="Divergent change: two heads exist">diverged</span></td>
+              <td class="cell-title">Divergence mark on review revisions</td>
+              <td class="cell-bookmark">divergence-mark</td>
+              <td><span class="pill pill-open">Open</span></td>
+            </tr>
+            <tr>
+              <td class="cell-changeid"><a href="#mr-qmvzulkgnrfo">qmvzulkgnrfo</a></td>
+              <td class="cell-title">Conflict-tolerant push storage</td>
+              <td class="cell-bookmark">conflict-store</td>
+              <td><span class="pill pill-merged">Merged</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="ledger-note">Divergent changes have two heads — the review shows both revisions.</p>
+      </section>
+    </div>
+
+    <!-- ============ ADD THIS REPOSITORY ============ -->
+    <aside class="clone-panel" aria-labelledby="clone-heading">
+      <h2 id="clone-heading">Add this repository</h2>
+      <div class="code-field">jj git clone http://jjhub.example/kennethlove/jjhub.git</div>
+      <div class="code-field">ssh://kennethlove@jjhub.example:2222/kennethlove/jjhub.git</div>
+      <p class="clone-note">SSH listener enabled.</p>
+
+      <div id="token-generated">
+        <div class="code-field token-default">jj git remote add origin 'http://<span class="token-ph">&lt;TOKEN&gt;</span>@jjhub.example/git/kennethlove/jjhub.git'</div>
+        <div class="token-actions token-default">
+          <a class="btn btn-secondary" href="#token-generated">Generate clone token</a>
+        </div>
+        <div class="token-strip">
+          <div class="code-field">jjp_7c1a9e4f20</div>
+          <button class="btn btn-secondary" type="button">Copy</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="wordmark" href="index.html">jjhub</a>
+    <p class="footer-meta">Apache License 2.0 · jj-vcs.dev · GitHub</p>
+  </div>
+</footer>
+
+</body>
+</html>

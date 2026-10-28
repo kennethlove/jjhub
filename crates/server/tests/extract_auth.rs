@@ -11,6 +11,7 @@ mod extract_auth {
         let mut ctx = Context::new();
         ctx.insert("user_handle", user_handle);
         ctx.insert("csrf", csrf);
+        ctx.insert("theme", "system"); // e21s02: base.html declares theme
         ctx
     }
 
@@ -93,16 +94,33 @@ mod extract_auth {
         .fetch_one(&pool)
         .await
         .unwrap();
-        let html = get(pool, &root, "/settings", Some(&cookie)).await;
+        let html = get(pool.clone(), &root, "/settings", Some(&cookie)).await;
+        // story: e21s01 — signup mints the account's token, so the
+        // list renders it; context mirrors the handler's query shape
+        let token_items: Vec<serde_json::Value> =
+            sqlx::query_as::<_, (String, String, String, String)>(
+                "SELECT id::text, label, prefix, to_char(created_at, 'YYYY-MM-DD') FROM tokens
+                 WHERE user_id = (SELECT id FROM users WHERE handle = 'alice')
+                   AND revoked_at IS NULL
+                 ORDER BY created_at",
+            )
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|(id, label, prefix, created)| {
+                serde_json::json!({ "id": id, "label": label, "prefix": prefix, "created": created })
+            })
+            .collect();
         let mut expected = ctx("alice", &csrf);
         expected.insert("email", "alice@example.com");
+        expected.insert("display_name", "alice");
+        expected.insert("checked_system", "checked");
+        expected.insert("checked_light", "");
+        expected.insert("checked_dark", "");
         expected.insert("new_token", "");
-        expected.insert("tokens", &Vec::<serde_json::Value>::new());
+        expected.insert("tokens", &token_items);
         // story: e25s01 — the settings context grew profile fields
-        expected.insert("display_name", "");
-        expected.insert("checked_system", &true);
-        expected.insert("checked_light", &false);
-        expected.insert("checked_dark", &false);
         expected.insert("member_since", &member_since);
         expected.insert("repo_count", &0i64);
         expected.insert("nav_section", "settings");

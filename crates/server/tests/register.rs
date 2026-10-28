@@ -21,7 +21,7 @@ mod session_auth {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn register_creates_user_and_redirects_to_settings(pool: sqlx::PgPool) {
+    async fn register_creates_user_and_redirects_to_details(pool: sqlx::PgPool) {
         let response = post(
             pool.clone(),
             "/register",
@@ -36,7 +36,7 @@ mod session_auth {
             .unwrap()
             .to_str()
             .unwrap();
-        assert_eq!(location, "/settings");
+        assert_eq!(location, "/token-details");
         assert!(
             response.headers().contains_key("set-cookie"),
             "session cookie missing"

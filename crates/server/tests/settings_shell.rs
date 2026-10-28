@@ -197,7 +197,8 @@ mod settings_shell {
             sqlx::query_scalar("SELECT count(*) FROM tokens WHERE revoked_at IS NULL")
                 .fetch_one(&pool)
                 .await?;
-        assert_eq!(active_before, 2);
+        // story: e21s01 — signup already minted the account token
+        assert_eq!(active_before, 3, "signup token plus the two mints");
 
         let response = post(pool.clone(), "/settings/regenerate", "", &cookie).await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -220,7 +221,7 @@ mod settings_shell {
                 .fetch_one(&pool)
                 .await?;
         assert_eq!(active_after, 1, "exactly the replacement stays active");
-        assert_eq!(revoked_after, 2, "the old two are revoked");
+        assert_eq!(revoked_after, 3, "every pre-rotation token is revoked");
 
         let body = text(get(pool, "/settings", &cookie).await).await;
         assert!(

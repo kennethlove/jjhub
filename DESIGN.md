@@ -5,9 +5,9 @@ description: Site-wide design tokens for jjhub — the hosting forge for Jujutsu
 colors:
   primary: "#16211C"
   secondary: "#4A574F"
-  tertiary: "#157F52"
-  tertiary-hover: "#116944"
-  tertiary-pressed: "#0D5436"
+  tertiary: "#106845"
+  tertiary-hover: "#0D5739"
+  tertiary-pressed: "#0A4730"
   neutral: "#F4F6F4"
   surface: "#FBFCFB"
   surface-sunken: "#ECEFEC"
@@ -212,7 +212,7 @@ components:
 
 Direction: **the commit ledger, not a SaaS dashboard** · type IBM Plex Sans +
 IBM Plex Mono · palette green-black ink `#16211C` on cool paper `#F4F6F4` with
-one accent, status green `#157F52` · signature: hairline-ruled data rows with
+one accent, status green `#106845` · signature: hairline-ruled data rows with
 12-character mono revision IDs set in tabular numerals.
 
 jjhub is a hosting forge for Jujutsu repositories. The look should feel like a
@@ -235,7 +235,7 @@ green hue that inks the page; no pure `#ffffff` or `#000000` appears anywhere.
   inverse band. Roughly 15:1 on paper.
 - **Secondary (#4A574F):** Muted slate-green for metadata, captions, and
   disabled text. Roughly 7:1 on paper.
-- **Tertiary (#157F52):** The single accent — status green. Exclusive driver
+- **Tertiary (#106845):** The single accent — status green. Exclusive driver
   of links, primary buttons, focus rings, and accent badges. Interaction
   states use darkened shades of the same accent (`tertiary-hover` for resting
   links, which must clear AA on paper, `tertiary-pressed` for hover and

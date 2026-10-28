@@ -25,10 +25,16 @@ mod token_crud {
                 csrf(cookie.unwrap_or(""))
             )))
             .unwrap();
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                0,
+            ))));
         if let Some(cookie) = cookie {
             request
                 .headers_mut()
-                .insert("cookie", cookie.parse().unwrap());
+                .insert("cookie", cookie.parse::<axum::http::HeaderValue>().unwrap());
         }
         server::app(pool).oneshot(request).await.unwrap()
     }
@@ -58,7 +64,7 @@ mod token_crud {
         let mut request = Request::get(path).body(Body::empty()).unwrap();
         request
             .headers_mut()
-            .insert("cookie", cookie.parse().unwrap());
+            .insert("cookie", cookie.parse::<axum::http::HeaderValue>().unwrap());
         server::app(pool).oneshot(request).await.unwrap()
     }
 
@@ -106,6 +112,92 @@ mod token_crud {
             .unwrap();
         let html = String::from_utf8_lossy(&body);
         assert!(html.contains("laptop"), "token label listed");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn create_repo_token_route_and_disclosure(pool: sqlx::PgPool) {
+        // story: e21s03 — the repo-page mint form moves behind an
+        // "Advanced" disclosure; the route itself is unchanged.
+        let cookie = register(&pool).await;
+        // absolute temp storage root — default ./data/repos breaks jj
+        // workspace init with a relative store path
+        let _root = tempfile::tempdir().unwrap();
+        let app =
+            server::app_with_storage(pool.clone(), _root.path().to_str().unwrap().to_string());
+
+        let mut created_request = Request::post("/repos")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header("cookie", cookie.parse::<axum::http::HeaderValue>().unwrap())
+            .body(Body::from(format!(
+                "name=snippet&visibility=private&_csrf={}",
+                csrf(&cookie)
+            )))
+            .unwrap();
+        created_request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                0,
+            ))));
+        let created = app.clone().oneshot(created_request).await.unwrap();
+        let created_status = created.status();
+        let created_body = String::from_utf8_lossy(
+            &axum::body::to_bytes(created.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .to_string();
+        assert_eq!(
+            created_status,
+            StatusCode::SEE_OTHER,
+            "create repo failed: {created_body}"
+        );
+
+        let page_request = Request::get("/bob/snippet")
+            .header("cookie", cookie.parse::<axum::http::HeaderValue>().unwrap())
+            .body(Body::empty())
+            .unwrap();
+        let page = app.clone().oneshot(page_request).await.unwrap();
+        assert_eq!(page.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(page.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&bytes);
+        let details = html.find("<details").expect("disclosure present");
+        let summary = html
+            .find("<summary>Advanced</summary>")
+            .expect("advanced summary present");
+        let form = html
+            .find(r#"action="/bob/snippet/tokens""#)
+            .expect("mint form still rendered");
+        let close = html.find("</details>").expect("disclosure closes");
+        assert!(
+            details < summary && summary < form && form < close,
+            "form must sit inside the closed Advanced disclosure: {html}"
+        );
+
+        // route unchanged: the mint still works from inside the disclosure
+        let mut mint_request = Request::post("/bob/snippet/tokens")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header("cookie", cookie.parse::<axum::http::HeaderValue>().unwrap())
+            .body(Body::from(format!(
+                "label=repo-mint&_csrf={}",
+                csrf(&cookie)
+            )))
+            .unwrap();
+        mint_request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                0,
+            ))));
+        let mint = app.clone().oneshot(mint_request).await.unwrap();
+        assert_eq!(mint.status(), StatusCode::SEE_OTHER);
+        let rows: i64 = sqlx::query_scalar("SELECT count(*) FROM tokens WHERE label = 'repo-mint'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(rows, 1, "route and its POST contract unchanged");
     }
 
     #[sqlx::test(migrations = "./migrations")]

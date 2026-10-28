@@ -125,7 +125,7 @@ pub async fn search_page(
         .get(crate::session::SESSION_COOKIE)
         .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
         .unwrap_or_default();
-    let mut context = crate::routes::page_context(viewer.as_deref(), &csrf);
+    let mut context = crate::routes::themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("owner", &owner);
     context.insert("name", &name);
     context.insert("query", &query);

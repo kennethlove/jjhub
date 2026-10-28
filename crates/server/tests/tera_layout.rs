@@ -4,7 +4,9 @@ use tera::Context;
 
 #[test]
 fn tera_layout_renders_full_document() {
-    let html = server::render::render("base.html", &Context::new());
+    let mut ctx = Context::new();
+    ctx.insert("theme", "system");
+    let html = server::render::render("base.html", &ctx);
     assert!(html.starts_with("<!doctype html>"), "doctype: {html}");
     assert!(html.contains("<title>"), "title block: {html}");
     assert!(html.contains("<body>"), "body block: {html}");

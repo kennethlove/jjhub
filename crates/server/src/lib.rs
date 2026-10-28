@@ -150,11 +150,16 @@ fn app_from_state(state: AppState) -> Router {
     let protected = Router::new()
         .route("/settings", get(routes::settings))
         .route("/settings/profile", post(routes::settings_profile))
-        .route("/settings/regenerate", post(routes::settings_regenerate))
         .route("/settings/password", post(routes::change_password))
         .route("/settings/tokens/{id}/revoke", post(routes::revoke_token))
         .route("/settings/account", post(routes::delete_account))
         .route("/settings/tokens", post(routes::create_token))
+        // story: e21s03 — rotate: one POST revokes and reissues
+        .route("/settings/regenerate", post(routes::regenerate_token))
+        .route(
+            "/token-details",
+            get(routes::token_details).post(routes::token_details_complete),
+        )
         // story: e02s03 — repo-page generate button (session + CSRF, same group)
         .route("/{owner}/{name}/tokens", post(routes::create_repo_token))
         .route("/repos", post(routes::create_repo))
