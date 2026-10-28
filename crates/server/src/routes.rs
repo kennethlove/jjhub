@@ -3,7 +3,7 @@ use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::Form;
-use axum_extra::extract::CookieJar;
+use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 
 use crate::password::{hash_password, verify_password};
@@ -459,13 +459,31 @@ pub async fn settings(
         Some((email, display_name, theme)) => (Some(email), display_name, theme),
         None => (None, None, "system".to_string()),
     };
-    let tokens: Vec<(String, String)> = sqlx::query_as(
-        "SELECT label, prefix FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
+    let tokens: Vec<(String, String, String, String)> = sqlx::query_as(
+        // WHY: id::text — a uuid column does not decode into String and
+        // the old unwrap_or_default hid the row error as an empty ledger
+        "SELECT id::text, label, prefix, to_char(created_at, 'YYYY-MM-DD') \
+         FROM tokens WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at",
     )
     .bind(current.0)
     .fetch_all(&state.pool)
     .await
     .unwrap_or_default();
+    let prefs: Option<(Option<String>, String, String)> = sqlx::query_as(
+        "SELECT display_name, theme, to_char(created_at, 'YYYY-MM-DD') \
+         FROM users WHERE id = $1",
+    )
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let repo_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM repositories WHERE owner_id = $1")
+            .bind(current.0)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap_or(0);
 
     // story: e15s02 — the plaintext rides the template context once;
     // the template escapes it like any other value
@@ -476,10 +494,12 @@ pub async fn settings(
 
     let token_items: Vec<serde_json::Value> = tokens
         .iter()
-        .map(|(label, prefix)| {
+        .map(|(id, label, prefix, created)| {
             serde_json::json!({
+                "id": id,
                 "label": label,
-                "prefix": prefix
+                "prefix": prefix,
+                "created": created
             })
         })
         .collect();
@@ -501,7 +521,52 @@ pub async fn settings(
             context.insert("checked_dark", checked("dark"));
             context.insert("new_token", &new_token);
             context.insert("tokens", &token_items);
-            Html(crate::render::render("settings.html", &context)).into_response()
+            // story: e25s01 — profile fields the page writes
+            // (display_name/checked_* already set from the e21 row read)
+            let (_, _, member_since) =
+                prefs
+                    .clone()
+                    .unwrap_or((None, "system".to_string(), "".to_string()));
+            context.insert("member_since", &member_since);
+            context.insert("repo_count", &repo_count);
+            context.insert("nav_section", "settings");
+            // story: e25s02 — one-shot error key left by a failed
+            // change-password post so #password reopens with copy
+            let pw_error = jar
+                .get("pw_err")
+                .map(|c| match c.value() {
+                    "current" => "Current password is incorrect.".to_string(),
+                    "mismatch" => "Passwords do not match.".to_string(),
+                    "short" => domain::RegistrationError::PasswordTooShort.to_string(),
+                    _ => String::new(),
+                })
+                .unwrap_or_default();
+            context.insert("pw_error", &pw_error);
+            // story: e25s04 — one-shot key left by a failed
+            // delete-account post so #delete-2 reopens with copy
+            let del_error = jar
+                .get("del_err")
+                .map(|c| match c.value() {
+                    "wrong" => "Password is incorrect.".to_string(),
+                    _ => String::new(),
+                })
+                .unwrap_or_default();
+            context.insert("del_error", &del_error);
+            let mut response =
+                Html(crate::render::render("settings.html", &context)).into_response();
+            if jar.get("pw_err").is_some() {
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    "pw_err=; Path=/; Max-Age=0".parse().unwrap(),
+                );
+            }
+            if jar.get("del_err").is_some() {
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    "del_err=; Path=/; Max-Age=0".parse().unwrap(),
+                );
+            }
+            response
         }
         None => Redirect::to("/login").into_response(),
     }
@@ -621,6 +686,150 @@ pub async fn token_details_complete(
 pub struct ProfileForm {
     pub display_name: Option<String>,
     pub theme: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ChangePasswordForm {
+    current_password: String,
+    new_password: String,
+    confirm_password: String,
+}
+
+// story: e25s02 — native form post; a failure bounces to
+// /settings#password with a one-shot error key so the :target state
+// reopens with the inline message, success lands on the resting page
+pub async fn change_password(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<ChangePasswordForm>,
+) -> Response {
+    let refuse = |reason: &str| -> Response {
+        let jar = jar.add(Cookie::new("pw_err", reason.to_string()));
+        (jar, Redirect::to("/settings#password")).into_response()
+    };
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    match stored {
+        Some(hash) if verify_password(&form.current_password, &hash) => {}
+        _ => return refuse("current"),
+    }
+    if form.new_password != form.confirm_password {
+        return refuse("mismatch");
+    }
+    if form.new_password.chars().count() < domain::MIN_PASSWORD_LEN {
+        return refuse("short");
+    }
+    let result = sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+        .bind(hash_password(&form.new_password))
+        .bind(current.0)
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(_) => (
+            StatusCode::SEE_OTHER,
+            [
+                // success also clears a stale error key from an
+                // earlier failed attempt
+                (header::SET_COOKIE, "pw_err=; Path=/; Max-Age=0".to_string()),
+                (header::LOCATION, "/settings".to_string()),
+            ],
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+
+// story: e25s04 — danger-zone delete: wrong password keeps the
+// account and reopens step two; success cascades rows (FK), clears
+// the session, and lands on the visitor home page. Disk reaping
+// stays a separate follow-up (story).
+#[derive(Deserialize)]
+pub struct DeleteAccountForm {
+    password: String,
+}
+
+pub async fn delete_account(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+    Form(form): Form<DeleteAccountForm>,
+) -> Response {
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+            .bind(current.0)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    match stored {
+        Some(hash) if verify_password(&form.password, &hash) => {}
+        _ => {
+            let jar = jar.add(Cookie::new("del_err", "wrong".to_string()));
+            return (jar, Redirect::to("/settings#delete-2")).into_response();
+        }
+    }
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(current.0)
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(_) => (
+            StatusCode::SEE_OTHER,
+            [
+                (
+                    header::SET_COOKIE,
+                    format!("{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"),
+                ),
+                (header::LOCATION, "/".to_string()),
+            ],
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
+}
+// story: e25s03 — scope the update to the caller: unknown and
+// foreign ids answer the same 404
+// WHY: parse here — workspace uuid has no serde feature, so Path
+// hands over the raw segment
+pub async fn revoke_token(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Response {
+    let Ok(id) = id.parse::<uuid::Uuid>() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let result = sqlx::query(
+        "UPDATE tokens SET revoked_at = now() \
+         WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL",
+    )
+    .bind(id)
+    .bind(current.0)
+    .execute(&state.pool)
+    .await;
+    match result {
+        Ok(out) if out.rows_affected() == 1 => Redirect::to("/settings").into_response(),
+        Ok(_) => StatusCode::NOT_FOUND.into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("db error: {err}"),
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Deserialize)]

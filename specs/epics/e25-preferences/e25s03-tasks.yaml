@@ -1,0 +1,36 @@
+story_id: e25s03
+title: "Per-token revoke from the ledger, ownership-scoped"
+status: completed
+bcps: 3
+tasks:
+  - id: e25s03t1
+    description: >
+      RED tests: POST revoke removes my row and kills the token;
+      another user's token id revokes nothing
+    verify: "cargo test -p server --test settings_revoke"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s03t2
+    description: >
+      ownership-scoped revoke in token.rs + POST
+      /settings/tokens/:id/revoke route + htmx revoke control in
+      the ledger row
+    verify: "cargo test -p server --test settings_revoke tokens"
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["settings"]
+  - id: e25s03t3
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace --all-targets;
+      cargo test; cargo build; ux_audit app.css
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

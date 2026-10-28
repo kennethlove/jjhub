@@ -6,9 +6,16 @@ use std::sync::OnceLock;
 use tera::{Context, Tera};
 
 pub fn render(name: &str, context: &Context) -> String {
-    engine()
-        .render(name, context)
-        .unwrap_or_else(|err| panic!("render {name}: {err}"))
+    engine().render(name, context).unwrap_or_else(|err| {
+        use std::error::Error as _;
+        let mut msg = format!("{err}");
+        let mut source = err.source();
+        while let Some(inner) = source {
+            msg.push_str(&format!("\ncaused by: {inner}"));
+            source = inner.source();
+        }
+        panic!("render {name}: {msg}")
+    })
 }
 
 fn engine() -> &'static Tera {

@@ -1,34 +1,172 @@
 {% extends "base.html" %}
 {% block title %}Settings · jjhub{% endblock %}
 {% block body %}
-<h1>Settings</h1>
 {% include "nav.html" %}
-<p>Signed in as {{ email }}</p>
-<h2>Profile</h2>
-<form method="post" action="/settings/profile">
-<input type="hidden" name="_csrf" value="{{ csrf }}">
-<label>Display name <input name="display_name" value="{{ display_name }}"></label>
-<p>Theme</p>
-<label><input type="radio" name="theme" value="system" {{ checked_system }}> System</label>
-<label><input type="radio" name="theme" value="light" {{ checked_light }}> Light</label>
-<label><input type="radio" name="theme" value="dark" {{ checked_dark }}> Dark</label>
-<button type="submit">Save profile</button>
-</form>
-<h2>Access tokens</h2>
-{% if new_token %}<p><strong>Copy this token now, it will not be shown again:</strong> <code>{{ new_token }}</code></p>{% endif %}
-<form method="post" action="/settings/tokens">
-<input type="hidden" name="_csrf" value="{{ csrf }}">
-<label>Label <input name="label" required></label>
-<button type="submit">Generate token</button>
-</form>
-<ul>
-{% for token in tokens %}<li>{{ token.label }} — {{ token.prefix }}…</li>
-{% endfor %}</ul>
-{# story: e21s03 — rotation: every current token stops working the
-   moment this runs; the replacement appears once in the banner above #}
-<form method="post" action="/settings/regenerate">
-<input type="hidden" name="_csrf" value="{{ csrf }}">
-<button type="submit">Regenerate token</button>
-</form>
-<p>All current tokens stop working immediately; the new token is shown once.</p>
+<main class="prefs-main wrap">
+<h1>Your preferences</h1>
+
+<section class="panel" aria-labelledby="account-heading">
+  <div class="panel-head">
+    <h2 id="account-heading" class="panel-title">Account</h2>
+    <a class="btn btn-secondary btn-sm" href="#password">Change password</a>
+  </div>
+  <div class="state state-rest">
+    <dl class="def-row"><dt>Email</dt><dd>{{ email }}</dd></dl>
+    <dl class="def-row">
+      <dt>Handle</dt>
+      <dd>{{ user_handle }}<p class="def-helper">Your handle appears in URLs. It is permanent.</p></dd>
+    </dl>
+    <dl class="def-row"><dt>Member since</dt><dd class="dd-sm">{{ member_since }}</dd></dl>
+  </div>
+  <div class="state" id="password">
+    <div class="panel-head">
+      <h3 class="state-heading">Change password</h3>
+      <a class="quiet-line" href="#">Back to Account</a>
+    </div>
+    {% if pw_error %}<div class="alert-error" role="alert">{{ pw_error }}</div>{% endif %}
+    <form method="post" action="/settings/password">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field">Current password
+        <input type="password" name="current_password" required autocomplete="current-password">
+      </label>
+      <label class="field">New password
+        <input type="password" name="new_password" required minlength="10" autocomplete="new-password">
+      </label>
+      <label class="field">Confirm new password
+        <input type="password" name="confirm_password" required minlength="10" autocomplete="new-password">
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Set new password</button>
+        <a class="quiet-line" href="#">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="profile-heading">
+  <div class="panel-head">
+    <h2 id="profile-heading" class="panel-title">Profile</h2>
+  </div>
+  <div class="panel-body">
+    <form method="post" action="/settings/profile">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field">Display name
+        <input type="text" name="display_name" value="{{ display_name }}" maxlength="80">
+      </label>
+      <fieldset class="field">
+        <legend>Theme</legend>
+        {% if checked_system %}<label class="radio"><input type="radio" name="theme" value="system" checked> System</label>{% else %}<label class="radio"><input type="radio" name="theme" value="system"> System</label>{% endif %}
+        {% if checked_light %}<label class="radio"><input type="radio" name="theme" value="light" checked> Light</label>{% else %}<label class="radio"><input type="radio" name="theme" value="light"> Light</label>{% endif %}
+        {% if checked_dark %}<label class="radio"><input type="radio" name="theme" value="dark" checked> Dark</label>{% else %}<label class="radio"><input type="radio" name="theme" value="dark"> Dark</label>{% endif %}
+      </fieldset>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="tokens-heading">
+  <div class="panel-head">
+    <h2 id="tokens-heading" class="panel-title">Access tokens</h2>
+  </div>
+  <div class="panel-body">
+    <p class="lede">Tokens authenticate git pushes and API calls. Generate one per tool so you can revoke it later.</p>
+    <form method="post" action="/settings/tokens" class="generate-form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field">Label
+        <input type="text" name="label" required maxlength="80" placeholder="laptop">
+      </label>
+      <button type="submit" class="btn btn-primary">Generate token</button>
+    </form>
+    <div id="token-new" class="reveal-strip" role="status">
+      {%- if new_token -%}
+      <code class="token-value">{{ new_token }}</code>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('{{ new_token }}')">Copy</button>
+      {%- endif -%}
+    </div>
+    <div class="table-wrap">
+    <table class="ledger">
+      <thead>
+        <tr><th>Label</th><th>Prefix</th><th>Created</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {%- for token in tokens -%}
+        <tr data-token-id="{{ token.id }}">
+          <td class="cell-label">{{ token.label }}</td>
+          <td class="cell-prefix">{{ token.prefix }}…</td>
+        <td class="cell-created">{{ token.created }}</td>
+        <td class="cell-actions">
+          <form method="post" action="/settings/tokens/{{ token.id }}/revoke">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+            <button type="submit" class="revoke">Revoke</button>
+          </form>
+        </td>
+        </tr>
+        {%- endfor -%}
+      </tbody>
+    </table>
+    </div>
+    <p class="table-help">Revoke stops a token immediately; the row disappears once it is revoked.</p>
+    <div class="actions">
+      <form method="post" action="/settings/regenerate">
+        <input type="hidden" name="_csrf" value="{{ csrf }}">
+        <button type="submit" class="btn btn-secondary">Regenerate token</button>
+      </form>
+      <p class="table-help">Regenerate replaces every active token; the replacement appears once.</p>
+    </div>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="danger-heading">
+  <div class="panel-head">
+    <h2 id="danger-heading" class="panel-title">Danger zone</h2>
+  </div>
+  <div class="state state-rest">
+    <div class="panel-body">
+      <p>Delete your account and every repository it owns. This cannot be undone.</p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-danger" href="#delete-1">Delete account</a>
+    </div>
+  </div>
+  <div class="state" id="delete-1">
+    <div class="panel-body">
+      <p class="state-heading">Are you sure?</p>
+      <p>This deletes {{ email }} and {{ repo_count }} repositories.</p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-secondary" href="#">No, cancel</a>
+      <a class="quiet-link-danger" href="#delete-2">Yes, continue</a>
+    </div>
+  </div>
+  <div class="state" id="delete-2">
+    {% if del_error %}<div class="alert-error" role="alert">{{ del_error }}</div>{% endif %}
+    <form method="post" action="/settings/account">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <div class="panel-body">
+        <p class="state-heading">Confirm with your password</p>
+        <label class="field">Password
+          <input type="password" name="password" required autocomplete="current-password">
+        </label>
+      </div>
+      <div class="actions">
+        <a class="btn btn-secondary" href="#">No, cancel</a>
+        <button type="submit" class="quiet-link-danger">Permanently delete account</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jjhub</span>
+    <div class="footer-links">
+      <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a>
+      <a href="https://jj-vcs.dev">jj-vcs.dev</a>
+      <a href="https://github.com/kennethlove/jjhub">GitHub</a>
+    </div>
+  </div>
+</footer>
 {% endblock %}

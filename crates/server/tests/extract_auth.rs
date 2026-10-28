@@ -87,21 +87,31 @@ mod extract_auth {
         let secret = std::env::var("SESSION_SECRET").unwrap();
         let value = cookie.strip_prefix("session=").unwrap_or(&cookie);
         let csrf = server::session::csrf_token(secret.as_bytes(), value);
+        let member_since: String = sqlx::query_scalar(
+            "SELECT to_char(created_at, 'YYYY-MM-DD') FROM users WHERE email = $1",
+        )
+        .bind("alice@example.com")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
         let html = get(pool.clone(), &root, "/settings", Some(&cookie)).await;
         // story: e21s01 — signup mints the account's token, so the
         // list renders it; context mirrors the handler's query shape
-        let token_items: Vec<serde_json::Value> = sqlx::query_as::<_, (String, String)>(
-            "SELECT label, prefix FROM tokens
+        let token_items: Vec<serde_json::Value> =
+            sqlx::query_as::<_, (String, String, String, String)>(
+                "SELECT id::text, label, prefix, to_char(created_at, 'YYYY-MM-DD') FROM tokens
                  WHERE user_id = (SELECT id FROM users WHERE handle = 'alice')
                    AND revoked_at IS NULL
                  ORDER BY created_at",
-        )
-        .fetch_all(&pool)
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|(label, prefix)| serde_json::json!({ "label": label, "prefix": prefix }))
-        .collect();
+            )
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|(id, label, prefix, created)| {
+                serde_json::json!({ "id": id, "label": label, "prefix": prefix, "created": created })
+            })
+            .collect();
         let mut expected = ctx("alice", &csrf);
         expected.insert("email", "alice@example.com");
         expected.insert("display_name", "alice");
@@ -110,6 +120,12 @@ mod extract_auth {
         expected.insert("checked_dark", "");
         expected.insert("new_token", "");
         expected.insert("tokens", &token_items);
+        // story: e25s01 — the settings context grew profile fields
+        expected.insert("member_since", &member_since);
+        expected.insert("repo_count", &0i64);
+        expected.insert("nav_section", "settings");
+        expected.insert("pw_error", "");
+        expected.insert("del_error", "");
         assert_eq!(html, server::render::render("settings.html", &expected));
     }
 }
