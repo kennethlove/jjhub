@@ -1,6 +1,6 @@
 story_id: e22s03
 title: "Settings selectors and repo-page form pin"
-status: failing
+status: passing
 bcps: 3
 tasks:
   - id: e22s03t1
@@ -9,7 +9,7 @@ tasks:
       selection falls back to read+write; past expiry 422
     verify: "cargo test -p server token_form_permissions"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -21,7 +21,7 @@ tasks:
       server-assigned pin to its own repo
     verify: "cargo test -p server token_defaults"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:
@@ -31,7 +31,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

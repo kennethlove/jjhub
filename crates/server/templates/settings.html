@@ -77,6 +77,27 @@
       <label class="field">Label
         <input type="text" name="label" required maxlength="80" placeholder="laptop">
       </label>
+      {# story: e22s03 — advanced permissions in a closed disclosure;
+         empty selection floors to read+write (never no-scope) #}
+      <details>
+        <summary>Advanced</summary>
+        <p>Scopes (both checked = read+write)</p>
+        <label class="radio"><input type="checkbox" name="read" checked> read</label>
+        <label class="radio"><input type="checkbox" name="write" checked> write</label>
+        <label class="field">Expires (YYYY-MM-DD, empty = never)
+          <input type="date" name="expires">
+        </label>
+        <span class="err">invalid expiry</span>
+        <p>Limit to one repository</p>
+        <select name="pin"><option value="">Any repository</option>
+        {% for repo in repos | default(value=[]) %}<option value="{{ repo.id }}">{{ repo.name }}</option>
+        {% endfor %}</select>
+        <span class="err">invalid pin</span>
+        <label class="field">Allowed client IPs (comma-separated, empty = any)
+          <input name="allowed_inets">
+        </label>
+        <span class="err">invalid allowlist address</span>
+      </details>
       <button type="submit" class="btn btn-primary">Generate token</button>
     </form>
     <div id="token-new" class="reveal-strip" role="status">
@@ -111,6 +132,21 @@
     <div class="actions">
       <form method="post" action="/settings/regenerate">
         <input type="hidden" name="_csrf" value="{{ csrf }}">
+        <details>
+          <summary>Advanced</summary>
+          <p>Scopes (both checked = read+write)</p>
+          <label class="radio"><input type="checkbox" name="read" checked> read</label>
+          <label class="radio"><input type="checkbox" name="write" checked> write</label>
+          <label class="field">Expires (YYYY-MM-DD, empty = never)
+            <input type="date" name="expires">
+          </label>
+          <span class="err">invalid expiry</span>
+          <p>Limit to one repository</p>
+          <select name="pin"><option value="">Any repository</option>
+          {% for repo in repos | default(value=[]) %}<option value="{{ repo.id }}">{{ repo.name }}</option>
+          {% endfor %}</select>
+          <span class="err">invalid pin</span>
+        </details>
         <button type="submit" class="btn btn-secondary">Regenerate token</button>
       </form>
       <p class="table-help">Regenerate replaces every active token; the replacement appears once.</p>

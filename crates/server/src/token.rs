@@ -35,20 +35,44 @@ pub fn generate() -> (String, String) {
     (plaintext, prefix)
 }
 
-pub async fn create(pool: &PgPool, user_id: Uuid, label: &str) -> NewToken {
+/// story: e22s03 — mint with explicit permissions; scopes/expiry/
+/// repo pin come from the form or the caller's policy, never defaults.
+pub async fn create_with(
+    pool: &PgPool,
+    user_id: Uuid,
+    label: &str,
+    scopes: &[&str],
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    repo_id: Option<Uuid>,
+    allowed_inets: Option<Vec<std::net::IpAddr>>,
+) -> NewToken {
     let (plaintext, prefix) = generate();
     let token_hash = hash(&plaintext);
-    let id: Uuid =
-        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash, lookup_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id")
-            .bind(user_id)
-            .bind(label)
-            .bind(&prefix)
-            .bind(&token_hash)
-            .bind(lookup_key(&plaintext))
-            .fetch_one(pool)
-            .await
-            .expect("insert token");
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO tokens (user_id, label, prefix, token_hash, lookup_hash, scopes, expires_at, repo_id, allowed_inets) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::inet[]) RETURNING id",
+    )
+    .bind(user_id)
+    .bind(label)
+    .bind(&prefix)
+    .bind(&token_hash)
+    .bind(lookup_key(&plaintext))
+    .bind(scopes)
+    .bind(expires_at)
+    .bind(repo_id)
+    .bind(
+        allowed_inets
+            .as_ref()
+            .map(|v| v.iter().map(std::net::IpAddr::to_string).collect::<Vec<_>>()),
+    )
+    .fetch_one(pool)
+    .await
+    .expect("insert token");
     NewToken { id, plaintext }
+}
+
+/// story: e01s02 — the unadorned mint: read+write, no expiry, no pin.
+pub async fn create(pool: &PgPool, user_id: Uuid, label: &str) -> NewToken {
+    create_with(pool, user_id, label, &["read", "write"], None, None, None).await
 }
 
 /// story: e22s02 — the transport authz bundle: identity PLUS the
@@ -225,6 +249,19 @@ pub async fn consume_reset(pool: &PgPool, id: Uuid) -> bool {
 /// replacement in a single transaction (no window where old and new
 /// tokens both authenticate).
 pub async fn regenerate(pool: &PgPool, user_id: Uuid) -> NewToken {
+    regenerate_with(pool, user_id, &["read", "write"], None, None, None).await
+}
+
+/// story: e22s03 — rotate WITH permissions: revoke every active token
+/// and issue the replacement carrying the requested permissions.
+pub async fn regenerate_with(
+    pool: &PgPool,
+    user_id: Uuid,
+    scopes: &[&str],
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    repo_id: Option<Uuid>,
+    allowed_inets: Option<Vec<std::net::IpAddr>>,
+) -> NewToken {
     let mut tx = pool.begin().await.expect("begin regenerate");
     sqlx::query("UPDATE tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL")
         .bind(user_id)
@@ -234,10 +271,19 @@ pub async fn regenerate(pool: &PgPool, user_id: Uuid) -> NewToken {
     let (plaintext, prefix) = generate();
     let token_hash = hash(&plaintext);
     let id: Uuid =
-        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash) VALUES ($1, 'rotated', $2, $3) RETURNING id")
+        sqlx::query_scalar("INSERT INTO tokens (user_id, label, prefix, token_hash, lookup_hash, scopes, expires_at, repo_id, allowed_inets) VALUES ($1, 'rotated', $2, $3, $4, $5, $6, $7, $8::inet[]) RETURNING id")
             .bind(user_id)
             .bind(&prefix)
             .bind(&token_hash)
+            .bind(lookup_key(&plaintext))
+            .bind(scopes)
+            .bind(expires_at)
+            .bind(repo_id)
+            .bind(
+                allowed_inets
+                    .as_ref()
+                    .map(|v| v.iter().map(std::net::IpAddr::to_string).collect::<Vec<_>>()),
+            )
             .fetch_one(&mut *tx)
             .await
             .expect("insert regenerated token");

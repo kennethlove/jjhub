@@ -53,7 +53,12 @@ mod defaults {
             .headers()
             .get_all(header::SET_COOKIE)
             .iter()
-            .find_map(|v| v.to_str().ok().and_then(|s| s.split(';').next()).map(String::from))
+            .find_map(|v| {
+                v.to_str()
+                    .ok()
+                    .and_then(|s| s.split(';').next())
+                    .map(String::from)
+            })
             .expect("session cookie")
     }
 
@@ -64,13 +69,14 @@ mod defaults {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn token_created_before_this_story_defaults_to_read_write(
-        pool: sqlx::PgPool,
-    ) {
+    async fn token_created_before_this_story_defaults_to_read_write(pool: sqlx::PgPool) {
         std::env::set_var("SESSION_SECRET", SECRET);
         let app = server::app(pool.clone());
         let cookie = register(&app, "plainy").await;
-        assert_eq!(mint_plain(&app, &cookie).await.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            mint_plain(&app, &cookie).await.status(),
+            StatusCode::SEE_OTHER
+        );
 
         let scopes: Vec<String> = sqlx::query_scalar(
             "SELECT t.scopes FROM tokens t JOIN users u ON u.id = t.user_id
@@ -88,10 +94,7 @@ mod defaults {
     async fn repo_page_token_is_pinned_to_its_own_repo(pool: sqlx::PgPool) {
         std::env::set_var("SESSION_SECRET", SECRET);
         let root = tempfile::tempdir().unwrap();
-        let app = server::app_with_storage(
-            pool.clone(),
-            root.path().to_str().unwrap().to_string(),
-        );
+        let app = server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string());
         let cookie = register(&app, "pinny").await;
         let csrf = server::session::csrf_token(
             SECRET.as_bytes(),
@@ -103,16 +106,39 @@ mod defaults {
                 Request::post("/repos")
                     .header("content-type", "application/x-www-form-urlencoded")
                     .header(header::COOKIE, &cookie)
-                    .body(Body::from(format!("name=snippet&visibility=private&_csrf={csrf}")))
+                    .body(Body::from(format!(
+                        "name=snippet&visibility=private&_csrf={csrf}"
+                    )))
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        if response.status() != StatusCode::SEE_OTHER {
+            let status = response.status();
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            panic!(
+                "POST /repos: {status} body={}",
+                String::from_utf8_lossy(&bytes)
+            );
+        }
 
         // mint via the repo route with NO permission fields
-        let response = post(&app, "/pinny/snippet/tokens", &cookie, String::new()).await;
-        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let response = post(
+            &app,
+            "/pinny/snippet/tokens",
+            &cookie,
+            "label=repo-page".to_string(),
+        )
+        .await;
+        if response.status() != StatusCode::SEE_OTHER {
+            let status = response.status();
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            panic!("mint: {status} body={}", String::from_utf8_lossy(&bytes));
+        }
 
         let (repo_id, scopes): (Option<uuid::Uuid>, Vec<String>) = sqlx::query_as(
             "SELECT t.repo_id, t.scopes FROM tokens t JOIN users u ON u.id = t.user_id
@@ -168,13 +194,14 @@ mod defaults {
         .await
         .unwrap();
         assert_eq!(active, 1, "exactly one active token after rotation");
-        let (active_scopes, active_expiry): (Vec<String>, Option<chrono::DateTime<chrono::Utc>>) = sqlx::query_as(
-            "SELECT t.scopes, t.expires_at FROM tokens t JOIN users u ON u.id = t.user_id
+        let (active_scopes, active_expiry): (Vec<String>, Option<chrono::DateTime<chrono::Utc>>) =
+            sqlx::query_as(
+                "SELECT t.scopes, t.expires_at FROM tokens t JOIN users u ON u.id = t.user_id
              WHERE u.handle = 'carryy' AND t.revoked_at IS NULL",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let mut scopes = active_scopes;
         scopes.sort();
         assert_eq!(
@@ -182,6 +209,9 @@ mod defaults {
             vec!["read".to_string(), "write".to_string()],
             "rotation without permission fields floors to read+write"
         );
-        assert!(active_expiry.is_none(), "no expiry carried means no expiry set");
+        assert!(
+            active_expiry.is_none(),
+            "no expiry carried means no expiry set"
+        );
     }
 }

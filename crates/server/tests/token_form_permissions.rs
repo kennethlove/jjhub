@@ -47,7 +47,12 @@ mod form_permissions {
             .headers()
             .get_all(header::SET_COOKIE)
             .iter()
-            .find_map(|v| v.to_str().ok().and_then(|s| s.split(';').next()).map(String::from))
+            .find_map(|v| {
+                v.to_str()
+                    .ok()
+                    .and_then(|s| s.split(';').next())
+                    .map(String::from)
+            })
             .expect("session cookie");
         let _ = pool;
         cookie
@@ -165,6 +170,6 @@ mod form_permissions {
         .await
         .unwrap();
         assert_eq!(scopes, vec!["read".to_string()]);
-        assert_eq!(allowlist.as_deref(), Some(&["10.0.0.5".to_string()][..]));
+        assert_eq!(allowlist.as_deref(), Some(&["10.0.0.5/32".to_string()][..]));
     }
 }
