@@ -32,7 +32,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # WHY: sqlx's compile-time migrator embeds the migration files
+      # but does NOT track the directory as a rebuild input on stable,
+      # so a cached binary silently ships the old schema — key the
+      # cache on the migration files so any schema change forces a
+      # fresh build.
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: mig-${{ hashFiles('crates/server/migrations/*.sql') }}
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -60,7 +67,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # WHY: same as preflight — the embedded sqlx migrator is not
+      # rebuild-tracked on stable; key on the migration files so the
+      # server binary always embeds the current schema.
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: mig-${{ hashFiles('crates/server/migrations/*.sql') }}
       - name: Install jj
         run: |
           V=0.46.0
