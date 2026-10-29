@@ -1,6 +1,17 @@
-<!doctype html><html><head><link rel="stylesheet" href="/assets/app.css"></head><body>
+{% extends "base.html" %}
+{% block title %}{{ owner | safe }}/{{ name | safe }} — merge requests{% endblock %}
+{% block body %}
+{% include "nav.html" %}
+<main class="wrap">
 <h1>{{ owner | safe }}/{{ name | safe }} — merge requests</h1>
 <ol class="mr-stack">
 {{ position_html | safe }}
 </ol>
-</body></html>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jj / jjhub</span>
+    <span class="footer-links"><a href="/">Apache License 2.0</a> · <a href="https://jj-vcs.dev">jj-vcs.dev</a> · <a href="https://github.com/kennethlove/jjhub">GitHub</a></span>
+  </div>
+</footer>
+{% endblock %}

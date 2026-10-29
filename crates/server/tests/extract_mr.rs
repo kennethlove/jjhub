@@ -195,6 +195,9 @@ mod extract_mr {
         expected.insert("owner", "alice");
         expected.insert("name", "demo");
         expected.insert("position_html", &items.join("\n"));
+        expected.insert("user_handle", ""); // nav: anonymous viewer
+        expected.insert("csrf", "");
+        expected.insert("theme", "system"); // e21s02: base.html declares theme
         assert_eq!(html, server::render::render("mr_pages.html", &expected));
     }
 

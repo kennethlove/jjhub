@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Save your token · jjhub{% endblock %}
 {% block body %}
-<h1>Save your token</h1>
 {% include "nav.html" %}
+<main class="wrap">
+<h1>Save your token</h1>
 <p><img src="{{ gravatar | safe }}" alt="" width="48" height="48"> Profile image from <a href="https://gravatar.com">Gravatar</a> (derived from your email, never stored).</p>
 <p>Copy this token now. It will not be shown again:</p>
 <p><code id="token-value">{{ token }}</code></p>
@@ -21,4 +22,11 @@ document.getElementById("copy-token").addEventListener("click", function () {
   navigator.clipboard.writeText(document.getElementById("token-value").textContent);
 });
 </script>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jj / jjhub</span>
+    <span class="footer-links"><a href="/">Apache License 2.0</a> · <a href="https://jj-vcs.dev">jj-vcs.dev</a> · <a href="https://github.com/kennethlove/jjhub">GitHub</a></span>
+  </div>
+</footer>
 {% endblock %}

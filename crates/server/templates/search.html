@@ -2,13 +2,16 @@
 {% extends "base.html" %}
 {% block title %}Search · {{ owner }}/{{ name }} · jjhub{% endblock %}
 {% block body %}
-<h1>{{ owner }}/{{ name }}</h1>
 {% include "nav.html" %}
+<main class="wrap">
+<h1>{{ owner }}/{{ name }}</h1>
 <form method="get" action="/{{ owner }}/{{ name }}/search">
 <label>Revset <input type="search" name="q" value="{{ query }}"></label>
 <button type="submit">Search</button>
 </form>
-{% if error %}
+{% if no_store %}
+<p role="status">This repository has <strong>no jj store</strong> yet — search becomes available after its first jj operation.</p>
+{% elif error %}
 <p role="alert">Cannot run <code>{{ query }}</code>: {{ error }}</p>
 {% endif %}
 {% if hits %}
@@ -18,8 +21,15 @@
 {% endfor %}
 </ul>
 {% if at_cap %}<p>Showing the first 50 matches — a narrower query shows more.</p>{% endif %}
-{% elif not error %}
+{% elif not error and not no_store %}
 {# story: e11s02 — a zero-match query gets a dedicated empty state, never a bare table #}
 <p>No revisions match <code>{{ query }}</code> — try a broader query such as <code>all()</code>.</p>
 {% endif %}
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jj / jjhub</span>
+    <span class="footer-links"><a href="/">Apache License 2.0</a> · <a href="https://jj-vcs.dev">jj-vcs.dev</a> · <a href="https://github.com/kennethlove/jjhub">GitHub</a></span>
+  </div>
+</footer>
 {% endblock %}
