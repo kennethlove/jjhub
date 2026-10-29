@@ -158,4 +158,21 @@ mod repo_design {
             "copies to clipboard"
         );
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn repo_page_wraps_content_like_every_other_page(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, &root).await;
+        create_repo(&pool, &root, &cookie).await;
+        let body = repo_page(&pool, &root, &cookie).await;
+
+        let nav = body.find("site-nav").unwrap_or(usize::MAX);
+        let header = body.find("repo-header").unwrap_or(0);
+        assert!(nav < header, "site nav comes before the repo header");
+        assert!(
+            body.matches("class=\"wrap\"").count() >= 3,
+            "page content sits inside wrap containers"
+        );
+        assert!(body.contains("site-footer"), "page ends with the footer");
+    }
 }
