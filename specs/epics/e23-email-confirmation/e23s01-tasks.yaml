@@ -1,0 +1,39 @@
+# story: e23s01 tasks
+story: e23s01
+epic: e23
+title: Email confirmation on sign up
+status: failing
+tasks:
+  - id: t1
+    title: mailer module — resend + messagepit + log providers, payload shapes
+    kind: task
+    status: failing
+    verification:
+      method: run
+      cmd: cargo test -p server mailer
+    labels: [email, mailer]
+    allure:
+      link_to_test: crates/server/tests/mailer.rs
+      tms: []
+  - id: t2
+    title: signup/verify/login-verify flow with email_verifications
+    kind: task
+    status: failing
+    verification:
+      method: run
+      cmd: cargo test -p server email_confirmation
+    labels: [email, auth]
+    allure:
+      link_to_test: crates/server/tests/email_confirmation.rs
+      tms: []
+  - id: t3
+    title: workspace gates — no regressions
+    kind: task
+    status: failing
+    verification:
+      method: run
+      cmd: cargo test --workspace
+    labels: [gates]
+    allure:
+      link_to_test: ""
+      tms: []

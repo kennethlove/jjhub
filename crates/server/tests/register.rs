@@ -35,7 +35,10 @@ mod session_auth {
             .get("location")
             .unwrap()
             .to_str()
-            .unwrap();
+            .unwrap()
+            .to_string();
+        // story: e23s01 — the default app keeps the e21s01 landing;
+        // confirmation mode lives in app_with_mailer (email_confirmation suite)
         assert_eq!(location, "/token-details");
         assert!(
             response.headers().contains_key("set-cookie"),
