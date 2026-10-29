@@ -170,7 +170,7 @@ mod repo_design {
         let header = body.find("repo-header").unwrap_or(0);
         assert!(nav < header, "site nav comes before the repo header");
         assert!(
-            body.matches("class=\"wrap\"").count() >= 3,
+            body.matches("class=\"wrap").count() >= 3,
             "page content sits inside wrap containers"
         );
         assert!(body.contains("site-footer"), "page ends with the footer");

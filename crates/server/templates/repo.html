@@ -2,87 +2,99 @@
 {% block title %}{{ name }} · {{ owner }} · jjhub{% endblock %}
 {% block body %}
 {# story: e26s01 — approved repo landing shell from specs/designs/repo.html:
-   wordmark eyebrow, title + pill, visibility note, clone command, tabs,
-   trunk chip, split grid (about rail + files panel) #}
-<nav class="repo-header" aria-label="Repository">
-  <span class="wordmark">jj / {{ owner }}</span>
-  <div class="repo-head">
-    <div class="repo-id">
-      <h1 class="repo-title">{{ name }}</h1>
-      <span class="status-pill" data-visibility="{{ visibility }}">{{ visibility }}</span>
-      <p class="visibility-def">
-        {% if visibility == "public" %}Everyone can view.{% else %}Only collaborators can view.{% endif %}
-      </p>
-    </div>
-    <a class="clone-link" href="/git/{{ owner }}/{{ name }}.git">jj git clone</a>
-  </div>
-  <nav class="section-tabs" aria-label="Sections">
-    <a href="/{{ owner }}/{{ name }}/tree" aria-current="page">Browse</a>
-    <a href="/{{ owner }}/{{ name }}/merge-requests">Merge requests</a>
-    <a href="/{{ owner }}/{{ name }}/search">Search</a>
-    {% if ssh_enabled %}<a href="/{{ owner }}/{{ name }}/operations">Operations</a>{% endif %}
-  </nav>
-  <span class="repo-trunk">{{ trunk }}</span>
-</nav>
+   site nav first, band (eyebrow, title + pill, visibility note, clone
+   command, tabs, trunk chip) in a wrap, then the split grid (about rail +
+   files panel) in a wrap, footer last — every page shares this frame. #}
 {% include "nav.html" %}
-
-<div class="split-grid">
-  <aside class="about-panel">
-    <h2>About</h2>
-    <p class="about-desc">A {{ visibility }} Jujutsu repository owned by {{ owner }}.</p>
-    <dl class="repo-data">
-      <dt>Owner</dt><dd><a href="/{{ owner }}">{{ owner }}</a></dd>
-      <dt>Default branch</dt><dd><code>{{ trunk }}</code></dd>
-      <dt>Visibility</dt><dd>{{ visibility }}</dd>
-    </dl>
-    <h3>Clone</h3>
-    <p class="clone-cmd"><code>http://{{ host }}/git/{{ owner }}/{{ name }}.git</code></p>
-    {% if ssh_enabled %}<p class="clone-cmd"><code>ssh://{{ owner }}@{{ ssh_host }}:{{ ssh_port }}/{{ owner }}/{{ name }}.git</code></p>{% endif %}
-    {% if generate %}
-    <details class="advanced">
-      <summary>Advanced</summary>
-      <form method="post" action="/{{ owner }}/{{ name }}/tokens">
-        <input type="hidden" name="label" value="clone-{{ owner }}/{{ name }}">
-        <input type="hidden" name="_csrf" value="{{ csrf }}">
-        <button type="submit">Generate token</button>
-      </form>
-    </details>
-    {% endif %}
-    <div class="clone-row">
-      <pre id="clone-command" class="code-block">jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
-jj git push --all</pre>
-      <button type="button" class="copy-btn" aria-label="Copy clone command" data-target="clone-command" onclick="navigator.clipboard.writeText(document.getElementById('clone-command').textContent).then(() => { this.textContent = 'Copied'; setTimeout(() => { this.textContent = 'Copy'; }, 2000); })">Copy</button>
+<header class="repo-header" aria-label="Repository">
+  <div class="wrap">
+    <span class="wordmark">jj / {{ owner }}</span>
+    <div class="repo-head">
+      <div class="repo-id">
+        <h1 class="repo-title">{{ name }}</h1>
+        <span class="status-pill" data-visibility="{{ visibility }}">{{ visibility }}</span>
+        <p class="visibility-def">
+          {% if visibility == "public" %}Everyone can view.{% else %}Only collaborators can view.{% endif %}
+        </p>
+      </div>
+      <a class="clone-link" href="/git/{{ owner }}/{{ name }}.git">jj git clone</a>
     </div>
-  </aside>
+    <nav class="section-tabs" aria-label="Sections">
+      <a href="/{{ owner }}/{{ name }}/tree" aria-current="page">Browse</a>
+      <a href="/{{ owner }}/{{ name }}/merge-requests">Merge requests</a>
+      <a href="/{{ owner }}/{{ name }}/search">Search</a>
+      {% if ssh_enabled %}<a href="/{{ owner }}/{{ name }}/operations">Operations</a>{% endif %}
+    </nav>
+    <span class="repo-trunk">{{ trunk }}</span>
+  </div>
+</header>
 
-  <section class="files-panel">
-    <h2>Files</h2>
-    <p class="table-help">{{ trunk }} · latest revision</p>
-    {% if trunk_conflicted %}<p class="conflict-flag" role="status">Trunk is in a conflict state.</p>{% endif %}
-    {% if tree %}
-    <ul class="file-list">
-      {% for entry in tree %}<li>{% if entry.is_dir %}📁 {% endif %}<a href="/{{ owner }}/{{ name }}/{% if entry.is_dir %}tree{% else %}blob{% endif %}/{{ trunk }}/{{ entry.label | safe }}">{{ entry.label | safe }}</a></li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="empty-state">No files yet — push your first commit to get started.</p>
-    {% endif %}
+<main class="wrap">
+  <div class="split-grid">
+    <aside class="about-panel">
+      <h2>About</h2>
+      <p class="about-desc">A {{ visibility }} Jujutsu repository owned by {{ owner }}.</p>
+      <dl class="repo-data">
+        <dt>Owner</dt><dd><a href="/{{ owner }}">{{ owner }}</a></dd>
+        <dt>Default branch</dt><dd><code>{{ trunk }}</code></dd>
+        <dt>Visibility</dt><dd>{{ visibility }}</dd>
+      </dl>
+      <h3>Clone</h3>
+      <p class="clone-cmd"><code>http://{{ host }}/git/{{ owner }}/{{ name }}.git</code></p>
+      {% if ssh_enabled %}<p class="clone-cmd"><code>ssh://{{ owner }}@{{ ssh_host }}:{{ ssh_port }}/{{ owner }}/{{ name }}.git</code></p>{% endif %}
+      {% if generate %}
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <form method="post" action="/{{ owner }}/{{ name }}/tokens">
+          <input type="hidden" name="label" value="clone-{{ owner }}/{{ name }}">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <button type="submit">Generate token</button>
+        </form>
+      </details>
+      {% endif %}
+      <div class="clone-row">
+        <pre id="clone-command" class="code-block">jj git remote add origin "http://x-access-token:{{ clone_token }}@{{ host }}/git/{{ owner }}/{{ name }}.git"
+jj git push --all</pre>
+        <button type="button" class="copy-btn" aria-label="Copy clone command" data-target="clone-command" onclick="navigator.clipboard.writeText(document.getElementById('clone-command').textContent).then(() => { this.textContent = 'Copied'; setTimeout(() => { this.textContent = 'Copy'; }, 2000); })">Copy</button>
+      </div>
+    </aside>
 
-    <h3 class="panel-heading">Open merge requests</h3>
-    <ul class="mr-list">
-      {% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a>{% if change in mr_divergent %} <span class="divergence-flag" title="Divergent change: two heads exist">diverged</span>{% endif %}</li>
-      {% endfor %}
-      {% if not mrs %}<li class="empty-state">No open merge requests — push a change to open one.</li>{% endif %}
-    </ul>
-    <p><a href="/{{ owner }}/{{ name }}/merge-requests">All merge requests</a>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}</p>
+    <section class="files-panel">
+      <h2>Files</h2>
+      <p class="table-help">{{ trunk }} · latest revision</p>
+      {% if trunk_conflicted %}<p class="conflict-flag" role="status">Trunk is in a conflict state.</p>{% endif %}
+      {% if tree %}
+      <ul class="file-list">
+        {% for entry in tree %}<li>{% if entry.is_dir %}📁 {% endif %}<a href="/{{ owner }}/{{ name }}/{% if entry.is_dir %}tree{% else %}blob{% endif %}/{{ trunk }}/{{ entry.label | safe }}">{{ entry.label | safe }}</a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state">No files yet — push your first commit to get started.</p>
+      {% endif %}
 
-    {% if protected_refs %}
-    <h3 class="panel-heading">Protected refs</h3>
-    <ul class="protected-refs">
-      {% for ref in protected_refs %}<li><code>{{ ref }}</code></li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-  </section>
-</div>
+      <h3 class="panel-heading">Open merge requests</h3>
+      <ul class="mr-list">
+        {% for change in mrs %}<li><a href="/{{ owner }}/{{ name }}/merge-requests/{{ change }}">{{ change }}</a>{% if change in mr_divergent %} <span class="divergence-flag" title="Divergent change: two heads exist">diverged</span>{% endif %}</li>
+        {% endfor %}
+        {% if not mrs %}<li class="empty-state">No open merge requests — push a change to open one.</li>{% endif %}
+      </ul>
+      <p><a href="/{{ owner }}/{{ name }}/merge-requests">All merge requests</a>{% if browse_href %} · <a href="{{ browse_href | safe }}">Browse (kata)</a>{% endif %}</p>
+
+      {% if protected_refs %}
+      <h3 class="panel-heading">Protected refs</h3>
+      <ul class="protected-refs">
+        {% for ref in protected_refs %}<li><code>{{ ref }}</code></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jj / jjhub</span>
+    <span class="footer-links"><a href="/">Apache License 2.0</a> · <a href="https://jj-vcs.dev">jj-vcs.dev</a> · <a href="https://github.com/kennethlove/jjhub">GitHub</a></span>
+  </div>
+</footer>
 {% endblock %}
