@@ -51,9 +51,16 @@ pub async fn require_token(
         return invalid();
     }
 
-    match token::authenticate(&state.pool, token_value).await {
-        Some(user_id) => {
-            request.extensions_mut().insert(TransportUser(user_id));
+    // story: e22s02 — the allowlist keys on the peer address the same
+    // way the rate limiter reads it; absent ConnectInfo = unverifiable
+    // = fail-closed inside authenticate.
+    let ip = request
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|connect| connect.0.ip());
+    match token::authenticate(&state.pool, token_value, ip).await {
+        Some(auth) => {
+            request.extensions_mut().insert(TransportUser(auth.user_id));
             next.run(request).await
         }
         None => invalid(),
@@ -166,7 +173,8 @@ pub async fn smart_http(
     } else {
         GitOp::UploadPack
     };
-    let user = token_user(&parts.headers, &state).await;
+    let user = token_user(&parts.headers, &state, client_ip(&parts.extensions)).await;
+    let transport_user = user.as_ref().map(|auth| auth.user_id);
 
     // story: e20s02 — push charges the push row BEFORE any git work:
     // the budget protects work, not admission, so token and IP rows
@@ -175,7 +183,7 @@ pub async fn smart_http(
     if op == GitOp::ReceivePack {
         if let Some(limiter) = state.rate_limiter.as_ref() {
             let ip = crate::rate_limit::peer_ip(&parts.extensions);
-            let who = user
+            let who = transport_user
                 .map(|u| u.to_string())
                 .unwrap_or_else(|| "anonymous".to_string());
             if let Err(retry) = limiter.try_charge(crate::rate_limit::Action::Push, &who, &ip) {
@@ -199,6 +207,11 @@ pub async fn smart_http(
     let repo = match repo {
         Some(repo) => Some(repo),
         None => {
+            // story: e22s02 — scope and pin gate admission ITSELF, so a
+            // denied push-to-create never creates (no orphan row).
+            if crate::token::transport_gate(user.as_ref(), op, None).is_err() {
+                return (StatusCode::FORBIDDEN, "forbidden").into_response();
+            }
             let ip = crate::rate_limit::peer_ip(&parts.extensions);
             match admit_create(
                 &state.pool,
@@ -206,7 +219,7 @@ pub async fn smart_http(
                 &owner,
                 &name,
                 op,
-                user,
+                transport_user,
                 &ip,
                 state.rate_limiter.as_ref(),
             )
@@ -221,8 +234,16 @@ pub async fn smart_http(
         return StatusCode::NOT_FOUND.into_response();
     };
 
-    if let Err((status, extra_headers)) =
-        authorize(op, user, repo_owner, &visibility, &state.pool, repo_id).await
+    if let Err((status, extra_headers)) = authorize(
+        op,
+        transport_user,
+        repo_owner,
+        &visibility,
+        &state.pool,
+        repo_id,
+        user.as_ref(),
+    )
+    .await
     {
         let mut response = (status, "forbidden").into_response();
         for (name, value) in extra_headers {
@@ -272,7 +293,7 @@ pub async fn smart_http(
             &state.storage_root,
             &owner,
             &name,
-            user,
+            transport_user,
             &body_bytes,
         )
         .await;
@@ -518,7 +539,13 @@ pub(crate) async fn authorize(
     visibility: &str,
     pool: &sqlx::PgPool,
     repo_id: uuid::Uuid,
+    // story: e22s02 — scope + pin ride the shared gate for both
+    // transports; absent token keeps the anonymous rules below.
+    authz: Option<&crate::token::TransportAuth>,
 ) -> Result<(), AuthzError> {
+    if crate::token::transport_gate(authz, op, Some(repo_id)).is_err() {
+        return Err((StatusCode::FORBIDDEN, Vec::new()));
+    }
     match (op, user) {
         (GitOp::ReceivePack, None) => Err((StatusCode::UNAUTHORIZED, challenge())),
         (GitOp::ReceivePack, Some(uid)) => {
@@ -556,7 +583,19 @@ async fn repo_owner_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> uuid::Uu
 }
 
 /// story: e02s02 — parse Basic credentials from headers to a user id.
-async fn token_user(headers: &axum::http::HeaderMap, state: &AppState) -> Option<uuid::Uuid> {
+/// story: e22s02 — peer address from request extensions (ConnectInfo
+/// wired by `into_make_service_with_connect_info`); None when absent.
+fn client_ip(extensions: &axum::http::Extensions) -> Option<std::net::IpAddr> {
+    extensions
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|connect| connect.0.ip())
+}
+
+async fn token_user(
+    headers: &axum::http::HeaderMap,
+    state: &AppState,
+    client_ip: Option<std::net::IpAddr>,
+) -> Option<crate::token::TransportAuth> {
     let credentials = headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
@@ -572,7 +611,7 @@ async fn token_user(headers: &axum::http::HeaderMap, state: &AppState) -> Option
     if username != "x-access-token" {
         return None;
     }
-    token::authenticate(&state.pool, token_value).await
+    token::authenticate(&state.pool, token_value, client_ip).await
 }
 fn parse_cgi_response(raw: &[u8]) -> Option<Response> {
     use axum::body::Body;

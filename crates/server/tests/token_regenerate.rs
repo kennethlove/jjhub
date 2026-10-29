@@ -88,7 +88,9 @@ mod token_regenerate {
         .await;
         assert_eq!(minted.status(), StatusCode::SEE_OTHER);
         let old = flash_cookie(&minted, "new_token").expect("old plaintext shown once");
-        assert!(server::token::authenticate(&pool, &old).await.is_some());
+        assert!(server::token::authenticate(&pool, &old, None)
+            .await
+            .is_some());
 
         // rotate: one operation, new plaintext shown once
         let rotated = post(pool.clone(), "/settings/regenerate", "", Some(&cookie)).await;
@@ -103,11 +105,15 @@ mod token_regenerate {
 
         // old token fails authentication immediately; new one works
         assert!(
-            server::token::authenticate(&pool, &old).await.is_none(),
+            server::token::authenticate(&pool, &old, None)
+                .await
+                .is_none(),
             "old token must be dead after rotation"
         );
         assert!(
-            server::token::authenticate(&pool, &new).await.is_some(),
+            server::token::authenticate(&pool, &new, None)
+                .await
+                .is_some(),
             "new token authenticates immediately"
         );
 
@@ -150,7 +156,11 @@ mod token_regenerate {
         assert_eq!(again.status(), StatusCode::SEE_OTHER);
         let newer = flash_cookie(&again, "new_token").expect("second rotation shows a token");
         assert_ne!(newer, new);
-        assert!(server::token::authenticate(&pool, &new).await.is_none());
-        assert!(server::token::authenticate(&pool, &newer).await.is_some());
+        assert!(server::token::authenticate(&pool, &new, None)
+            .await
+            .is_none());
+        assert!(server::token::authenticate(&pool, &newer, None)
+            .await
+            .is_some());
     }
 }

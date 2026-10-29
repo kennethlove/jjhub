@@ -1,6 +1,6 @@
 story_id: e22s02
 title: "Enforcement — authenticate rejects, authorize scopes"
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e22s02t1
@@ -10,7 +10,7 @@ tasks:
       allowlist unrestricted
     verify: "cargo test -p server token_restrictions"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -22,7 +22,7 @@ tasks:
       write inside the shared admission decision (HTTP + SSH)
     verify: "cargo test -p server token_scope_authorize"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -34,7 +34,7 @@ tasks:
       off-list refused on both transports
     verify: "bash scripts/e2e-token-scopes.sh"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
@@ -44,7 +44,7 @@ tasks:
     description: "workspace gates stay green"
     verify: "cargo test --workspace"
     risk: P2
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories:

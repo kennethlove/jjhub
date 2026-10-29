@@ -60,7 +60,7 @@ Operator (migration), all token users (implicitly).
 
 ## 8. Preconditions
 
-Migration chain through 0010 applied (or this story lands first —
+Migration chain through 0011 applied (or this story lands first —
 the two are independent).
 
 ## 9. Postconditions
@@ -93,7 +93,7 @@ story only guarantees the storage shape.
 
 ## 14. Data model
 
-Migration 0011 as in the requirement above, including the
+Migration 0012 as in the requirement above, including the
 backfill UPDATE for pre-existing rows (defaults handle it, but the
 backfill is explicit and tested).
 
@@ -124,7 +124,7 @@ Scenario: fresh token defaults
     or allowlist
 
 Scenario: pre-existing rows survive the migration
-  Given tokens that existed before migration 0011
+  Given tokens that existed before migration 0012
   When the migration applies
   Then every row has read+write scopes and NULL restrictions
 ```
@@ -137,5 +137,5 @@ Scenario: pre-existing rows survive the migration
 
 ## 20. Traceability
 
-`// story: e22s01` in migration 0011 and the
+`// story: e22s01` in migration 0012 and the
 `token_permissions_migration` / `token_scopes_backfill` tests.

@@ -423,7 +423,44 @@ pub async fn create_repo_token(
             return crate::rate_limit::too_many_requests(retry);
         }
     }
-    let new = crate::token::create(&state.pool, current.0, &form.label).await;
+    // story: e22s03 — repo-page mint pins to its own repo: id comes
+    // from the URL, never the form.
+    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
+        "SELECT r.id FROM repositories r
+         JOIN users u ON u.id = r.owner_id
+         WHERE u.handle = $1 AND r.name = $2 AND r.owner_id = $3",
+    )
+    .bind(&owner)
+    .bind(&name)
+    .bind(current.0)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id,)) = repo else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let (scopes, expires_at, _pin, allowed_inets) = match perms_from(
+        form.read,
+        form.write,
+        form.expires,
+        form.pin,
+        form.allowed_inets,
+        Some(repo_id),
+    ) {
+        Ok(perms) => perms,
+        Err(response) => return response,
+    };
+    let new = crate::token::create_with(
+        &state.pool,
+        current.0,
+        &form.label,
+        &scopes,
+        expires_at,
+        Some(repo_id),
+        allowed_inets,
+    )
+    .await;
     let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
         "new_token",
         new.plaintext,
@@ -504,6 +541,18 @@ pub async fn settings(
         })
         .collect();
 
+    // story: e22s03 — the pin select lists the viewer's own repos
+    let repos: Vec<(uuid::Uuid, String)> =
+        sqlx::query_as("SELECT id, name FROM repositories WHERE owner_id = $1 ORDER BY name")
+            .bind(current.0)
+            .fetch_all(&state.pool)
+            .await
+            .unwrap_or_default();
+    let repo_items: Vec<serde_json::Value> = repos
+        .iter()
+        .map(|(id, name)| serde_json::json!({ "id": id.to_string(), "name": name }))
+        .collect();
+
     match email {
         Some(email) => {
             let mut context = page_context(handle.as_deref(), &csrf);
@@ -521,6 +570,7 @@ pub async fn settings(
             context.insert("checked_dark", checked("dark"));
             context.insert("new_token", &new_token);
             context.insert("tokens", &token_items);
+            context.insert("repos", &repo_items);
             // story: e25s01 — profile fields the page writes
             // (display_name/checked_* already set from the e21 row read)
             let (_, _, member_since) =
@@ -1083,6 +1133,112 @@ pub async fn git_whoami(
 #[derive(Deserialize)]
 pub struct TokenForm {
     label: String,
+    read: Option<String>,
+    write: Option<String>,
+    expires: Option<String>,
+    pin: Option<String>,
+    allowed_inets: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RegenerateForm {
+    read: Option<String>,
+    write: Option<String>,
+    expires: Option<String>,
+    pin: Option<String>,
+    allowed_inets: Option<String>,
+}
+
+// story: e22s03 — form permission fields -> stored values. floors:
+// no scopes checked = read+write; expiry is end-of-day UTC and must
+// be in the future; pin/allowlist optional.
+#[allow(clippy::type_complexity)]
+// story: e22s03 — form -> stored permissions. WHY allow: the error
+// channel carries a ready-made 422 Response, same shape as admit_create's
+// Box<Response> (callers never branch on the error beyond returning it).
+#[allow(clippy::result_large_err)]
+fn perms_from(
+    read: Option<String>,
+    write: Option<String>,
+    expires: Option<String>,
+    pin: Option<String>,
+    allowed_inets: Option<String>,
+    pinned: Option<uuid::Uuid>,
+) -> Result<
+    (
+        Vec<&'static str>,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<uuid::Uuid>,
+        Option<Vec<std::net::IpAddr>>,
+    ),
+    Response,
+> {
+    let scopes: Vec<&'static str> = match (read.is_some(), write.is_some()) {
+        (true, true) | (false, false) => vec!["read", "write"],
+        (true, false) => vec!["read"],
+        (false, true) => vec!["write"],
+    };
+    let expires_at = match expires.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        None => None,
+        Some(text) => match chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d") {
+            Ok(date) => {
+                let when = date.and_hms_opt(23, 59, 59).unwrap().and_utc();
+                if when <= chrono::Utc::now() {
+                    return Err(
+                        (StatusCode::UNPROCESSABLE_ENTITY, "invalid expiry").into_response()
+                    );
+                }
+                Some(when)
+            }
+            Err(_) => {
+                return Err((StatusCode::UNPROCESSABLE_ENTITY, "invalid expiry").into_response())
+            }
+        },
+    };
+    let pin = if pinned.is_some() {
+        pinned
+    } else {
+        match pin.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            None => None,
+            Some(text) => match uuid::Uuid::parse_str(text) {
+                Ok(id) => Some(id),
+                Err(_) => {
+                    return Err((StatusCode::UNPROCESSABLE_ENTITY, "invalid pin").into_response())
+                }
+            },
+        }
+    };
+    let allowed_inets = match allowed_inets
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        None => None,
+        Some(text) => {
+            let mut out = Vec::new();
+            for piece in text.split(|c: char| c == ',' || c.is_whitespace()) {
+                if piece.is_empty() {
+                    continue;
+                }
+                match piece.parse::<std::net::IpAddr>() {
+                    Ok(ip) => out.push(ip),
+                    Err(_) => {
+                        return Err((
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            "invalid allowlist address",
+                        )
+                            .into_response())
+                    }
+                }
+            }
+            if out.is_empty() {
+                None
+            } else {
+                Some(out)
+            }
+        }
+    };
+    Ok((scopes, expires_at, pin, allowed_inets))
 }
 
 pub async fn create_token(
@@ -1100,7 +1256,27 @@ pub async fn create_token(
             return crate::rate_limit::too_many_requests(retry);
         }
     }
-    let new = crate::token::create(&state.pool, current.0, &form.label).await;
+    let (scopes, expires_at, pin, allowed_inets) = match perms_from(
+        form.read,
+        form.write,
+        form.expires,
+        form.pin,
+        form.allowed_inets,
+        None,
+    ) {
+        Ok(perms) => perms,
+        Err(response) => return response,
+    };
+    let new = crate::token::create_with(
+        &state.pool,
+        current.0,
+        &form.label,
+        &scopes,
+        expires_at,
+        pin,
+        allowed_inets,
+    )
+    .await;
     let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
         "new_token",
         new.plaintext,
@@ -1115,6 +1291,7 @@ pub async fn regenerate_token(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
     jar: CookieJar,
+    Form(form): Form<RegenerateForm>,
 ) -> Response {
     // story: e20s02 — regenerate charges the same token row as minting.
     if let Some(limiter) = state.rate_limiter.as_ref() {
@@ -1124,7 +1301,28 @@ pub async fn regenerate_token(
             return crate::rate_limit::too_many_requests(retry);
         }
     }
-    let new = crate::token::regenerate(&state.pool, current.0).await;
+    // story: e22s03 — rotation carries the requested permissions;
+    // absent fields floor to read+write.
+    let (scopes, expires_at, pin, allowed_inets) = match perms_from(
+        form.read,
+        form.write,
+        form.expires,
+        form.pin,
+        form.allowed_inets,
+        None,
+    ) {
+        Ok(perms) => perms,
+        Err(response) => return response,
+    };
+    let new = crate::token::regenerate_with(
+        &state.pool,
+        current.0,
+        &scopes,
+        expires_at,
+        pin,
+        allowed_inets,
+    )
+    .await;
     let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
         "new_token",
         new.plaintext,

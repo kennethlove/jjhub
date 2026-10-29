@@ -53,7 +53,9 @@ async fn transport_user(state: &AppState, headers: &HeaderMap) -> Option<uuid::U
     if username != "x-access-token" {
         return None;
     }
-    crate::token::authenticate(&state.pool, token_value).await
+    crate::token::authenticate(&state.pool, token_value, None)
+        .await
+        .map(|auth| auth.user_id)
 }
 
 pub async fn proxy(
