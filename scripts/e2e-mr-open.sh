@@ -18,7 +18,7 @@ cargo build -q -p server
 export JJHUB_STORAGE_ROOT="$TMP/repos"
 export JJHUB_PORT="$PORT"
 export DATABASE_URL="$DB_URL"
-./target/debug/server &
+JJHUB_EMAIL_CONFIRM=off ./target/debug/server &
 SVPID=$!
 for _ in $(seq 1 50); do curl -sf "$BASE/healthz" >/dev/null && break; sleep 0.1; done
 

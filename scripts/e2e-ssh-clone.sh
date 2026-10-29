@@ -15,7 +15,7 @@ trap 'rm -rf "$TMP"; kill "${SVPID:-0}" 2>/dev/null || true' EXIT
 export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 JJHUB_STORAGE_ROOT="$TMP/repos" JJHUB_PORT="$PORT" JJHUB_SSH_PORT="$SSH_PORT" \
-  JJHUB_SSH_HOST_KEY_DIR="$TMP/host-keys" DATABASE_URL="$DB_URL" ./target/debug/server &
+  JJHUB_SSH_HOST_KEY_DIR="$TMP/host-keys" DATABASE_URL="$DB_URL" JJHUB_EMAIL_CONFIRM=off ./target/debug/server &
 SVPID=$!
 for _ in $(seq 1 50); do
   curl -sf "$BASE/healthz" >/dev/null && break

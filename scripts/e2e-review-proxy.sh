@@ -31,7 +31,7 @@ export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 JJHUB_STORAGE_ROOT="$TMP/repos" JJHUB_PORT="$PORT" DATABASE_URL="$DB_URL" \
   KATA_UPSTREAM="http://127.0.0.1:${KATA_PORT}" \
-  ./target/debug/server &
+  JJHUB_EMAIL_CONFIRM=off ./target/debug/server &
 SVPID=$!
 for _ in $(seq 1 50); do
   curl -sf "$BASE/healthz" >/dev/null && break
