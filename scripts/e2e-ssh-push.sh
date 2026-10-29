@@ -21,7 +21,7 @@ JJHUB_SSH_ENABLED=1 \
 JJHUB_SSH_BIND=127.0.0.1 \
 JJHUB_SSH_PORT="$SSH_PORT" \
 JJHUB_SSH_HOST_KEY_DIR="$TMP/ssh_host_keys" \
-DATABASE_URL="$DB_URL" "$SERVER_BIN" &
+DATABASE_URL="$DB_URL" JJHUB_EMAIL_CONFIRM=off "$SERVER_BIN" &
 SVPID=$!
 
 # ${VAR:?why} at first use — the whole script depends on both listeners.
