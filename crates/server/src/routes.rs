@@ -1442,6 +1442,7 @@ fn divergent_heads(bare: &std::path::Path, commits: &[String]) -> Vec<String> {
 pub async fn merge_requests_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    jar: CookieJar,
 ) -> Response {
     let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
         "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
@@ -1510,7 +1511,12 @@ pub async fn merge_requests_page(
             items.push(crate::render::render("mr_list_item.html", &item));
         }
     }
-    let mut context = tera::Context::new();
+    let viewer = viewer_handle(&state, &jar).await;
+    let csrf = jar
+        .get(SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("owner", &owner);
     context.insert("name", &name);
     context.insert("position_html", &items.join("\n"));
@@ -1654,6 +1660,22 @@ pub async fn mr_detail_page(
     context.insert("name", &name);
     context.insert("change_id", &change_id);
     context.insert("mr_state", &mr_state);
+    let viewer = viewer_handle(&state, &jar).await;
+    context.insert("user_handle", &viewer.clone().unwrap_or_default());
+    if let Some(handle) = viewer.as_deref() {
+        if let Some(theme) =
+            sqlx::query_scalar::<_, String>("SELECT theme FROM users WHERE handle = $1")
+                .bind(handle)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+        {
+            context.insert("theme", &theme);
+        }
+    } else {
+        context.insert("theme", "system");
+    }
     context.insert("csrf", &csrf);
     context.insert("badges", &badges);
     context.insert("sections", &sections);

@@ -89,13 +89,21 @@ pub async fn search_page(
         .unwrap_or("open()")
         .to_string();
     let meta = domain::meta_path(&state.storage_root, &owner, &name);
-    let (hits, error) = match jj_meta::revset_query(&meta, &trunk, &query, RESULT_CAP).await {
-        Ok(hits) => (hits, None),
-        // story: e11s02 — an invalid query stays on the page so the parser
-        // message renders escaped; markup in the query never survives.
-        Err(jj_meta::RevsetQueryError::Invalid(message)) => (Vec::new(), Some(message)),
-        Err(jj_meta::RevsetQueryError::Internal(message)) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
+    // story: e29 — a repo never touched by jj has no .meta store yet;
+    // that is a state of the repository (like the operations page's
+    // missing log), not a server error. A corrupt store still fails below.
+    let no_store = !meta.exists();
+    let (hits, error): (Vec<crate::jj_meta::RevsetHit>, Option<String>) = if no_store {
+        (Vec::new(), None)
+    } else {
+        match jj_meta::revset_query(&meta, &trunk, &query, RESULT_CAP).await {
+            Ok(hits) => (hits, None),
+            // story: e11s02 — an invalid query stays on the page so the parser
+            // message renders escaped; markup in the query never survives.
+            Err(jj_meta::RevsetQueryError::Invalid(message)) => (Vec::new(), Some(message)),
+            Err(jj_meta::RevsetQueryError::Internal(message)) => {
+                return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
+            }
         }
     };
 
@@ -131,6 +139,7 @@ pub async fn search_page(
     context.insert("query", &query);
     context.insert("hits", &rows);
     context.insert("error", &error);
+    context.insert("no_store", &no_store);
     context.insert("at_cap", &(hits.len() == RESULT_CAP));
     Html(crate::render::render("search.html", &context)).into_response()
 }

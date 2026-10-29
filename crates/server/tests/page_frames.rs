@@ -30,6 +30,8 @@ mod page_frames {
         git(&["init", "--bare", bare.to_str().unwrap()]);
         git(&["init", "-b", "trunk"]);
         std::fs::write(seed.join("README.md"), "# hello\n").unwrap();
+        std::fs::create_dir_all(seed.join("docs")).unwrap();
+        std::fs::write(seed.join("docs/guide.md"), "guide\n").unwrap();
         git(&["add", "."]);
         git(&[
             "-c",
@@ -52,7 +54,7 @@ mod page_frames {
         let user_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO users (email, password_hash, handle) VALUES ('alice@example.com', 'x', 'alice') RETURNING id",
         ).fetch_one(pool).await.unwrap();
-        let repo_id: i64 = sqlx::query_scalar(
+        let repo_id: uuid::Uuid = sqlx::query_scalar(
             "INSERT INTO repositories (owner_id, name) VALUES ($1, 'demo') RETURNING id",
         )
         .bind(user_id)
@@ -89,7 +91,10 @@ mod page_frames {
             .unwrap_or_else(|| panic!("{page}: no <main> content region: {body}"));
         assert!(header < first_content, "{page}: nav renders before content");
         let wraps = body.matches("class=\"wrap").count();
-        assert!(wraps >= 3, "{page}: needs nav/main/footer wraps, got {wraps}");
+        assert!(
+            wraps >= 3,
+            "{page}: needs nav/main/footer wraps, got {wraps}"
+        );
         assert!(
             body.contains("class=\"site-footer\""),
             "{page}: footer missing: {body}"
@@ -104,7 +109,10 @@ mod page_frames {
         assert_frame(&body, "tree");
         // navigation stays inside the browse view
         assert!(body.contains("/alice/demo/tree/trunk/docs"), "dir link");
-        assert!(body.contains("/alice/demo/blob/trunk/README.md"), "file link");
+        assert!(
+            body.contains("/alice/demo/blob/trunk/README.md"),
+            "file link"
+        );
     }
 
     #[sqlx::test(migrations = "./migrations")]
