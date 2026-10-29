@@ -2,6 +2,7 @@
 pub mod browse;
 pub mod creation;
 pub mod divergence;
+pub mod email;
 pub mod jj_meta;
 pub mod merge;
 pub mod middleware;
@@ -38,6 +39,12 @@ pub struct AppState {
     // story: e20s01 — in-memory rate limiter; None in every test
     // constructor so handler behavior is unchanged.
     pub rate_limiter: Option<std::sync::Arc<crate::rate_limit::RateLimiter>>,
+    // story: e23s01 — outbound email; LogMailer default, env selects
+    // resend|messagepit (email::from_env).
+    pub mailer: std::sync::Arc<dyn crate::email::Mailer>,
+    // story: e23s01 — signup requires the email click; OFF in the
+    // default test app, ON in app_with_mailer and production.
+    pub email_confirmation: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -73,6 +80,9 @@ pub fn app_with_limiter(
         kata_public_base,
         ssh: crate::ssh::SshConfig::from_env(),
         rate_limiter: rate_limiter.map(crate::rate_limit::share),
+        // WHY: env-selected provider; tests wanting a specific mailer use app_with_mailer
+        mailer: std::sync::Arc::from(crate::email::from_env()),
+        email_confirmation: false,
     };
     app_from_state(state)
 }
@@ -142,6 +152,62 @@ pub fn app_with_ssh(
         kata_public_base,
         ssh,
         rate_limiter: None,
+        mailer: std::sync::Arc::from(crate::email::from_env()),
+        email_confirmation: false,
+    };
+    app_from_state(state)
+}
+
+/// story: e23s01 — explicit mailer wiring for tests (confirmation gate).
+// WHY: duplicates the state init instead of widening app_with_limiter —
+// its 3-arg signature is used across many test suites unchanged.
+pub fn app_with_mailer(
+    pool: PgPool,
+    storage_root: impl Into<String>,
+    mailer: std::sync::Arc<dyn crate::email::Mailer>,
+) -> Router {
+    let kata_upstream =
+        std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    let kata_public_base = std::env::var("KATA_PUBLIC_BASE").unwrap_or_default();
+    let state = AppState {
+        pool,
+        session_secret: session_secret_from_env(),
+        storage_root: storage_root.into(),
+        kata_upstream,
+        kata_public_base,
+        ssh: crate::ssh::SshConfig::from_env(),
+        rate_limiter: None,
+        mailer,
+        // WHY: this constructor exists for the confirmation suites
+        email_confirmation: true,
+    };
+    app_from_state(state)
+}
+
+/// story: e23s01 — production entry: confirmation ON unless the
+/// operator turns it off (JJHUB_EMAIL_CONFIRM=off). main.rs uses this
+/// so a forgotten knob cannot silently disable verification.
+pub fn app_production(
+    pool: PgPool,
+    storage_root: String,
+    rate_limiter: Option<crate::rate_limit::RateLimiter>,
+) -> Router {
+    let confirm = std::env::var("JJHUB_EMAIL_CONFIRM")
+        .map(|value| value != "off")
+        .unwrap_or(true);
+    let kata_upstream =
+        std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    let kata_public_base = std::env::var("KATA_PUBLIC_BASE").unwrap_or_default();
+    let state = AppState {
+        pool,
+        session_secret: session_secret_from_env(),
+        storage_root,
+        kata_upstream,
+        kata_public_base,
+        ssh: crate::ssh::SshConfig::from_env(),
+        rate_limiter: rate_limiter.map(crate::rate_limit::share),
+        mailer: std::sync::Arc::from(crate::email::from_env()),
+        email_confirmation: confirm,
     };
     app_from_state(state)
 }
@@ -204,6 +270,10 @@ fn app_from_state(state: AppState) -> Router {
                 ),
             ),
         )
+        // story: e23s01 — the click: consume the link, sign in
+        .route("/verify", get(routes::verify_email_link))
+        // story: e23s01 — the mail-sent page
+        .route("/verify-sent", get(routes::verify_sent))
         .route(
             "/reset",
             get(routes::reset_form).post(routes::request_reset).layer(

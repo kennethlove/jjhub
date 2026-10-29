@@ -24,6 +24,20 @@ mod session_auth_login {
             "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
         )
         .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        // story: e23s01 — signup no longer sets a session: confirm
+        // by hand, then log in to get the cookie.
+        sqlx::query("UPDATE users SET email_verified_at = now() WHERE handle = 'bob'")
+            .execute(pool)
+            .await
+            .unwrap();
+        let response = post(
+            pool.clone(),
+            "/login",
+            "email=bob%40example.com&password=correct+horse+battery",
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
         response
             .headers()
             .get("set-cookie")

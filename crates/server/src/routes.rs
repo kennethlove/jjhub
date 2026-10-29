@@ -144,7 +144,37 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             .into_response();
     }
 
-    session_response(&state, user_id, "/token-details")
+    // story: e23s01 — mint the confirmation before the account can
+    // sign in; hash-only token (e22s02 lesson). Flag OFF keeps the
+    // e21s01 landing (session straight to the details screen).
+    if !state.email_confirmation {
+        return session_response(&state, user_id, "/token-details");
+    }
+    let verification_token = crate::email::send_verification(&state.pool, user_id).await;
+    if state
+        .mailer
+        .send(
+            &email,
+            "Confirm your email",
+            &crate::email::verify_link(&verification_token.token),
+        )
+        .await
+        .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "could not send confirmation email",
+        )
+            .into_response();
+    }
+
+    // story: e23s01 — no session before the click; the one-time
+    // handoff waits for the verified session.
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/verify-sent".to_string())],
+    )
+        .into_response()
 }
 
 fn session_response(state: &AppState, user_id: uuid::Uuid, location: &str) -> Response {
@@ -377,18 +407,86 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
             .await
             .unwrap_or(None);
 
-    match row {
-        Some((id, hash)) if verify_password(&form.password, &hash) => {
-            session_response(&state, id, "/settings")
-        }
-        // story: e01s03 — same message for unknown email and wrong
-        // password: the page must not say which one was wrong
-        _ => (
+    let Some((id, _hash)) = row.filter(|(_, hash)| verify_password(&form.password, hash)) else {
+        return (
             StatusCode::UNAUTHORIZED,
             Html(login_page("email or password is incorrect")),
         )
-            .into_response(),
+            .into_response();
+    };
+
+    // story: e23s01 — the click is still required: correct password
+    // on an unverified account resends a fresh link and refuses.
+    // Flag OFF keeps the plain e01s03 login.
+    if state.email_confirmation {
+        let verified: Option<chrono::DateTime<chrono::Utc>> =
+            sqlx::query_scalar("SELECT email_verified_at FROM users WHERE id = $1")
+                .bind(id)
+                .fetch_one(&state.pool)
+                .await
+                .ok()
+                .flatten();
+        if verified.is_none() {
+            login_resend_verification(&state, &email).await;
+            return login_page_for(&state, "confirm your email address to finish signing in");
+        }
     }
+    session_response(&state, id, "/settings")
+}
+
+// story: e23s01 — the unverified-login message rides the login page.
+// WHY no cookie forwarding: an unverified login carries no session to
+// forward — the click is the only way in.
+fn login_page_for(_state: &AppState, message: &str) -> Response {
+    (StatusCode::UNPROCESSABLE_ENTITY, Html(login_page(message))).into_response()
+}
+
+// story: e23s01 — resend on login: only for accounts still waiting
+// for the click; false when there is nothing to resend.
+async fn login_resend_verification(state: &AppState, email: &str) -> bool {
+    let user: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM users WHERE email = $1 AND email_verified_at IS NULL")
+            .bind(email)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((user_id,)) = user else {
+        return false;
+    };
+    let token = crate::email::send_verification(&state.pool, user_id).await;
+    state
+        .mailer
+        .send(
+            email,
+            "Confirm your email",
+            &crate::email::verify_link(&token.token),
+        )
+        .await
+        .is_ok()
+}
+
+// story: e23s01 — the click: consume the link, sign in.
+pub async fn verify_email_link(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let Some(token) = params.get("token") else {
+        return (StatusCode::UNPROCESSABLE_ENTITY, crate::email::LINK_REFUSED).into_response();
+    };
+    match crate::email::verify_email(&state.pool, token).await {
+        Some(user_id) => session_response(&state, user_id, "/token-details"),
+        None => (StatusCode::UNPROCESSABLE_ENTITY, crate::email::LINK_REFUSED).into_response(),
+    }
+}
+
+// story: e23s01 — the mail-sent page: plain English, one action.
+pub async fn verify_sent() -> Response {
+    (
+        StatusCode::OK,
+        Html(login_page("Check your email for a confirmation link.")),
+    )
+        .into_response()
 }
 
 pub async fn logout() -> Response {

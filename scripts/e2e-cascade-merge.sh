@@ -19,7 +19,7 @@ trap cleanup EXIT
 export SESSION_SECRET="${SESSION_SECRET:-e2e-shared-secret}"
 cargo build -q -p server
 export JJHUB_STORAGE_ROOT="$TMP/repos" JJHUB_PORT="$PORT" DATABASE_URL="$DB_URL"
-./target/debug/server >"$TMP/server.log" 2>&1 &
+JJHUB_EMAIL_CONFIRM=off ./target/debug/server >"$TMP/server.log" 2>&1 &
 SVPID=$!
 for _ in $(seq 1 50); do curl -sf "$BASE/healthz" >/dev/null && break; sleep 0.1; done
 

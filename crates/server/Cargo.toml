@@ -8,7 +8,9 @@ axum = { workspace = true, features = ["json"] }
 tokio.workspace = true
 tower.workspace = true
 tracing = "0.1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+# WHY: object-safe async Mailer trait — async-trait is already in the lock graph
+async-trait = "0.1"
 http-body-util = "0.1"
 sqlx = { workspace = true, features = ["migrate"] }
 tera.workspace = true

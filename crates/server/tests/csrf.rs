@@ -15,6 +15,26 @@ mod csrf_protection {
                 .oneshot(request)
                 .await
                 .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        // story: e23s01 — signup no longer sets a session: confirm by
+        // hand, then log in to get the cookie.
+        sqlx::query("UPDATE users SET email_verified_at = now() WHERE handle = 'alice'")
+            .execute(pool)
+            .await
+            .unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(
+                    Request::post("/login")
+                        .header("content-type", "application/x-www-form-urlencoded")
+                        .body(Body::from(
+                            "email=alice%40example.com&password=correct+horse+battery",
+                        ))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
         response
             .headers()
             .get("set-cookie")
@@ -141,12 +161,13 @@ mod csrf_protection {
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
-        // login likewise
+        // login likewise — CSRF-exempt; story: e23s01: this default
+        // app keeps the plain login (confirmation mode = email_confirmation suite).
         let response = post(
             pool,
             &root,
             "/login",
-            "email=bob%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
+            "email=bob%40example.com&password=correct+horse+battery",
             None,
         )
         .await;
