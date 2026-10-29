@@ -61,7 +61,7 @@ async fn main() {
     // on the client IP.
     axum::serve(
         listener,
-        server::app_with_limiter(pool, storage_root, limiter)
+        server::app_production(pool, storage_root, limiter)
             .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .await

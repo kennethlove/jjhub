@@ -2,12 +2,12 @@
 story: e23s01
 epic: e23
 title: Email confirmation on sign up
-status: failing
+status: passing
 tasks:
   - id: t1
     title: mailer module — resend + messagepit + log providers, payload shapes
     kind: task
-    status: failing
+    status: passing
     verification:
       method: run
       cmd: cargo test -p server mailer
@@ -18,7 +18,7 @@ tasks:
   - id: t2
     title: signup/verify/login-verify flow with email_verifications
     kind: task
-    status: failing
+    status: passing
     verification:
       method: run
       cmd: cargo test -p server email_confirmation
@@ -29,7 +29,7 @@ tasks:
   - id: t3
     title: workspace gates — no regressions
     kind: task
-    status: failing
+    status: passing
     verification:
       method: run
       cmd: cargo test --workspace

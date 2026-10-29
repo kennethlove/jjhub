@@ -5,7 +5,6 @@
 //! (https://github.com/coreydaley/messagepit, POST /v3/mail/send).
 //! The fallback is LogMailer so tests never need a network.
 
-
 /// The provider contract — one method, one outcome.
 #[async_trait::async_trait]
 pub trait Mailer: Send + Sync {

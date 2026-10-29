@@ -184,6 +184,34 @@ pub fn app_with_mailer(
     app_from_state(state)
 }
 
+/// story: e23s01 — production entry: confirmation ON unless the
+/// operator turns it off (JJHUB_EMAIL_CONFIRM=off). main.rs uses this
+/// so a forgotten knob cannot silently disable verification.
+pub fn app_production(
+    pool: PgPool,
+    storage_root: String,
+    rate_limiter: Option<crate::rate_limit::RateLimiter>,
+) -> Router {
+    let confirm = std::env::var("JJHUB_EMAIL_CONFIRM")
+        .map(|value| value != "off")
+        .unwrap_or(true);
+    let kata_upstream =
+        std::env::var("KATA_UPSTREAM").unwrap_or_else(|_| "http://127.0.0.1:7878".into());
+    let kata_public_base = std::env::var("KATA_PUBLIC_BASE").unwrap_or_default();
+    let state = AppState {
+        pool,
+        session_secret: session_secret_from_env(),
+        storage_root,
+        kata_upstream,
+        kata_public_base,
+        ssh: crate::ssh::SshConfig::from_env(),
+        rate_limiter: rate_limiter.map(crate::rate_limit::share),
+        mailer: std::sync::Arc::from(crate::email::from_env()),
+        email_confirmation: confirm,
+    };
+    app_from_state(state)
+}
+
 fn app_from_state(state: AppState) -> Router {
     let protected = Router::new()
         .route("/settings", get(routes::settings))
