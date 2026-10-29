@@ -1388,3 +1388,342 @@ fieldset.field legend {
 
 }
 
+/* repo landing — story: e26s01, the approved shell from specs/designs/repo.html */
+.repo-header {
+  padding-block: var(--space-xl) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.repo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.repo-title {
+  font-size: var(--text-headline-lg);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: var(--space-half) var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-label-sm);
+  font-weight: 500;
+  color: var(--color-secondary);
+}
+
+.status-pill[data-visibility="private"] {
+  border-color: var(--color-secondary);
+}
+
+.visibility-def {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+}
+
+.clone-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-data-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: border-color 120ms ease-out;
+}
+
+.clone-link:hover {
+  border-color: var(--color-secondary);
+}
+
+.clone-link:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.section-tabs {
+  display: flex;
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.section-tabs a {
+  padding-bottom: var(--space-sm);
+  margin-bottom: -1px;
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--color-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.section-tabs a:hover {
+  color: var(--color-primary);
+}
+
+.section-tabs a:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.section-tabs a[aria-current="page"] {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-tertiary);
+}
+
+.repo-trunk {
+  display: inline-block;
+  margin-top: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-data-sm);
+  color: var(--color-secondary);
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: 18rem 1fr;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.about-panel h2,
+.files-panel h2 {
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 var(--space-sm);
+}
+
+.about-desc {
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+  margin: 0 0 var(--space-md);
+}
+
+.repo-data {
+  margin: 0 0 var(--space-md);
+}
+
+.repo-data dt {
+  font-size: var(--text-label-sm);
+  font-weight: 500;
+  color: var(--color-secondary);
+  margin-top: var(--space-sm);
+}
+
+.repo-data dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-data-sm);
+  color: var(--color-primary);
+}
+
+.repo-data dd a {
+  color: var(--color-tertiary-hover);
+  text-decoration: none;
+}
+
+.repo-data dd a:hover {
+  color: var(--color-tertiary-pressed);
+  text-decoration: underline;
+}
+
+.repo-data dd a:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.clone-cmd code,
+.code-block {
+  font-family: var(--font-mono);
+}
+
+.clone-cmd code {
+  font-size: var(--text-data-sm);
+  color: var(--color-primary);
+}
+
+.advanced {
+  margin-top: var(--space-sm);
+}
+
+.advanced summary {
+  cursor: pointer;
+  font-size: var(--text-label-sm);
+  color: var(--color-secondary);
+}
+
+.advanced summary:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.code-block {
+  display: block;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-data-sm);
+  line-height: 1.6;
+  color: var(--color-primary);
+  overflow-x: auto;
+  margin: 0 0 var(--space-md);
+}
+
+.files-panel {
+  min-width: 0;
+}
+
+.table-help {
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-data-sm);
+  color: var(--color-secondary);
+}
+
+.panel-heading {
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: var(--space-lg) 0 var(--space-sm);
+}
+
+.file-list,
+.mr-list,
+.protected-refs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.file-list li,
+.mr-list li,
+.protected-refs li {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-body-sm);
+}
+
+.file-list a,
+.mr-list a {
+  color: var(--color-tertiary-hover);
+  text-decoration: none;
+  font-family: var(--font-mono);
+}
+
+.file-list a:hover,
+.mr-list a:hover {
+  color: var(--color-tertiary-pressed);
+  text-decoration: underline;
+}
+
+.file-list a:focus-visible,
+.mr-list a:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.protected-refs code {
+  font-family: var(--font-mono);
+  font-size: var(--text-data-sm);
+  color: var(--color-primary);
+}
+
+.empty-state {
+  padding: var(--space-md) 0;
+  font-size: var(--text-body-sm);
+  color: var(--color-secondary);
+}
+
+/* clone row + copy control — story: e26s01 */
+.clone-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.clone-row .code-block {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  /* the clone URL is one unbreakable run; wrap it so the About rail
+     (and the whole page) fits a 390px viewport instead of forcing a
+     696px min-content grid track. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* .code-block is overflow-x:auto; as a flex item that resists shrink
+     and nudges the row out of the page gutter. The URL wraps now, so
+     scroll is dead weight. */
+  overflow-x: hidden;
+}
+
+.copy-btn {
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--text-label-sm);
+  color: var(--color-secondary);
+  cursor: pointer;
+  transition: color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.copy-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-secondary);
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.copy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 767px) {
+  .split-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .section-tabs {
+    gap: var(--space-md);
+    overflow-x: auto;
+  }
+
+  .repo-head {
+    flex-direction: column;
+  }
+}
+

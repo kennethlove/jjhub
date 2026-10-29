@@ -1,0 +1,49 @@
+story_id: e26s01
+title: "repo landing shell per the approved design"
+status: completed
+bcps: 3
+tasks:
+  - id: e26s01t1
+    description: >
+      RED test: design shell renders (eyebrow wordmark, repo-title,
+      status pill, visibility-def, jj git clone line, section tabs
+      with active Browse, repo-trunk chip, split-grid, About panel,
+      Files panel)
+    verify: "cargo test -p server --test repo_design"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["repo"]
+  - id: e26s01t2
+    description: >
+      repo.html rewrite to the design markup; app.css gains the
+      repo.css block on DESIGN.md tokens
+    verify: "cargo test -p server --test repo_design"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["repo"]
+  - id: e26s01t3
+    description: >
+      e26s02: MR list, onboarding state, trunk conflict flag, clone
+      snippet + token form, ssh line live inside the new shell
+    verify: >
+      cargo test -p server --test repo_design site_shell
+      clone_snippet_token ssh_url_snippet landing_empty conflict_ui
+    risk: P2
+    status: passing
+    allure:
+      severity: minor
+      categories: ["repo"]
+  - id: e26s01t4
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace
+      --all-targets; cargo test; cargo build; ux_audit
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]
