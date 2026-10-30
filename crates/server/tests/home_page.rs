@@ -96,4 +96,24 @@ mod home_page {
         assert!(html.contains("action=\"/repos\""), "create form: {html}");
         assert!(html.contains("/alice/demo"), "owned repo listed: {html}");
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn logged_in_home_carries_the_shared_frame(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(pool.clone(), &root).await;
+        let html = get(pool, &root, "/", Some(&cookie)).await;
+        // story: e31 — the dashboard branch sits in the same frame as every
+        // other page: site nav first, one wrap around the content, footer last.
+        let nav = html.find("site-header").unwrap_or(usize::MAX);
+        let main = html.find("<main").unwrap_or(usize::MAX);
+        assert!(nav < main, "site nav renders before main: {html}");
+        assert!(
+            html.contains("class=\"wrap dash-home\""),
+            "dashboard content sits in a wrap: {html}"
+        );
+        assert!(html.contains("site-footer"), "site footer present: {html}");
+        // pinned dashboard content survives the reframe
+        assert!(html.contains("action=\"/repos\""), "create form: {html}");
+        assert!(html.contains("/alice/demo"), "owned repo listed: {html}");
+    }
 }
