@@ -3,20 +3,32 @@
 {% block body %}
 {% include "nav.html" %}
 {% if user_handle %}
-<h1>jjhub</h1>
-<h2>Create repository</h2>
-<form method="post" action="/repos">
-<input type="hidden" name="_csrf" value="{{ csrf }}">
-<label>Name <input name="name" required pattern="[a-z0-9][a-z0-9._-]*"></label>
-<label><input type="radio" name="visibility" value="public" checked> public</label>
-<label><input type="radio" name="visibility" value="private"> private</label>
-<button type="submit">Create</button>
-</form>
-<h2>Your repositories</h2>
-<ul>
-{% for repo in repos %}<li><a href="/{{ repo.owner }}/{{ repo.name }}">{{ repo.owner }}/{{ repo.name }}</a> <small>{{ repo.visibility }}</small></li>
-{% endfor %}
-</ul>
+{# story: e31 — the dashboard sits in the shared frame: nav, one wrap,
+   footer (footer lives after {% endif %} so both branches share it). #}
+<main class="wrap dash-home">
+  <h1>Dashboard</h1>
+  <section class="panel">
+    <div class="panel-head"><h2 class="panel-title">Create repository</h2></div>
+    <form method="post" action="/repos" class="dash-create">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <div class="field">
+        <label for="repo-name">Name</label>
+        <input id="repo-name" name="name" required pattern="[a-z0-9][a-z0-9._-]*" placeholder="my-project">
+      </div>
+      <div class="field">
+        <span class="label">Visibility</span>
+        <label class="radio"><input type="radio" name="visibility" value="public" checked> Public</label>
+        <label class="radio"><input type="radio" name="visibility" value="private"> Private</label>
+      </div>
+      <button type="submit" class="btn btn-primary">Create</button>
+    </form>
+  </section>
+  <ul class="dash-repos">
+    {% for repo in repos %}<li><a href="/{{ repo.owner }}/{{ repo.name }}">{{ repo.owner }}/{{ repo.name }}</a> <span class="pill">{{ repo.visibility }}</span></li>
+    {% endfor %}
+    {% if not repos %}<li class="empty-state">No repositories yet — create the first one above.</li>{% endif %}
+  </ul>
+</main>
 {% else %}
 <!-- story: e23s01 — the approved landing design: hero + MR ledger,
      why rows, inverse stack band, self-hosting, status/roadmap,
@@ -139,6 +151,7 @@ SESSION_SECRET=32-bytes-or-more-of-random</code></pre>
 </section>
 
 </main>
+{% endif %}
 <footer class="site-footer">
   <div class="wrap footer-inner">
     <a class="wordmark" href="/">jjhub</a>
@@ -149,5 +162,4 @@ SESSION_SECRET=32-bytes-or-more-of-random</code></pre>
     </div>
   </div>
 </footer>
-{% endif %}
 {% endblock %}

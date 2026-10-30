@@ -101,6 +101,23 @@ mod home_page {
     async fn logged_in_home_carries_the_shared_frame(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let cookie = register(pool.clone(), &root).await;
+        // owned repo exists so the dashboard list has content
+        let mut create = Request::post("/repos")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(format!(
+                "name=demo&visibility=public&_csrf={}",
+                csrf(&cookie)
+            )))
+            .unwrap();
+        create
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(create)
+                .await
+                .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER, "create repo");
         let html = get(pool, &root, "/", Some(&cookie)).await;
         // story: e31 — the dashboard branch sits in the same frame as every
         // other page: site nav first, one wrap around the content, footer last.
