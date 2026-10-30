@@ -1727,3 +1727,80 @@ fieldset.field legend {
   }
 }
 
+/* logged-in dashboard — story: e31 */
+.dash-home {
+  max-width: 48rem;
+}
+
+.dash-home > h1 {
+  font-size: var(--text-headline-lg);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 var(--space-lg);
+}
+
+.dash-home .panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.dash-create {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.dash-create .label {
+  display: block;
+  font-size: var(--text-label-md);
+  font-weight: 500;
+  color: var(--color-primary);
+  margin-bottom: var(--space-half);
+}
+
+/* radios sit inline inside .field, which makes labels block */
+.dash-create .field label.radio {
+  display: inline-flex;
+  gap: var(--space-half);
+  margin-right: var(--space-md);
+}
+
+.dash-repos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.dash-repos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-body-md);
+}
+
+.dash-repos a {
+  color: var(--color-tertiary-hover);
+  text-decoration: none;
+  font-family: var(--font-mono);
+}
+
+.dash-repos a:hover {
+  color: var(--color-tertiary-pressed);
+  text-decoration: underline;
+}
+
+.dash-repos a:focus-visible {
+  outline: 2px solid var(--color-tertiary);
+  outline-offset: 2px;
+}
+
+.dash-repos .pill {
+  flex: none;
+}
+
