@@ -2,7 +2,7 @@
 // embedded file, one GET route, no sidecar and no per-request file read.
 mod site_css {
     use axum::body::Body;
-    use axum::http::{Request, StatusCode};
+    use axum::http::{header, Request, StatusCode};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
@@ -72,6 +72,63 @@ mod site_css {
         assert!(
             body.contains(".copy-btn:disabled"),
             "copy button disabled state missing: {body}"
+        );
+    }
+
+    // story: e30 — the stylesheet URL is stable across deploys, so a
+    // browser must never keep one deploy's CSS for the next. The origin
+    // sends no-cache + an ETag; clients revalidate and get 304.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn app_css_revalidates_instead_of_serving_stale(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let request = Request::get("/assets/app.css").body(Body::empty()).unwrap();
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let cache_control = response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .map(|v| v.to_str().unwrap_or_default().to_string())
+            .unwrap_or_default();
+        assert!(
+            cache_control.contains("no-cache"),
+            "cache-control must force revalidation: {cache_control}"
+        );
+        assert!(
+            !cache_control.contains("max-age="),
+            "no max-age: the CSS must not outlive its deploy: {cache_control}"
+        );
+        let etag = response
+            .headers()
+            .get(header::ETAG)
+            .map(|v| v.to_str().unwrap_or_default().to_string())
+            .unwrap_or_default();
+        assert!(!etag.is_empty(), "ETag missing");
+
+        let conditional = Request::get("/assets/app.css")
+            .header(header::IF_NONE_MATCH, etag.clone())
+            .body(Body::empty())
+            .unwrap();
+        let not_modified =
+            server::app_with_storage(pool, root.path().to_str().unwrap().to_string())
+                .oneshot(conditional)
+                .await
+                .unwrap();
+        assert_eq!(
+            not_modified.status(),
+            StatusCode::NOT_MODIFIED,
+            "matching If-None-Match must answer 304"
+        );
+        assert_eq!(
+            not_modified
+                .headers()
+                .get(header::ETAG)
+                .map(|v| v.to_str().unwrap_or_default()),
+            Some(etag.as_str()),
+            "304 must carry the ETag"
         );
     }
 }
