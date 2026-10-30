@@ -16,11 +16,41 @@ pub async fn healthz() -> &'static str {
 
 // story: e12s02 — embedded stylesheet: compiled into the binary, so the
 // response never touches the filesystem and never hits the kata sidecar.
-pub async fn app_css() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-        include_str!("../assets/app.css"),
-    )
+pub async fn app_css(headers: axum::http::HeaderMap) -> axum::response::Response {
+    static ETAG: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    // WHY: the stylesheet URL is stable across deploys, so browsers (and
+    // Cloudflare, whose default injects max-age=14400 when the origin says
+    // nothing) must revalidate — an ETag makes that a cheap 304.
+    let etag = ETAG.get_or_init(|| {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        include_str!("../assets/app.css").hash(&mut hasher);
+        format!("\"{:x}\"", hasher.finish())
+    });
+    let revalidating = headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == etag.as_str());
+    if revalidating {
+        (
+            [
+                (header::ETAG, etag.clone()),
+                (header::CACHE_CONTROL, "no-cache".to_string()),
+            ],
+            axum::http::StatusCode::NOT_MODIFIED,
+        )
+            .into_response()
+    } else {
+        (
+            [
+                (header::CONTENT_TYPE, "text/css; charset=utf-8".to_string()),
+                (header::ETAG, etag.clone()),
+                (header::CACHE_CONTROL, "no-cache".to_string()),
+            ],
+            include_str!("../assets/app.css"),
+        )
+            .into_response()
+    }
 }
 
 #[derive(Deserialize)]
