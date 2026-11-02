@@ -142,10 +142,8 @@ SESSION_SECRET=32-bytes-or-more-of-random</code></pre>
       <p class="status-copy">jjhub is pre-1.0 and runs on a single node. The core loop works: host repositories, push changes, review revisions, merge stacks. Expect breaking changes in the storage format while the MVP settles.</p>
     </div>
     <div class="roadmap-list">
-      <div class="roadmap-row"><span class="item">Conflict-tolerant hosting</span><span class="detail">Accept and store commits with conflicts; surface them in the review instead of rejecting the push.</span></div>
-      <div class="roadmap-row"><span class="item">Operation-log audit</span><span class="detail">A queryable log of every server-side operation, straight from jj's operation model.</span></div>
-      <div class="roadmap-row"><span class="item">Server-side immutability policy</span><span class="detail">Configure which heads the server refuses to rewrite, enforced before any merge runs.</span></div>
-      <div class="roadmap-row"><span class="item">Revset search</span><span class="detail">Query changes with real revsets instead of a keyword box bolted onto a filter.</span></div>
+      <div class="roadmap-row"><span class="item">Conflict push acceptance</span><span class="detail">Conflicted commits already browse side by side; push-side acceptance still needs its own guarantee.</span></div>
+      <div class="roadmap-row"><span class="item">Protected-ref configuration</span><span class="detail">Enforcement ships today; choosing which heads the server protects happens in the database, not yet in settings.</span></div>
     </div>
   </div>
 </section>
