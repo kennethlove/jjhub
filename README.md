@@ -15,7 +15,14 @@ Git forges fight the jj workflow: review identity dies on force-push, stacks are
 
 ## Roadmap
 
-Planned post-MVP: conflict-tolerant hosting, operation-log audit, server-side immutability policy, revset search.
+Shipped since the MVP cut: revset search, operation-log audit, conflict-aware
+browsing, protected-ref enforcement on push, email confirmation and password
+reset, rate limiting (off by default), personal access tokens (mint,
+regenerate-rotate, revoke), and account preferences (profile, password,
+account deletion).
+
+Remaining: pinned push-side acceptance for conflicted commits, and a settings
+screen for choosing which heads the server protects.
 
 ## Development
 
