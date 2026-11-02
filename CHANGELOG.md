@@ -2,6 +2,45 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-11-02
+
+The v0.4.0 build: bounded credentials, throttled abuse paths, verified
+signups, and the approved UI on every page. Eleven epics and surfaces
+shipped as PRs #63–#73.
+
+### Added
+
+- **Rate limiting** (#63): per-IP login budget backed by a policy table,
+a shared push budget across HTTP and SSH, and SSH disconnect on
+exhaustion — the unthrottled push path that spawned git subprocesses
+without bound is closed
+- **Auth flows** (#64): htmx card swaps that push real URLs (`/login`,
+`/register`, `/reset` are shareable and cold-load correctly), plus
+password reset through expiring single-use tokens
+- **Token model** (#65): auto-issued signup token, one-shot regenerate
+that rotates the value in place, and details-once screen preferences
+- **Preferences design** (#66): the approved settings surface — profile
+with display name and theme, change password, a token ledger with
+scoped revoke, and two-step account deletion that ends the session
+- **Token permissions** (#67): scopes, expiry, repository pinning, and IP
+allowlist on top of the token model
+- **Repo landing** (#68): the approved repository shell — header with
+status pill and copyable clone snippet, section tabs, About rail, file
+tree with empty state
+- **Email confirmation** (#69): signup verifies by email before first
+login; mailer facade, verify link, and a gated login that points at the
+sent page
+
+### Changed
+
+- Browse, search, operations, and merge-request pages moved into the
+shared frame — site nav, centered wrap, footer (#71)
+- `app.css` revalidates with a strong ETag and `no-cache` instead of
+Cloudflare's default 4-hour `max-age`, so a deploy's styles can no
+longer outlive it (#72)
+- The repository page and the logged-in dashboard were reframed to match
+every other page (#70, #73)
+
 ## [0.3.0] - 2026-10-24
 
 The v0.3.0 build: visible divergence, built-in SSH transport, and a

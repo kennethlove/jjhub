@@ -5,7 +5,7 @@
 # v0.3.0 epics (e16-e18) shipped; their capsules remain in specs/epics/.
 
 version: "0.4.0"
-status: planning
+status: ready
 workflow_mode: solo-git
 bump_hint: minor
 
@@ -54,6 +54,17 @@ epics:
     note: >
       (13 + 9 + 8) / (11 / 4) = 10.9. Signup delivery UX on the
       existing token table; pairs with e22 scope defaults.
+  - id: e23
+    slug: email-confirmation
+    title: "Email confirmation — verified signup before first login"
+    wsjf: 11.7
+    bcp_total: 6
+    delta: ADDED
+    note: >
+      (12 + 10 + 8) / (6 / 4) = 11.7. Mid-cycle addition that
+      shipped (#69) after this index was written; scored at
+      release time on the same scale. Without it, signup issues
+      an unverified account and login refuses it.
 
 bugs:
   total: 1
