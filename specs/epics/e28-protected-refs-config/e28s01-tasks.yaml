@@ -1,0 +1,49 @@
+story_id: e28s01
+title: "protected heads configuration in the Operations panel"
+status: planned
+bcps: 2
+tasks:
+  - id: e28s01t1
+    description: >
+      RED test: protected_refs() merges trunk + tags/* + stored
+      patterns; Operations panel renders the list with add/remove
+      form; add and remove routes require session + CSRF; a
+      user-added pattern refuses non-fast-forward and deletion in
+      check_protected_refs while unprotected refs still pass
+    verify: "cargo test -p server --test protected_config"
+    risk: P2
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e28s01t2
+    description: >
+      GREEN: migration protected_refs table; resolver merge;
+      add/remove routes wired in the protected group; Operations
+      panel section with the form on DESIGN.md tokens
+    verify: "cargo test -p server --test protected_config"
+    risk: P2
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e28s01t3
+    description: >
+      receive_guard admission suite stays green against the merged
+      resolver (existing e10 tests unchanged)
+    verify: "cargo test -p server --test receive_guard"
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["security"]
+  - id: e28s01t4
+    description: "gates: fmt, clippy, test, build, ux_audit + CDP UAT"
+    verify: >
+      cargo fmt --all --check; cargo clippy --workspace
+      --all-targets; cargo test; cargo build; ux_audit
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]

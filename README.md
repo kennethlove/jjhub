@@ -21,8 +21,10 @@ reset, rate limiting (off by default), personal access tokens (mint,
 regenerate-rotate, revoke), and account preferences (profile, password,
 account deletion).
 
-Remaining: pinned push-side acceptance for conflicted commits, and a settings
-screen for choosing which heads the server protects.
+Remaining: a settings screen for choosing which heads the server
+protects — enforcement and display already ship (`receive_guard`),
+push acceptance of conflicted commits is already pinned by
+`tests/conflict_refs.rs`.
 
 ## Development
 
