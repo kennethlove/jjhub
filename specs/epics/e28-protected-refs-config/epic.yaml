@@ -1,0 +1,10 @@
+epic: e28
+slug: protected-refs-config
+title: "Protected heads configuration — choose which refs the server refuses to rewrite"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e28s01
+    title: "protected heads configuration in the Operations panel"
+    bcps: 2
+    delta: ADDED
