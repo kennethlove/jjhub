@@ -225,6 +225,11 @@ mod panel_and_routes {
         String::from_utf8(bytes.to_vec()).unwrap()
     }
 
+    // Tera escapes `/` as &#x2F;; decode before asserting on ref names
+    fn decoded(body: &str) -> String {
+        body.replace("&#x2F;", "/").replace("&#x27;", "'")
+    }
+
     async fn session(pool: &sqlx::PgPool, root: &tempfile::TempDir) -> String {
         std::env::set_var("SESSION_SECRET", "csrf-suite-secret");
         let response = app(pool.clone(), root)
@@ -248,7 +253,9 @@ mod panel_and_routes {
             .oneshot(
                 Request::post("/login")
                     .header("content-type", "application/x-www-form-urlencoded")
-                    .body(Body::from("email=alice%40example.com&password=correct+horse+battery"))
+                    .body(Body::from(
+                        "email=alice%40example.com&password=correct+horse+battery",
+                    ))
                     .unwrap(),
             )
             .await
@@ -315,8 +322,12 @@ mod panel_and_routes {
         create_repo(&pool, &root, &cookie).await;
 
         let body = get(&pool, &root, "/alice/demo/operations", Some(&cookie)).await;
-        assert!(body.contains("refs/heads/trunk"), "defaults listed");
-        assert!(body.contains("refs/tags/*"), "defaults listed");
+        let body = decoded(&body);
+        assert!(
+            body.contains("<li>refs/heads/trunk</li>"),
+            "defaults listed"
+        );
+        assert!(body.contains("<li>refs/tags/*</li>"), "defaults listed");
         assert!(
             body.contains("/alice/demo/protected-refs"),
             "add form present"
@@ -339,16 +350,17 @@ mod panel_and_routes {
             &root,
             "/alice/demo/protected-refs",
             Some(&cookie),
-            format!(
-                "pattern=refs%2Fheads%2Frelease%2F*&_csrf={}",
-                csrf(&cookie)
-            ),
+            format!("pattern=refs%2Fheads%2Frelease%2F*&_csrf={}", csrf(&cookie)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "add accepted");
 
         let body = get(&pool, &root, "/alice/demo/operations", Some(&cookie)).await;
-        assert!(body.contains("refs/heads/release/*"), "pattern listed");
+        let body = decoded(&body);
+        assert!(
+            body.contains("<li>refs/heads/release/*</li>"),
+            "pattern listed"
+        );
         assert!(
             body.contains("/alice/demo/protected-refs/remove"),
             "remove form for the stored row"
@@ -369,7 +381,11 @@ mod panel_and_routes {
             "pattern=refs%2Fheads%2Frelease%2F*".into(),
         )
         .await;
-        assert_eq!(response.status(), StatusCode::SEE_OTHER, "redirect to login");
+        assert_eq!(
+            response.status(),
+            StatusCode::SEE_OTHER,
+            "redirect to login"
+        );
         assert_eq!(
             response.headers().get("location").unwrap(),
             "/login",
@@ -422,10 +438,7 @@ mod panel_and_routes {
             &root,
             "/alice/demo/protected-refs",
             Some(&cookie),
-            format!(
-                "pattern=refs%2Fheads%2Frelease%2F*&_csrf={}",
-                csrf(&cookie)
-            ),
+            format!("pattern=refs%2Fheads%2Frelease%2F*&_csrf={}", csrf(&cookie)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "add accepted");
@@ -435,20 +448,18 @@ mod panel_and_routes {
             &root,
             "/alice/demo/protected-refs/remove",
             Some(&cookie),
-            format!(
-                "pattern=refs%2Fheads%2Frelease%2F*&_csrf={}",
-                csrf(&cookie)
-            ),
+            format!("pattern=refs%2Fheads%2Frelease%2F*&_csrf={}", csrf(&cookie)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "remove accepted");
 
         let body = get(&pool, &root, "/alice/demo/operations", Some(&cookie)).await;
+        let body = decoded(&body);
         assert!(
-            !body.contains("refs/heads/release/*"),
+            !body.contains("<li>refs/heads/release/*</li>"),
             "pattern gone from panel"
         );
-        assert!(body.contains("refs/heads/trunk"), "defaults stay");
+        assert!(body.contains("<li>refs/heads/trunk</li>"), "defaults stay");
 
         let repo_id: uuid::Uuid = sqlx::query_scalar(
             "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = 'alice' AND r.name = 'demo'",
@@ -493,7 +504,9 @@ mod panel_and_routes {
             .oneshot(
                 Request::post("/login")
                     .header("content-type", "application/x-www-form-urlencoded")
-                    .body(Body::from("email=bob%40example.com&password=correct+horse+battery"))
+                    .body(Body::from(
+                        "email=bob%40example.com&password=correct+horse+battery",
+                    ))
                     .unwrap(),
             )
             .await
@@ -506,10 +519,7 @@ mod panel_and_routes {
             &root,
             "/alice/demo/protected-refs",
             Some(&bob),
-            format!(
-                "pattern=refs%2Fheads%2Frelease%2F*&_csrf={}",
-                csrf(&bob)
-            ),
+            format!("pattern=refs%2Fheads%2Frelease%2F*&_csrf={}", csrf(&bob)),
         )
         .await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "not owner");

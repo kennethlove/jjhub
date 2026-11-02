@@ -230,6 +230,15 @@ fn app_from_state(state: AppState) -> Router {
         .route("/{owner}/{name}/tokens", post(routes::create_repo_token))
         .route("/repos", post(routes::create_repo))
         .route("/{owner}/{name}/settings", post(routes::repo_settings))
+        // story: e28s01 — protected heads config (session + CSRF, owner-scoped)
+        .route(
+            "/{owner}/{name}/protected-refs",
+            post(routes::add_protected_ref),
+        )
+        .route(
+            "/{owner}/{name}/protected-refs/remove",
+            post(routes::remove_protected_ref),
+        )
         .route(
             "/{owner}/{name}/settings/collaborators",
             post(routes::manage_collaborators),
