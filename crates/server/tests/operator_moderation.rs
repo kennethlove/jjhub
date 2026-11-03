@@ -352,4 +352,140 @@ mod operator_moderation {
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert_eq!(location(&response), "/login");
     }
+
+    // ---- story: e29s02 — transport refusal ----------------------
+
+    fn basic(plaintext: &str) -> String {
+        use base64::Engine;
+        format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{plaintext}"))
+        )
+    }
+
+    async fn create_private_repo(pool: &sqlx::PgPool, root: &tempfile::TempDir, cookie: &str) {
+        let mut request = Request::post("/repos")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(format!(
+                "name=demo&visibility=private&_csrf={}",
+                csrf(cookie)
+            )))
+            .unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response =
+            server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+                .oneshot(request)
+                .await
+                .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    }
+
+    async fn suspend(pool: &sqlx::PgPool, handle: &str) {
+        sqlx::query("UPDATE users SET suspended_at = now() WHERE handle = $1")
+            .bind(handle)
+            .execute(pool)
+            .await
+            .unwrap();
+    }
+
+    /// GET the upload-pack advertisement with a Basic token.
+    async fn info_refs(pool: &sqlx::PgPool, root: &tempfile::TempDir, token: &str) -> StatusCode {
+        let mut request = Request::get("/git/alice/demo.git/info/refs?service=git-upload-pack")
+            .header(axum::http::header::AUTHORIZATION, basic(token))
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(axum::extract::ConnectInfo(
+            std::net::SocketAddr::from(([127, 0, 0, 1], 0)),
+        ));
+        server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+            .oneshot(request)
+            .await
+            .unwrap()
+            .status()
+    }
+
+    /// POST receive-pack — refusal must happen before any spawn.
+    async fn push_status(pool: &sqlx::PgPool, root: &tempfile::TempDir, token: &str) -> StatusCode {
+        let mut request = Request::post("/git/alice/demo.git/git-receive-pack")
+            .header(axum::http::header::AUTHORIZATION, basic(token))
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(axum::extract::ConnectInfo(
+            std::net::SocketAddr::from(([127, 0, 0, 1], 0)),
+        ));
+        server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
+            .oneshot(request)
+            .await
+            .unwrap()
+            .status()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn suspended_account_token_fails_closed_at_authenticate(pool: sqlx::PgPool) {
+        let _cookie = register(&pool, "alice").await;
+        let user_id = id_of(&pool, "alice").await;
+        let live = server::token::create(&pool, user_id, "live").await;
+        assert!(
+            server::token::authenticate(&pool, &live.plaintext, None)
+                .await
+                .is_some(),
+            "active account still authenticates"
+        );
+        suspend(&pool, "alice").await;
+        assert!(
+            server::token::authenticate(&pool, &live.plaintext, None)
+                .await
+                .is_none(),
+            "suspended account's token fails closed to None"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn suspended_account_token_refused_on_smart_http(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let cookie = register(&pool, "alice").await;
+        create_private_repo(&pool, &root, &cookie).await;
+        let user_id = id_of(&pool, "alice").await;
+        let token = server::token::create(&pool, user_id, "clone").await;
+        assert_eq!(
+            info_refs(&pool, &root, &token.plaintext).await,
+            StatusCode::OK,
+            "active account's clone behaves as before"
+        );
+        suspend(&pool, "alice").await;
+        assert_eq!(
+            info_refs(&pool, &root, &token.plaintext).await,
+            StatusCode::UNAUTHORIZED,
+            "suspended clone refused"
+        );
+        assert_eq!(
+            push_status(&pool, &root, &token.plaintext).await,
+            StatusCode::UNAUTHORIZED,
+            "suspended push refused"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn suspended_account_token_refused_on_ssh_before_spawn(pool: sqlx::PgPool) {
+        use russh::server::Handler;
+        let root = tempfile::tempdir().unwrap();
+        let _cookie = register(&pool, "alice").await;
+        let user_id = id_of(&pool, "alice").await;
+        let token = server::token::create(&pool, user_id, "ssh").await;
+        let mut handler =
+            server::ssh::SshHandler::with_storage(pool.clone(), root.path().to_str().unwrap().to_string());
+        let auth = handler.auth_password("alice", &token.plaintext).await.unwrap();
+        assert!(
+            matches!(auth, russh::server::Auth::Accept),
+            "active account's SSH auth accepted"
+        );
+        suspend(&pool, "alice").await;
+        let auth = handler.auth_password("alice", &token.plaintext).await.unwrap();
+        assert!(
+            matches!(auth, russh::server::Auth::Reject { .. }),
+            "suspended account rejected before any git process spawns"
+        );
+    }
 }
