@@ -9,8 +9,13 @@ session:
   active_epic_id: e29-operator-moderation
   active_story_id: e29s01
 handoff:
-  next_skill: kickoff-branch
+  next_skill: develop-tdd
   notes: |
+    kickff-branch DONE: workspace ../e29-operator-moderation at change
+    xwrporvx (feat commit 03e3a496, tree = plan da521132 + empty main @
+    lzqqzmtx), story lock e29s01 acquired (specs/agent-locks.yaml),
+    preflight green in main repo (fmt, clippy, 390 tests 131.75s, build)
+    on identical content. Develop-tdd started on e29s01t1.
     v0.5.0 PLANNED: e29 operator moderation (SCOPE_LATEST.yaml, release-plan
     e29 WSJF 12.9). plan-work DONE: capsule specs/epics/e29-operator-moderation/
     (epic.yaml + e29s01/e29s02 story mds + tasks yamls, spec: fields set,
