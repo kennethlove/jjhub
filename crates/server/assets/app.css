@@ -1679,13 +1679,14 @@ fieldset.field legend {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   font-size: var(--text-label-sm);
-  color: var(--color-secondary);
+  /* WHY: primary, not secondary — secondary misses APCA Lc 75 on
+     surface by 0.73 (ux_audit gate); hover keeps the border cue */
+  color: var(--color-primary);
   cursor: pointer;
   transition: color 120ms ease-out, border-color 120ms ease-out;
 }
 
 .copy-btn:hover {
-  color: var(--color-primary);
   border-color: var(--color-secondary);
 }
 
