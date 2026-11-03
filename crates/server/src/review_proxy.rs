@@ -18,7 +18,15 @@ use crate::AppState;
 /// the login redirect; anything else gets 401.
 async fn authenticate(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uuid> {
     if let Some(user_id) = session_user(state, headers) {
-        return Some(user_id);
+        // story: e29s01 — a suspended session is no session here: wall
+        // it off without falling through to the token path.
+        let suspended: bool =
+            sqlx::query_scalar("SELECT suspended_at IS NOT NULL FROM users WHERE id = $1")
+                .bind(user_id)
+                .fetch_one(&state.pool)
+                .await
+                .unwrap_or(false);
+        return (!suspended).then_some(user_id);
     }
     transport_user(state, headers).await
 }

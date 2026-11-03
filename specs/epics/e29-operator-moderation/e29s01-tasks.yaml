@@ -1,7 +1,7 @@
 story_id: e29s01
 title: "operator designation and web suspension at /admin"
 spec: e29s01-operator-suspension.md
-status: failing
+status: passing
 bcps: 8
 tasks:
   - id: e29s01t1
@@ -15,20 +15,20 @@ tasks:
       reach the moderation routes
     verify: "cargo test -p server --test operator_moderation"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
   - id: e29s01t2
     description: >
-      GREEN: designation and bootstrap; moderation section on the
-      Operations panel on DESIGN.md tokens, forms behind session +
-      CSRF + operator check; audit row per action; session and
-      login seams refuse suspended accounts; last-operator
-      lockout guard; unsuspend restores the same account
+      GREEN: designation and bootstrap; site-level /admin page on
+      DESIGN.md tokens, forms behind session + CSRF + operator
+      check; audit row per action; session and login seams refuse
+      suspended accounts; operator lockout guard; unsuspend
+      restores the same account
     verify: "cargo test -p server --test operator_moderation"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -38,7 +38,7 @@ tasks:
       cargo fmt --all --check; cargo clippy --workspace
       --all-targets; cargo test; cargo build; ux_audit
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

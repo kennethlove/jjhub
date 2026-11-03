@@ -64,7 +64,11 @@ mod operator_moderation {
         server::session::csrf_token(SECRET, value)
     }
 
-    async fn get(pool: &sqlx::PgPool, path: &str, cookie: Option<&str>) -> axum::response::Response {
+    async fn get(
+        pool: &sqlx::PgPool,
+        path: &str,
+        cookie: Option<&str>,
+    ) -> axum::response::Response {
         let mut request = Request::get(path).body(Body::empty()).unwrap();
         if let Some(cookie) = cookie {
             request
@@ -125,12 +129,13 @@ mod operator_moderation {
     }
 
     async fn make_operator(pool: &sqlx::PgPool, local: &str) -> String {
+        let cookie = register(pool, local).await;
         sqlx::query("UPDATE users SET is_operator = true WHERE handle = $1")
             .bind(local)
             .execute(pool)
             .await
             .unwrap();
-        register(pool, local).await
+        cookie
     }
 
     async fn actions(pool: &sqlx::PgPool) -> Vec<(uuid::Uuid, uuid::Uuid, String)> {
@@ -226,8 +231,7 @@ mod operator_moderation {
         assert_eq!(location(&response), "/login");
 
         // login answers exactly like a bad password — no enumeration
-        let (suspended, suspended_body) =
-            login(&pool, "alice", "correct+horse+battery").await;
+        let (suspended, suspended_body) = login(&pool, "alice", "correct+horse+battery").await;
         let (wrong, wrong_body) = login(&pool, "alice", "not-the-password").await;
         assert_eq!(suspended, wrong);
         assert_eq!(suspended, StatusCode::UNAUTHORIZED);
@@ -328,7 +332,10 @@ mod operator_moderation {
         let response = get(&pool, "/review/alice/demo", Some(&victim)).await;
         let active_is_login_redirect =
             response.status() == StatusCode::SEE_OTHER && location(&response) == "/login";
-        assert!(!active_is_login_redirect, "active session reaches the proxy");
+        assert!(
+            !active_is_login_redirect,
+            "active session reaches the proxy"
+        );
 
         let actor = make_operator(&pool, "bob").await;
         let token = csrf(&actor);

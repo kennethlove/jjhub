@@ -30,12 +30,15 @@ pub async fn require_session(
 
     match user_id {
         Some(id) => {
-            let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
-                .bind(id)
-                .fetch_optional(&state.pool)
-                .await
-                .ok()
-                .flatten();
+            // story: e29s01 — the existence check doubles as the wall:
+            // a suspended account is an account this request may not see.
+            let exists: Option<Uuid> =
+                sqlx::query_scalar("SELECT id FROM users WHERE id = $1 AND suspended_at IS NULL")
+                    .bind(id)
+                    .fetch_optional(&state.pool)
+                    .await
+                    .ok()
+                    .flatten();
             if exists.is_some() {
                 request.extensions_mut().insert(crate::CurrentUser(id));
                 next.run(request).await
