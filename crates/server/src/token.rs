@@ -1,8 +1,8 @@
 // story: e01s02
+use crate::password::hasher;
 use argon2::password_hash::{
     rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
 };
-use argon2::Argon2;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -22,7 +22,7 @@ fn lookup_key(plaintext: &str) -> Vec<u8> {
 
 pub fn hash(token: &str) -> String {
     let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
+    hasher()
         .hash_password(token.as_bytes(), &salt)
         .expect("argon2 hash")
         .to_string()
@@ -293,7 +293,7 @@ pub async fn regenerate_with(
 
 fn verify(plaintext: &str, token_hash: &str) -> bool {
     match PasswordHash::new(token_hash) {
-        Ok(parsed) => Argon2::default()
+        Ok(parsed) => hasher()
             .verify_password(plaintext.as_bytes(), &parsed)
             .is_ok(),
         Err(_) => false,

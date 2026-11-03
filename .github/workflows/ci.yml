@@ -8,6 +8,14 @@ on:
 
 jobs:
   preflight:
+    # WHY: 4 shards — 390 tests sum ~720s of CPU, so one job's 4
+    # vCPU saturate around 198s regardless of runner speed. Shards
+    # split the test CPU; the ~58s workspace rebuild per shard is
+    # the accepted overhead.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -57,7 +65,16 @@ jobs:
             "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$V/$NAME.tar.gz"
           tar -xzf /tmp/nextest.tar.gz -C "$HOME/.cargo/bin" cargo-nextest
       - name: Tests
-        run: cargo nextest run --workspace
+        env:
+          # WHY: test-only opt-in (unset everywhere else, so
+          # production and e2e keep RFC 9106 defaults). Hashing is
+          # ~33% of test CPU and every hash is a unit test fixture.
+          JJHUB_ARGON2_M_COST: "8"
+        # WHY: nextest's built-in hash partitioning gives each shard a
+        # stable, disjoint slice — no hand-rolled sharding.
+        run: >
+          cargo nextest run --workspace
+          --partition hash:${{ matrix.shard }}/4
 
   e2e:
     runs-on: ubuntu-latest
