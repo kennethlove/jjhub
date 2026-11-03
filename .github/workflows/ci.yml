@@ -44,8 +44,20 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      # WHY: cargo test runs one test binary at a time; the test step is
+      # ~85% of preflight wall time (266s of the 314s warm baseline).
+      # nextest runs binaries in parallel — 390 tests in 60s locally vs
+      # 3m52s for cargo test. Pin follows the e2e job's jj pin style.
+      # nextest does not run doctests; the workspace has none today.
+      - name: Install nextest
+        run: |
+          V=0.9.151
+          NAME=cargo-nextest-$V-x86_64-unknown-linux-gnu
+          curl -fsSL -o /tmp/nextest.tar.gz \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-$V/$NAME.tar.gz"
+          tar -xzf /tmp/nextest.tar.gz -C "$HOME/.cargo/bin" cargo-nextest
       - name: Tests
-        run: cargo test --workspace
+        run: cargo nextest run --workspace
 
   e2e:
     runs-on: ubuntu-latest
