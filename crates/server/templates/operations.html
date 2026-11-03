@@ -17,6 +17,40 @@ from jj's own .meta store; missing log data is a visible empty state #}
 {# story: e09s01 — no .meta store is a state of the repository, not a failure #}
 <p>This repository has <strong>no operation log</strong> yet.</p>
 {% endif %}
+{% if is_owner %}
+{# story: e28s01 — protected heads: defaults are listed, only stored
+rows are removable #}
+<section class="panel" aria-labelledby="protected-heading">
+  <div class="panel-head">
+    <h2 id="protected-heading" class="panel-title">Protected refs</h2>
+  </div>
+  <div class="panel-body">
+    <ul class="protected-list">
+{% for pattern in protected_refs %}
+      <li>{{ pattern }}</li>
+{% endfor %}
+    </ul>
+    <form method="post" action="/{{ owner }}/{{ name }}/protected-refs">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="field">Protect a ref pattern
+        <input type="text" name="pattern" placeholder="refs/heads/release/*" required>
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Protect</button>
+      </div>
+    </form>
+{% for pattern in stored_protected %}
+    <form method="post" action="/{{ owner }}/{{ name }}/protected-refs/remove">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <input type="hidden" name="pattern" value="{{ pattern }}">
+      <div class="actions">
+        <button type="submit" class="btn btn-secondary btn-sm">Unprotect {{ pattern }}</button>
+      </div>
+    </form>
+{% endfor %}
+  </div>
+</section>
+{% endif %}
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">

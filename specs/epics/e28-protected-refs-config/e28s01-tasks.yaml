@@ -1,6 +1,6 @@
 story_id: e28s01
 title: "protected heads configuration in the Operations panel"
-status: planned
+status: passing
 bcps: 2
 tasks:
   - id: e28s01t1
@@ -12,7 +12,7 @@ tasks:
       check_protected_refs while unprotected refs still pass
     verify: "cargo test -p server --test protected_config"
     risk: P2
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -23,7 +23,7 @@ tasks:
       panel section with the form on DESIGN.md tokens
     verify: "cargo test -p server --test protected_config"
     risk: P2
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -33,7 +33,7 @@ tasks:
       resolver (existing e10 tests unchanged)
     verify: "cargo test -p server --test receive_guard"
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["security"]
@@ -43,7 +43,7 @@ tasks:
       cargo fmt --all --check; cargo clippy --workspace
       --all-targets; cargo test; cargo build; ux_audit
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

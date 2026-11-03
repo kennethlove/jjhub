@@ -1258,6 +1258,100 @@ pub async fn git_whoami(
     axum::Json(serde_json::json!({ "user_id": current.0.to_string() }))
 }
 
+// story: e28s01 — resolve an owned repo: the URL owner segment must be
+// the session user, so non-owners see the same 404 as strangers.
+async fn owned_repo_id(
+    state: &AppState,
+    current: uuid::Uuid,
+    owner: &str,
+    name: &str,
+) -> Option<uuid::Uuid> {
+    sqlx::query_scalar(
+        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2 AND r.owner_id = $3",
+    )
+    .bind(owner)
+    .bind(name)
+    .bind(current)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten()
+}
+
+#[derive(Deserialize)]
+pub struct ProtectedRefForm {
+    pattern: String,
+}
+
+// story: e28s01 — store one protected pattern for an owned repo. The
+// route group already enforces session + CSRF; the schema's CHECK
+// backs the 422 for patterns outside refs/.
+// story: e28s01 — refs/ + refname-safe charset, mirroring the schema
+// CHECK so bad input gets a 422 instead of a database error.
+fn valid_protected_pattern(pattern: &str) -> bool {
+    pattern.starts_with("refs/")
+        && pattern.len() > "refs/".len()
+        && pattern
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'*' | b'.' | b'_' | b'/' | b'-'))
+}
+
+pub async fn add_protected_ref(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    Form(form): Form<ProtectedRefForm>,
+) -> Response {
+    let pattern = form.pattern.trim();
+    if !valid_protected_pattern(pattern) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "pattern must live under refs/",
+        )
+            .into_response();
+    }
+    let Some(repo_id) = owned_repo_id(&state, current.0, &owner, &name).await else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    match sqlx::query("INSERT INTO protected_refs (repo_id, pattern) VALUES ($1, $2)")
+        .bind(repo_id)
+        .bind(pattern)
+        .execute(&state.pool)
+        .await
+    {
+        Ok(_) => Redirect::to(&format!("/{owner}/{name}/operations")).into_response(),
+        Err(sqlx::Error::Database(err)) if err.is_unique_violation() => {
+            (StatusCode::CONFLICT, "pattern already protected").into_response()
+        }
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("db: {err}")).into_response(),
+    }
+}
+
+// story: e28s01 — drop one stored pattern. Defaults are not rows, so
+// they never reach this DELETE; a missing row is a 404, not a no-op 200.
+pub async fn remove_protected_ref(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    Form(form): Form<ProtectedRefForm>,
+) -> Response {
+    let Some(repo_id) = owned_repo_id(&state, current.0, &owner, &name).await else {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    };
+    let result = sqlx::query("DELETE FROM protected_refs WHERE repo_id = $1 AND pattern = $2")
+        .bind(repo_id)
+        .bind(form.pattern.trim())
+        .execute(&state.pool)
+        .await;
+    match result {
+        Ok(done) if done.rows_affected() == 1 => {
+            Redirect::to(&format!("/{owner}/{name}/operations")).into_response()
+        }
+        Ok(_) => (StatusCode::NOT_FOUND, "pattern not protected").into_response(),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("db: {err}")).into_response(),
+    }
+}
+
 #[derive(Deserialize)]
 pub struct TokenForm {
     label: String,
@@ -2476,12 +2570,10 @@ pub async fn operations_page(
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
     jar: CookieJar,
 ) -> Response {
-    if crate::revsets::visible_repo(&state, &owner, &name, &jar)
-        .await
-        .is_none()
-    {
+    let Some((repo_id, _trunk)) = crate::revsets::visible_repo(&state, &owner, &name, &jar).await
+    else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
-    }
+    };
 
     let meta = domain::meta_path(&state.storage_root, &owner, &name);
     let operations = crate::jj_meta::load_operations(&meta, OP_LOG_CAP)
@@ -2498,6 +2590,22 @@ pub async fn operations_page(
     context.insert("name", &name);
     context.insert("operations", &operations);
     context.insert("has_log", &!operations.is_empty());
+    // story: e28s01 — the Operations panel lists the merged set and,
+    // for the owner only, manages the stored rows
+    let protected = crate::receive_guard::protected_refs(&state.pool, repo_id)
+        .await
+        .unwrap_or_default();
+    let stored_protected: Vec<String> = sqlx::query_scalar(
+        "SELECT pattern FROM protected_refs WHERE repo_id = $1 ORDER BY created_at, pattern",
+    )
+    .bind(repo_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    context.insert("protected_refs", &protected);
+    context.insert("stored_protected", &stored_protected);
+    let is_owner = viewer.as_deref() == Some(owner.as_str());
+    context.insert("is_owner", &is_owner);
     Html(crate::render::render("operations.html", &context)).into_response()
 }
 

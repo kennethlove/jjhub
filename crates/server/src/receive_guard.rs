@@ -170,9 +170,10 @@ pub async fn identity_rejections(
         .collect())
 }
 
-/// story: e10s01 — the protected set for one repo, derived from
-/// `repositories.trunk` plus `refs/tags/*`. Not user-configurable in 0.2.0.
-/// e10s02 reuses this resolver for display.
+/// story: e10s01 — the protected set for one repo: the derived
+/// defaults (`repositories.trunk` + `refs/tags/*`) followed by the
+/// owner's stored patterns (e28s01). Defaults are never rows, so
+/// `check_protected_refs` and the Operations panel share one resolver.
 pub async fn protected_refs(
     pool: &PgPool,
     repo_id: uuid::Uuid,
@@ -181,10 +182,15 @@ pub async fn protected_refs(
         .bind(repo_id)
         .fetch_one(pool)
         .await?;
-    Ok(vec![
-        format!("refs/heads/{trunk}"),
-        "refs/tags/*".to_string(),
-    ])
+    let mut set = vec![format!("refs/heads/{trunk}"), "refs/tags/*".to_string()];
+    let stored: Vec<String> = sqlx::query_scalar(
+        "SELECT pattern FROM protected_refs WHERE repo_id = $1 ORDER BY created_at, pattern",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await?;
+    set.extend(stored);
+    Ok(set)
 }
 
 /// story: e10s01 — match a ref name against the protected set: an exact
