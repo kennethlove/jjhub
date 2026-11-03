@@ -1,7 +1,7 @@
 story_id: e29s02
 title: "suspended accounts refused on smart HTTP and SSH"
 spec: e29s02-transport-suspension.md
-status: failing
+status: passing
 bcps: 5
 tasks:
   - id: e29s02t1
@@ -12,7 +12,7 @@ tasks:
       before on both transports
     verify: "cargo test -p server --test operator_moderation"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -24,7 +24,7 @@ tasks:
       accounts
     verify: "cargo test -p server --test operator_moderation"
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -35,7 +35,7 @@ tasks:
       full preflight passes
     verify: "cargo test -p server && cargo fmt --all --check"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

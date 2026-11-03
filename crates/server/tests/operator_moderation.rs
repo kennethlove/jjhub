@@ -396,9 +396,12 @@ mod operator_moderation {
             .header(axum::http::header::AUTHORIZATION, basic(token))
             .body(Body::empty())
             .unwrap();
-        request.extensions_mut().insert(axum::extract::ConnectInfo(
-            std::net::SocketAddr::from(([127, 0, 0, 1], 0)),
-        ));
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                0,
+            ))));
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -412,9 +415,12 @@ mod operator_moderation {
             .header(axum::http::header::AUTHORIZATION, basic(token))
             .body(Body::empty())
             .unwrap();
-        request.extensions_mut().insert(axum::extract::ConnectInfo(
-            std::net::SocketAddr::from(([127, 0, 0, 1], 0)),
-        ));
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                0,
+            ))));
         server::app_with_storage(pool.clone(), root.path().to_str().unwrap().to_string())
             .oneshot(request)
             .await
@@ -474,15 +480,23 @@ mod operator_moderation {
         let _cookie = register(&pool, "alice").await;
         let user_id = id_of(&pool, "alice").await;
         let token = server::token::create(&pool, user_id, "ssh").await;
-        let mut handler =
-            server::ssh::SshHandler::with_storage(pool.clone(), root.path().to_str().unwrap().to_string());
-        let auth = handler.auth_password("alice", &token.plaintext).await.unwrap();
+        let mut handler = server::ssh::SshHandler::with_storage(
+            pool.clone(),
+            root.path().to_str().unwrap().to_string(),
+        );
+        let auth = handler
+            .auth_password("alice", &token.plaintext)
+            .await
+            .unwrap();
         assert!(
             matches!(auth, russh::server::Auth::Accept),
             "active account's SSH auth accepted"
         );
         suspend(&pool, "alice").await;
-        let auth = handler.auth_password("alice", &token.plaintext).await.unwrap();
+        let auth = handler
+            .auth_password("alice", &token.plaintext)
+            .await
+            .unwrap();
         assert!(
             matches!(auth, russh::server::Auth::Reject { .. }),
             "suspended account rejected before any git process spawns"
