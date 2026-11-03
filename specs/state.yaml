@@ -6,53 +6,26 @@ vcs:
   remote: origin
 session:
   started: "2026-10-19T00:00:00Z"
-  active_epic_id: e08-conflict-hosting
-  active_story_id: e08s03
+  active_epic_id: e29-operator-moderation
+  active_story_id: e29s01
 handoff:
-  next_skill: build-epic
+  next_skill: kickoff-branch
   notes: |
-    v0.2.0 SHIPPED (tag v0.2.0 = b722bea, released; #38-#53 all merged).
-    v0.3.0 PLANNED: e16 divergence-visible WSJF 16, e17 ssh-transport
-    WSJF 14 (capsules in specs/epics/e16-* + e17-*). Test DB = container
-    jjhub-pg on host port 5432 (jjhub_test); /tmp/preflight-seg.sh DATABASE_URL
-    already points there.
-    WAVE 1 (2026-10-24) = e16 DONE, stacked on trunk 5903ad1 as v030-w1:
-      trunk -> effd9f00 lock -> c61a4b5a RED -> c72a975d feat (helper:
-      server::divergence::divergent_heads(git_dir,&[String])->Vec<String>) ->
-      0e88b102 ticks -> bb32d511 lock -> 6ea75365 RED -> bcfa7490 feat
-      (MR detail + list, class `divergence-flag`, anchor id on mr_revision)
-      -> 04a295bb ticks -> dde42394 lock -> 70b6d4d0 RED -> f7f258b6 feat
-      (repo Open MRs mark) -> 5321f28a fix (comment_flow exact-match ->
-      prefix-match: e16s02 adds an anchor id to the section tag) ->
-      6392aef0 ticks -> c9aaf2c1 integration -> (rollup commit).
-      Locks union = 3 e16 entries; zero rebase conflicts. e16s03's agent
-      also carried its own copy of the seam (anchor + CSS) — resolved by
-      stacking on e16s02's tip, not by hand.
-    NEXT: e17s01 (russh listener + host keys + token auth + clone) then
-    e17s02 (SSH push through admit_push + ssh:// URL + e2e-ssh-push.sh);
-    bookmark e17 as v030-w2. e16 story ACs/tasks already ticked passing
-    inside their commits (verify with `jj diff -r <tick-commit>`, not the
-    working tree — dispatch workspaces leave stale snapshots on disk).
-    LESSONS: pi long-prompt provider stall (content-independent; logs buffer
-    to 0B always — judge liveness by commits; ONE pi per workspace; lsof
-    cwd is the only reliable repo check); after ANY chain repair re-probe
-    `ancestors(trunk)` (orphaned chains pass preflight — missing tests
-    cannot fail); never `jj commit` while a shared PR bookmark sits on @
-    (use describe + new); `jj abandon` of a bookmarked commit deletes the
-    bookmark; verify suspect jj ops with `gh pr view <n> --json files`;
-    never use perl exec wrappers to probe pi (mangles argv); RTK mangles
-    `+ "\n"` templates (use separate()).
-    ACTIVE DECISIONS
-    e18s01 ports design: host ports live in tracked
-    docker-compose.ports.yaml gated by COMPOSE_FILE in .env, NOT
-    inline env-gated entries — compose v5.5.0 hard-errors empty
-    short entries (no port specified: <empty>), which would break
-    both a Coolify clone (no .env) and local dev.
-    v0.3.0 SHIPPED: epics e16/e17/e18 merged (#54-#59 incl. closeout
-    and changelog); tag v0.3.0 = 27ccd061 pushed; GitHub release
-    published. e15s03 question RESOLVED — tasks.yaml ticking plus the
-    green extract_mr/extract_review tests are the record; no
-    retroactive story prose. v0.4.0 needs scope-work (user direction).
-    Remote hub (jjhub.eyeheartzombies.com) is up but the mirror repo
-    404s — not seeded (user informed; origin GitHub is source of
-    truth). Nothing local in flight.
+    v0.5.0 PLANNED: e29 operator moderation (SCOPE_LATEST.yaml, release-plan
+    e29 WSJF 12.9). plan-work DONE: capsule specs/epics/e29-operator-moderation/
+    (epic.yaml + e29s01/e29s02 story mds + tasks yamls, spec: fields set,
+    tasks status failing) — plan-consistency-check PASS (0/0/0).
+    Decisions: bootstrap = env JJHUB_OPERATOR=<handle> (user) OR
+    users.is_operator column; surface = site-level /admin page (user),
+    settings-page pattern.
+    e29s01 = web lockout (migration 0016: is_operator, suspended_at,
+    moderation_actions; enforce in middleware.rs:33 + login routes.rs:434 +
+    review_proxy.rs:56; audit row per action; operators not suspendable).
+    e29s02 = transport lockout (suspended_at check in token.rs:109 authenticate,
+    fail-closed to None; both transports + review-proxy token path share it).
+    Seam map + risk/trust-boundary rules live in the story mds.
+    NEXT: kickoff-branch then develop-tdd on e29s01t1 (RED suite
+    crates/server/tests/operator_moderation.rs). Test DB
+    jjhub-pg:5432 jjhub_test.
+    Relevance of old lessons: `jj new -m -b` errors; gh pr create --body-file;
+    merged bookmark = jj bookmark forget.
