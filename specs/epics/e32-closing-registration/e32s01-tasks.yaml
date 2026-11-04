@@ -1,7 +1,7 @@
 story_id: e32s01
 title: "operator toggle refuses new signups, sessions untouched"
 spec: e32s01-closing-registration.md
-status: planned
+status: passing
 bcps: 5
 tasks:
   - id: e32s01t1
@@ -12,7 +12,7 @@ tasks:
       way and a non-operator cannot flip the setting (404)
     verify: "cargo test -p server --test registration_gate"
     risk: P1
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -24,7 +24,7 @@ tasks:
       moderation_actions row
     verify: "cargo test -p server --test registration_gate"
     risk: P1
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -37,7 +37,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]
