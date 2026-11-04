@@ -1,0 +1,14 @@
+epic: e30
+slug: repo-takedown
+title: "Repo takedown — reversible refusal on an abuser's content"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e30s01
+    title: "operator takes a repo down; visitor refused; restore works"
+    bcps: 8
+    delta: ADDED
+  - id: e30s02
+    title: "taken-down repo refused on smart HTTP and SSH"
+    bcps: 5
+    delta: ADDED

@@ -1,0 +1,44 @@
+story_id: e33s01
+title: "filterable moderation log on /admin with CSV export"
+spec: e33s01-audit-export.md
+status: planned
+bcps: 5
+tasks:
+  - id: e33s01t1
+    description: >
+      RED test: the moderation log section on /admin lists
+      moderation_actions rows newest-first filterable by action
+      and target, the CSV export downloads the same selection
+      with a header row, and a non-operator gets 404 on both the
+      page section and the export endpoint
+    verify: "cargo test -p server --test moderation_log"
+    risk: P1
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e33s01t2
+    description: >
+      GREEN: log query with action/target filters, admin page
+      section (DESIGN.md tokens, forms with hidden CSRF where
+      needed), CSV endpoint with text/csv content-disposition —
+      reader for the trail e29 writes
+    verify: "cargo test -p server --test moderation_log"
+    risk: P2
+    status: planned
+    allure:
+      severity: minor
+      categories: ["ux"]
+  - id: e33s01t3
+    description: >
+      gates: fmt, clippy, full preflight suite, build, ux_audit,
+      and the /admin page keeps zero horizontal overflow at 1440
+      and 390 with the log section populated
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]

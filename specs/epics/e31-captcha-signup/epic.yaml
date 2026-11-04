@@ -1,0 +1,10 @@
+epic: e31
+slug: captcha-signup
+title: "CAPTCHA on signup — raise the cost of mass accounts"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e31s01
+    title: "configured CAPTCHA refuses an unsolved signup"
+    bcps: 8
+    delta: ADDED

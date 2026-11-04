@@ -1,0 +1,43 @@
+story_id: e32s01
+title: "operator toggle refuses new signups, sessions untouched"
+spec: e32s01-closing-registration.md
+status: planned
+bcps: 5
+tasks:
+  - id: e32s01t1
+    description: >
+      RED test: with registration closed, POST /register refuses
+      the new account and creates no row; with it open the same
+      request succeeds; existing sessions keep working either
+      way and a non-operator cannot flip the setting (404)
+    verify: "cargo test -p server --test registration_gate"
+    risk: P1
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e32s01t2
+    description: >
+      GREEN: closed-registration column + /admin toggle behind
+      session, CSRF, and the operator gate; signup handler
+      checks it with a clear message; each flip writes a
+      moderation_actions row
+    verify: "cargo test -p server --test registration_gate"
+    risk: P1
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e32s01t3
+    description: >
+      gates: fmt, clippy, full preflight suite, build — and the
+      admin page keeps zero horizontal overflow at 1440 and 390
+      (ux_audit + CDP probe)
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]

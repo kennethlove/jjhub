@@ -1,0 +1,46 @@
+story_id: e30s01
+title: "operator takes a repo down; visitor refused; restore works"
+spec: e30s01-takedown-web.md
+status: planned
+bcps: 8
+tasks:
+  - id: e30s01t1
+    description: >
+      RED test: with a repo taken down an anonymous visitor and
+      a non-owner account get refused on every browse route
+      while the owner and the operator still see the repo; the
+      action writes a moderation_actions row and restore puts
+      the visitor back; a non-operator cannot take anything down
+      (404)
+    verify: "cargo test -p server --test repo_takedown"
+    risk: P0
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e30s01t2
+    description: >
+      GREEN: repositories takedown timestamp (migration),
+      operator action + restore forms behind session, CSRF, and
+      the operator gate, browse wall at the visibility seam the
+      owner/operator bypass crosses, moderation_actions row per
+      flip
+    verify: "cargo test -p server --test repo_takedown"
+    risk: P0
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e30s01t3
+    description: >
+      gates: fmt, clippy, full preflight suite, build, ux_audit,
+      and the takedown controls keep zero horizontal overflow at
+      1440 and 390
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]
