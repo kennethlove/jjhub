@@ -1,0 +1,138 @@
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.5.0
+# v0.4.0 scope archived at specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml
+version: "0.5.0"
+feature_name: "jjhub"
+core_value: >
+  A public jjhub node can designate an operator who suspends an
+  abuser, and suspension actually cuts them off — web session,
+  tokens, and both git transports — while the node keeps serving
+  everyone else.
+summary: >
+  jjhub today has no moderation surface: no operator role, no
+  account suspension, no way for an operator to stop a registered
+  user from signing in, pushing, or minting tokens. On a private
+  single-tenant install that gap is invisible; on a public node it
+  is disqualifying — the only levers are shared rate-limit budgets
+  and deleting your own account. v0.5.0 adds exactly one new
+  capability class: operator moderation. An account can be
+  designated operator (with a defined bootstrap path on a fresh
+  install), and an operator can suspend or unsuspend any other
+  account from the web UI. Suspension is enforced at every
+  authentication and authorization seam the product already has —
+  login refused, live sessions rejected, HTTP token auth refused,
+  SSH access refused — so "blocked" means blocked on all paths,
+  not just the UI. Moderation actions are recorded so a node
+  operator can see what they did and when. Deployment stays one
+  Coolify container: state is rows, enforcement reuses the seams
+  e22 already built, no new dependency.
+in_scope:
+  - id: e29
+    title: "Operator moderation — operator role and account suspension"
+    detail: >
+      Accounts gain a moderation status: designated operator, or
+      ordinary, or suspended. A fresh install has a defined
+      bootstrap path to its first operator. An operator can
+      suspend and unsuspend other accounts (not themselves as the
+      last operator — the role must not be lockout-able) from a
+      moderation surface in the web UI that non-operators cannot
+      reach. Suspension is enforced where identity is already
+      checked: session cookie rejected for live sessions, login
+      refused, transport tokens refused on smart HTTP and SSH
+      alike, and new signups cannot be reached by simply minting
+      another token. Suspension is reversible: unsuspend restores
+      the same account, sessions, and tokens without re-registration.
+      Each suspend/unsuspend is recorded with actor, target, and
+      time. A suspended account's public repositories remain
+      readable — this epic cuts off the abuser, not their content.
+    why: >
+      Blocking an abuser is the minimum viability test for running
+      a public node; today there is no mechanism at any layer.
+      Enforcing at the existing auth seams (session + token, both
+      transports) means one status check covers every entry point
+      instead of a per-route checklist, and reversal matters
+      because false positives happen.
+out_of_scope:
+  - item: "Per-owner block lists (hide one user from another owner)"
+    why: >
+      Every interactive surface already requires auth, so one
+      suspension removes all of an abuser's reach. A per-target
+      list only earns its complexity when a harassment report
+      shows suspension is too blunt — deferred until evidence.
+  - item: >
+      Repo takedown, forced visibility change, or
+      content deletion by operators
+    why: >
+      Destructive and irreversible on someone else's work; needs a
+      due-process design jjhub does not have. Cutting off the
+      account is the reversible 80%.
+  - item: "Multi-tier roles (moderator / admin / superadmin, org-scoped rights)"
+    why: >
+      One operator role covers single-node deployment; a role
+      hierarchy is speculative governance for a solo operator.
+  - item: "Appeals, notification emails, or any out-of-band messaging"
+    why: "No mail infrastructure (standing v0.4.0 exclusion, unchanged)."
+  - item: "IP bans beyond the existing per-IP rate budget"
+    why: >
+      e20 already bounds anonymous abuse per IP; banning IPs
+      punishes shared NATs and is trivially evaded — wrong lever.
+  - item: "Signup friction (CAPTCHA, invite-only mode, email reputation checks)"
+    why: >
+      Rate budgets cap the cost of mass signup; friction is a
+      separate UX decision with a real cost to legitimate users.
+  - item: "Moderation audit export, reporting dashboards, retention policies"
+    why: >
+      The record rows land in e29; querying and exporting them is
+      a consumer that does not exist yet (YAGNI).
+  - item: "Hiding or delisting the node itself / closing registration"
+    why: >
+      Product inversion — the node stays public and open; an
+      operator who wants it closed is outside this use case.
+constraints:
+  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
+  - "No new crate dependency: enforcement reuses existing auth seams"
+  - >
+    Enforcement lives where identity is already checked (session,
+    token authenticate/authorize); no parallel auth path is added
+  - >
+    Moderation routes are operator-only behind the same session +
+    CSRF protection as every other POST, and the operator check
+    itself is tested at the trust boundary
+  - >
+    The 390-test suite stays green; suspension is off until a
+    row/designation exists
+  - "Conventional Commits; TDD where possible; specs/ as planning SoT"
+  - >
+    Preflight and CI green before forward work; every story
+    carries a story: eNNsNN tag
+  - "Page HTML lives in Tera templates; routes.rs holds handlers only"
+  - >
+    UI work runs keystone render gates, impeccable live tools, and
+    the ux audit before handoff
+success_criteria: >
+  On a fresh install the documented bootstrap produces one
+  operator. That operator, from the web UI, suspends a second
+  account: the suspended account's live session is rejected on the
+  next request, its login attempt is refused, and its transport
+  token is refused on both smart HTTP and SSH — each proven by an
+  automated test, not by inspection. A non-operator cannot reach
+  the moderation action (refused at the trust-boundary test).
+  Unsuspending restores the same account's access with no
+  re-registration, and its pre-existing repositories are
+  unchanged and still publicly readable throughout. Every
+  suspend/unsuspend leaves a record naming actor, target, and
+  time. `cargo test`, `cargo clippy --workspace --all-targets --
+  -D warnings`, `cargo fmt --all -- --check`, and `cargo build`
+  all pass; CI stays green.
+references:
+  - >
+    specs/product/VISION_LATEST.yaml — actors (solo
+    self-hosters now, public/commercial node later)
+  - >
+    specs/planning-context.yaml — v0.4.0 decisions (auth seams
+    from e22 token permissions)
+  - >
+    CONVENTIONS.md — Defensive Code and Tests (F.I.R.S.T,
+    trust-boundary tests)
+  - >
+    specs/epics/e22-token-permissions/ — authenticate/authorize
+    seam this enforces into
