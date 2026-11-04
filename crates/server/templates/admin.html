@@ -1,0 +1,52 @@
+{# story: e29s01 — the site-level console: accounts and their state.
+Operators only; the route gate answers 404 for everyone else. #}
+{% extends "base.html" %}
+{% block title %}Operator console · jjhub{% endblock %}
+{% block body %}
+{% include "nav.html" %}
+<main class="wrap">
+<h1>Operator console</h1>
+<h2>Accounts</h2>
+<section class="panel" aria-labelledby="accounts-heading">
+  <div class="panel-head">
+    <h2 id="accounts-heading" class="panel-title">Accounts</h2>
+  </div>
+  <div class="panel-body">
+    <ul class="account-list">
+{% for a in accounts %}
+      <li class="account-row">
+        <span class="account-handle">{{ a.handle }}</span>
+{% if a.is_operator %}
+        <span class="pill">operator</span>
+{% endif %}
+{% if a.suspended %}
+        <span class="pill pill-suspended">suspended</span>
+        <form method="post" action="/admin/unsuspend">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="hidden" name="target" value="{{ a.handle }}">
+          <div class="actions">
+            <button type="submit" class="btn btn-secondary btn-sm">Unsuspend {{ a.handle }}</button>
+          </div>
+        </form>
+{% elif not a.is_operator %}
+        <form method="post" action="/admin/suspend">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="hidden" name="target" value="{{ a.handle }}">
+          <div class="actions">
+            <button type="submit" class="btn btn-secondary btn-sm">Suspend {{ a.handle }}</button>
+          </div>
+        </form>
+{% endif %}
+      </li>
+{% endfor %}
+    </ul>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <span class="wordmark">jj / jjhub</span>
+    <span class="footer-links"><a href="/">Apache License 2.0</a> · <a href="https://jj-vcs.dev">jj-vcs.dev</a> · <a href="https://github.com/kennethlove/jjhub">GitHub</a></span>
+  </div>
+</footer>
+{% endblock %}

@@ -1,0 +1,14 @@
+epic: e29
+slug: operator-moderation
+title: "Operator moderation — designate an operator, suspend an abuser"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e29s01
+    title: "operator designation and web suspension at /admin"
+    bcps: 8
+    delta: ADDED
+  - id: e29s02
+    title: "suspended accounts refused on smart HTTP and SSH"
+    bcps: 5
+    delta: ADDED

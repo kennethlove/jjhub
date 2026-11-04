@@ -239,6 +239,11 @@ fn app_from_state(state: AppState) -> Router {
             "/{owner}/{name}/protected-refs/remove",
             post(routes::remove_protected_ref),
         )
+        // story: e29s01 — site-level moderation console (session + CSRF;
+        // the handlers gate on the operator role)
+        .route("/admin", get(routes::admin_page))
+        .route("/admin/suspend", post(routes::suspend_account))
+        .route("/admin/unsuspend", post(routes::unsuspend_account))
         .route(
             "/{owner}/{name}/settings/collaborators",
             post(routes::manage_collaborators),

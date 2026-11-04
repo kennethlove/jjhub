@@ -146,6 +146,18 @@ pub async fn authenticate(
         }
     };
     let (token_id, user_id, scopes, expires_at, pinned_repo, allowed_text, _) = found?;
+    // story: e29s02 — one status check at the seam both transports
+    // already share: a suspended account's token fails closed to None
+    // (query failure fails closed too).
+    let suspended: bool =
+        sqlx::query_scalar("SELECT suspended_at IS NOT NULL FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(true);
+    if suspended {
+        return None;
+    }
     let allowed_inets = allowed_text.as_deref().map(parse_inet_list);
     if let Some(list) = allowed_inets.as_ref() {
         let on_list = client_ip.is_some_and(|ip| list.contains(&ip));

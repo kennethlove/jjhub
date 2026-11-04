@@ -1,0 +1,41 @@
+story_id: e29s02
+title: "suspended accounts refused on smart HTTP and SSH"
+spec: e29s02-transport-suspension.md
+status: passing
+bcps: 5
+tasks:
+  - id: e29s02t1
+    description: >
+      RED test: a suspended account's transport token is refused
+      on smart HTTP (clone and push) and on SSH before any git
+      process spawns, while an active account's token behaves as
+      before on both transports
+    verify: "cargo test -p server --test operator_moderation"
+    risk: P0
+    status: passing
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e29s02t2
+    description: >
+      GREEN: suspension checked at the token authentication seam
+      both transports already share — one check, both entries;
+      e22 scope/expiry/pinning behavior unchanged for active
+      accounts
+    verify: "cargo test -p server --test operator_moderation"
+    risk: P0
+    status: passing
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e29s02t3
+    description: >
+      regression + gates: existing token and transport suites
+      stay green (e22 paths untouched for active accounts) and
+      full preflight passes
+    verify: "cargo test -p server && cargo fmt --all --check"
+    risk: P3
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

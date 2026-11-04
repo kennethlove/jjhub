@@ -1805,3 +1805,38 @@ fieldset.field legend {
   flex: none;
 }
 
+
+/* story: e29s01 — moderation console rows: handle, state pill, and
+action in one wrapping line; handles and action labels can run long */
+.account-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+}
+
+.account-row + .account-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.account-handle {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.account-row .btn {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.pill-suspended {
+  color: var(--color-error);
+  background-color: var(--color-error-surface);
+}

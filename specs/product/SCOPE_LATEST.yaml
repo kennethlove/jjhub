@@ -1,247 +1,138 @@
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.4.0
-# v0.3.0 scope archived at specs/product/snapshots/SCOPE-v0.3.0-2026-10-25.yaml
-version: "0.4.0"
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.5.0
+# v0.4.0 scope archived at specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml
+version: "0.5.0"
 feature_name: "jjhub"
 core_value: >
-  Adding a remote and pushing is enough to start a project — a push
-  to an owned path creates the repo on the fly — expensive actions
-  (push, repo create, token create, login) are budgeted per user and
-  per IP so one client cannot spin the server, and every account
-  starts with the transport token it needs, rotatable when in doubt.
+  A public jjhub node can designate an operator who suspends an
+  abuser, and suspension actually cuts them off — web session,
+  tokens, and both git transports — while the node keeps serving
+  everyone else.
 summary: >
-  v0.4.0 closes the first-push gap and puts a brake on the expensive
-  endpoints. Today a push to a repo path that does not exist is a
-  404, so the natural jj/git workflow (add remote, push) dies at the
-  web form; jjhub now creates the repo when a token-holder pushes to
-  a nonexistent path they own — same prior art as Gitea/Codeberg,
-  GitLab, and soft-serve — over smart HTTP and SSH alike, through
-  ONE shared creation service so the UI form and both transports
-  cannot drift. Second, nothing throttles pushing, repo creation,
-  token creation, or login; an in-process token bucket now budgets
-  those actions per user and per IP, returns 429 with Retry-After on
-  HTTP, and disconnects cleanly on SSH. The limiter is opt-in via
-  env and structurally absent in tests, so the existing suite stays
-  green. Third, the token lifecycle gets honest defaults: signup
-  mints a transport token (plaintext shown once on the post-signup
-  details screen), regenerate rotates it, and the repo-page minting
-  form is demoted to an advanced affordance so the default path is
-  account-level and post-signup delivery is one details screen.
-  Fourth, every token now carries explicit permissions —
-  read/write scopes, optional expiry, optional repo pin, optional
-  IP allowlist — enforced at authentication and authorization on
-  both transports.
-  Deployment reality is one Coolify container: no new crate,
-  no distributed state, single-node honest.
+  jjhub today has no moderation surface: no operator role, no
+  account suspension, no way for an operator to stop a registered
+  user from signing in, pushing, or minting tokens. On a private
+  single-tenant install that gap is invisible; on a public node it
+  is disqualifying — the only levers are shared rate-limit budgets
+  and deleting your own account. v0.5.0 adds exactly one new
+  capability class: operator moderation. An account can be
+  designated operator (with a defined bootstrap path on a fresh
+  install), and an operator can suspend or unsuspend any other
+  account from the web UI. Suspension is enforced at every
+  authentication and authorization seam the product already has —
+  login refused, live sessions rejected, HTTP token auth refused,
+  SSH access refused — so "blocked" means blocked on all paths,
+  not just the UI. Moderation actions are recorded so a node
+  operator can see what they did and when. Deployment stays one
+  Coolify container: state is rows, enforcement reuses the seams
+  e22 already built, no new dependency.
 in_scope:
-  - id: e19
-    title: "Push-to-create — first push creates the owned repo"
+  - id: e29
+    title: "Operator moderation — operator role and account suspension"
     detail: >
-      A receive-pack push to a nonexistent repo path creates the repo
-      when the URL owner segment equals the pushing token user's
-      handle: shared creation service (validate, dup-check,
-      init_bare, jj_meta init, INSERT tx with fs cleanup on failure,
-      unique-constraint re-lookup), row inserted before git
-      http-backend spawns so admission and hooks see it, PRIVATE by
-      default (e10s02 settings UI flips later), SSH parity through
-      the same helper. upload-pack on a missing repo and pushes into
-      another user's namespace stay 404.
+      Accounts gain a moderation status: designated operator, or
+      ordinary, or suspended. A fresh install has a defined
+      bootstrap path to its first operator. An operator can
+      suspend and unsuspend other accounts (not themselves as the
+      last operator — the role must not be lockout-able) from a
+      moderation surface in the web UI that non-operators cannot
+      reach. Suspension is enforced where identity is already
+      checked: session cookie rejected for live sessions, login
+      refused, transport tokens refused on smart HTTP and SSH
+      alike, and new signups cannot be reached by simply minting
+      another token. Suspension is reversible: unsuspend restores
+      the same account, sessions, and tokens without re-registration.
+      Each suspend/unsuspend is recorded with actor, target, and
+      time. A suspended account's public repositories remain
+      readable — this epic cuts off the abuser, not their content.
     why: >
-      The natural jj/git workflow is "add remote, push"; every
-      create-on-push forge supports it and jjhub currently dead-ends
-      at a web form. Ownership-gated + PRIVATE means no squatting
-      surface and no public-namespace probing.
-  - id: e20
-    title: "Rate limiting — per-user and per-IP budgets"
-    detail: >
-      An in-process token budget (no new crate) wraps exactly the
-      expensive actions — git push over smart HTTP and SSH, repo
-      creation (UI POST /repos and push-to-create), token creation
-      (/settings/tokens and the repo-page token route), and login
-      POST — with per-user and per-IP dimensions, env-configurable
-      budgets and burst, HTTP 429 + Retry-After, and a clean SSH
-      disconnect before any git process spawns. Disabled via env and
-      absent from test constructors.
-    why: >
-      Rate limiting is a named priority defensive category in
-      CONVENTIONS; a self-hosted forge's push path spawns git
-      subprocesses and writes stores, so an unthrottled client is a
-      denial-of-service lever. Per-IP covers anonymous abuse
-      (login), per-user covers authenticated load.
-  - id: e21
-    title: "Token model — signup token, regenerate, demoted minting"
-    detail: >
-      Signup automatically issues one transport token (stored
-      hashed, e15s02 shown-once discipline): after signup the user
-      lands on a one-time details screen where the plaintext is
-      copy-once, completion is marked, and the screen never
-      re-renders (abandoned and existing users never see it). The
-      screen also carries three preferences: display name (new
-      users column, nullable, falls back to handle), theme
-      preference dark/light/system (new users column, default
-      system), and the account gravatar computed from email with a
-      link to gravatar.com to change it (derived, no column).
-      A regenerate action rotates the token — revoke old, issue new,
-      plaintext shown once on settings — and counts as token
-      creation for rate-limit purposes. The repo-page token form is
-      demoted behind an explicit advanced disclosure (route and
-      tests stay); the default minting path is account-level.
-      Existing zero-token users are not backfilled.
-    why: >
-      A user who just signed up cannot clone their own empty repo
-      until they hunt down the settings page, and the repo-page form
-      makes per-repo minting look like the default. Auto-issue plus
-      rotate matches what every forge user expects from "my token",
-      and demoting the repo form keeps per-repo tokens possible
-      without advertising them.
-  - id: e22
-    title: "Token permissions — scopes, expiry, pinning, IP allowlist"
-    detail: >
-      Transport tokens gain explicit permissions instead of flat
-      identity: a scope set per token (read for clone/fetch, write
-      for push), optional expiry, optional pin to one repository,
-      and an optional CIDR allowlist. authenticate() loads the
-      restrictions and rejects expired, foreign-repo, or wrong-IP
-      tokens before authorize runs; authorize maps upload-pack to
-      read and receive-pack to write inside the admission decision
-      both transports already share. Existing tokens migrate to
-      the full scope set, so no current workflow changes. Signup
-      and regenerate default to read+write; settings forms select
-      scopes, expiry, and pin; the demoted repo-page form
-      pre-pins its repo.
-    why: >
-      A transport token is today's only non-interactive credential
-      and it carries full push identity forever. A leaked
-      read-only or repo-pinned token is a bounded problem, an
-      expired one stops itself, and an allowlisted one dies
-      off-box. User decision 2026-10-25: this is v0.4.0 scope,
-      not a later cycle.
+      Blocking an abuser is the minimum viability test for running
+      a public node; today there is no mechanism at any layer.
+      Enforcing at the existing auth seams (session + token, both
+      transports) means one status check covers every entry point
+      instead of a per-route checklist, and reversal matters
+      because false positives happen.
 out_of_scope:
-  - item: "Issues tracker, orgs/teams, OIDC, CI runners, full-text search"
-    why: "Deferred since v0.1.0/v0.2.0 — unchanged reasons on record"
-  - item: "Rate limiting every route / per-route fine-tuning"
+  - item: "Per-owner block lists (hide one user from another owner)"
     why: >
-      The policy table is explicit; extending it later is one row
-      plus one wrap. Blanket throttling of reads is a different
-      product decision.
-  - item: "Distributed rate-limit state (Redis or DB-backed counters)"
+      Every interactive surface already requires auth, so one
+      suspension removes all of an abuser's reach. A per-target
+      list only earns its complexity when a harassment report
+      shows suspension is too blunt — deferred until evidence.
+  - item: >
+      Repo takedown, forced visibility change, or
+      content deletion by operators
     why: >
-      Deployment is one Coolify container; counters live in process.
-      Revisit only when a second node exists.
-  - item: "Login lockout, CAPTCHA, progressive backoff"
+      Destructive and irreversible on someone else's work; needs a
+      due-process design jjhub does not have. Cutting off the
+      account is the reversible 80%.
+  - item: "Multi-tier roles (moderator / admin / superadmin, org-scoped rights)"
     why: >
-      Brute force gets a plain per-IP budget; account-lock policy is
-      a separate feature with recovery UX.
-  - item: "Per-user repo-count quotas or plan-style limits"
+      One operator role covers single-node deployment; a role
+      hierarchy is speculative governance for a solo operator.
+  - item: "Appeals, notification emails, or any out-of-band messaging"
+    why: "No mail infrastructure (standing v0.4.0 exclusion, unchanged)."
+  - item: "IP bans beyond the existing per-IP rate budget"
     why: >
-      Push-to-create admission is ownership + name validity only;
-      quotas invent a billing model jjhub does not have.
-  - item: "Changing UI create semantics (visibility, 409, 422)"
+      e20 already bounds anonymous abuse per IP; banning IPs
+      punishes shared NATs and is trivially evaded — wrong lever.
+  - item: "Signup friction (CAPTCHA, invite-only mode, email reputation checks)"
     why: >
-      The shared service preserves existing behavior; a redesign of
-      the create form is not this cycle.
-  - item: "Removing the repo-page token route entirely"
+      Rate budgets cap the cost of mass signup; friction is a
+      separate UX decision with a real cost to legitimate users.
+  - item: "Moderation audit export, reporting dashboards, retention policies"
     why: >
-      Demoted behind an advanced affordance instead — one template
-      change, existing consumers and tests unaffected.
-  - item: "Email or out-of-band token delivery"
-    why: "No mail infrastructure; plaintext is shown in-band, once."
-  - item: "Backfilling tokens for existing zero-token users"
+      The record rows land in e29; querying and exporting them is
+      a consumer that does not exist yet (YAGNI).
+  - item: "Hiding or delisting the node itself / closing registration"
     why: >
-      Only new signups auto-receive one; minting credentials for
-      dormant accounts widens the attack surface for no workflow
-      gain.
-  - item: "OAuth/OIDC federation and PAT hierarchies"
-    why: >
-      Scopes land as native token permissions (e22); federation is
-      a separate feature with a different threat model.
-  - item: "Auto-PUBLIC on push-to-create or visibility flags in the push URL"
-    why: >
-      Conservative default is PRIVATE; flipping visibility is the
-      e10s02 settings UI's job, after creation.
+      Product inversion — the node stays public and open; an
+      operator who wants it closed is outside this use case.
 constraints:
   - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
+  - "No new crate dependency: enforcement reuses existing auth seams"
   - >
-    No new crate dependency for either epic: the limiter is a
-    hand-rolled token bucket on axum middleware; push-to-create is
-    service extraction plus a missing-row branch
+    Enforcement lives where identity is already checked (session,
+    token authenticate/authorize); no parallel auth path is added
   - >
-    Rate limiting off unless the production constructor builds it
-    from env; the 80+ existing tests must not start failing
+    Moderation routes are operator-only behind the same session +
+    CSRF protection as every other POST, and the operator check
+    itself is tested at the trust boundary
   - >
-    One creation path: UI create and push-to-create call the same
-    service; transport admission stays shared between HTTP and SSH
-  - "Public open source codebase; no external paid services"
+    The 390-test suite stays green; suspension is off until a
+    row/designation exists
   - "Conventional Commits; TDD where possible; specs/ as planning SoT"
-  - "Preflight and CI stay green before forward work"
-  - "Every story carries at least one story: eNNsNN tag in code/tests"
+  - >
+    Preflight and CI green before forward work; every story
+    carries a story: eNNsNN tag
   - "Page HTML lives in Tera templates; routes.rs holds handlers only"
   - >
     UI work runs keystone render gates, impeccable live tools, and
     the ux audit before handoff
 success_criteria: >
-  A token-holder pushes to a nonexistent path under their own handle
-  over smart HTTP and gets a repo: the repositories row exists, both
-  stores are initialized, and the pushed refs are visible; an e2e
-  test proves the whole path. The same push over SSH creates the
-  repo identically. A push to someone else's nonexistent handle, an
-  invalid name, or an upload-pack on a missing repo each return 404
-  with no row created. `grep -rn "create_repo" crates/server/src |
-  wc -l` shows one service used by UI and both transports, not three
-  copies. With the limiter at a budget of 1, the second push returns
-  HTTP 429 carrying a Retry-After header, and the SSH variant
-  disconnects before spawning git. A new signup arrives with one
-  transport token whose plaintext is shown exactly once (a one-time
-  details screen after signup — display name, dark/light/system
-  theme, email gravatar — gone once completed), regenerate revokes
-  the old
-  token and shows the new plaintext once, and the repo-page token
-  form sits behind an explicit advanced disclosure. A read-only
-  token clones but its push is refused, an expired token is
-  rejected at authentication, a repo-pinned token works only on
-  that repo, and an off-list IP is refused — identical behavior
-  over HTTP and SSH. `cargo test`
-  runs green with the limiter absent from test constructors.
-  `cargo clippy --workspace
-  --all-targets -- -D warnings` and `cargo fmt --all -- --check`
-  pass.
+  On a fresh install the documented bootstrap produces one
+  operator. That operator, from the web UI, suspends a second
+  account: the suspended account's live session is rejected on the
+  next request, its login attempt is refused, and its transport
+  token is refused on both smart HTTP and SSH — each proven by an
+  automated test, not by inspection. A non-operator cannot reach
+  the moderation action (refused at the trust-boundary test).
+  Unsuspending restores the same account's access with no
+  re-registration, and its pre-existing repositories are
+  unchanged and still publicly readable throughout. Every
+  suspend/unsuspend leaves a record naming actor, target, and
+  time. `cargo test`, `cargo clippy --workspace --all-targets --
+  -D warnings`, `cargo fmt --all -- --check`, and `cargo build`
+  all pass; CI stays green.
 references:
-  - "specs/planning-context.yaml — key decisions for e19/e20/e21/e22"
   - >
-    specs/product/VISION_LATEST.yaml — items 8 (divergence) and 9
-    (git compat layer)
-  - "specs/adr/0001-change-id-anchored-mr.md"
-  - "CONVENTIONS.md — Defensive Code: rate limit is a priority"
-
-# Prior Art — research-first (2026-10-25)
-prior_art:
-  adopt:
-    - >
-      Create-on-push admission shape from Gitea/Codeberg, GitLab,
-      soft-serve: receive-pack on a missing owned path creates the
-      repo; upload-pack on missing stays 404; GitHub deliberately
-      does not do this.
-    - >
-      Token-bucket rate limiting as in-process state keyed
-      (action, dimension, key) — the standard single-node shape
-      (governor's algorithm, hand-rolled at this size).
-  extend:
-    - >
-      routes::create_repo's creation sequence (validate, dup-check,
-      init_bare, jj_meta init, INSERT tx, fs cleanup) extracted into
-      a shared service instead of rewritten.
-    - >
-      transport::authorize's "one admission decision for both
-      transports" principle, extended to creation admission.
-  rejected:
-    - >
-      governor crate — new dependency; its distributed/ShardedBucket
-      machinery is dead weight for one container (WHY: rule).
-    - >
-      tower-http RateLimit layer — one global bucket per key string,
-      not per-user AND per-IP keyed budgets.
-    - >
-      Redis or Postgres-backed counters — write amplification on the
-      hot push path with no second node to justify it.
-    - >
-      Reusing the UI create handler for push-to-create — transport
-      has no session/CSRF/form; a shared service is the seam.
+    specs/product/VISION_LATEST.yaml — actors (solo
+    self-hosters now, public/commercial node later)
+  - >
+    specs/planning-context.yaml — v0.4.0 decisions (auth seams
+    from e22 token permissions)
+  - >
+    CONVENTIONS.md — Defensive Code and Tests (F.I.R.S.T,
+    trust-boundary tests)
+  - >
+    specs/epics/e22-token-permissions/ — authenticate/authorize
+    seam this enforces into

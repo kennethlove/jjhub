@@ -430,12 +430,15 @@ pub struct LoginForm {
 
 pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -> Response {
     let email = domain::normalize_email(&form.email);
-    let row: Option<(uuid::Uuid, String)> =
-        sqlx::query_as("SELECT id, password_hash FROM users WHERE email = $1")
-            .bind(&email)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+    // story: e29s01 — a suspended account answers exactly like a
+    // missing one: same refusal, no state disclosed.
+    let row: Option<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT id, password_hash FROM users WHERE email = $1 AND suspended_at IS NULL",
+    )
+    .bind(&email)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
 
     let Some((id, _hash)) = row.filter(|(_, hash)| verify_password(&form.password, hash)) else {
         return (
@@ -2607,6 +2610,161 @@ pub async fn operations_page(
     let is_owner = viewer.as_deref() == Some(owner.as_str());
     context.insert("is_owner", &is_owner);
     Html(crate::render::render("operations.html", &context)).into_response()
+}
+
+// story: e29s01 — effective operator: the designated column OR the
+// handle named by the deployment env. The env read runs per query, so
+// a fresh install has an operator before any account exists and a
+// promotion never races signup.
+fn env_operator(handle: &str) -> bool {
+    std::env::var("JJHUB_OPERATOR").is_ok_and(|expected| expected == handle)
+}
+
+async fn is_operator(pool: &sqlx::PgPool, user_id: uuid::Uuid) -> bool {
+    let row: Option<(String, bool)> =
+        sqlx::query_as("SELECT handle, is_operator FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+    row.is_some_and(|(handle, column)| column || env_operator(&handle))
+}
+
+#[derive(serde::Serialize)]
+struct AccountRow {
+    handle: String,
+    is_operator: bool,
+    suspended: bool,
+}
+
+#[derive(Deserialize)]
+pub struct ModerationForm {
+    target: String,
+}
+
+// story: e29s01 — the site-level console. Non-operators get 404: the
+// surface does not exist for them.
+pub async fn admin_page(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    jar: CookieJar,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let rows: Vec<(String, bool, Option<chrono::DateTime<chrono::Utc>>)> =
+        sqlx::query_as("SELECT handle, is_operator, suspended_at FROM users ORDER BY handle")
+            .fetch_all(&state.pool)
+            .await
+            .unwrap_or_default();
+    let accounts: Vec<AccountRow> = rows
+        .into_iter()
+        .map(|(handle, is_operator, suspended_at)| AccountRow {
+            handle,
+            is_operator,
+            suspended: suspended_at.is_some(),
+        })
+        .collect();
+    let viewer = viewer_handle(&state, &jar).await;
+    let csrf = jar
+        .get(SESSION_COOKIE)
+        .map(|c| crate::session::csrf_token(&state.session_secret, c.value()))
+        .unwrap_or_default();
+    let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
+    context.insert("accounts", &accounts);
+    Html(crate::render::render("admin.html", &context)).into_response()
+}
+
+// story: e29s01 — suspend: reversible, audited, and the lockout guard
+// refuses operator targets (covers self and the last operator).
+pub async fn suspend_account(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<ModerationForm>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let target: Option<(uuid::Uuid, bool)> =
+        sqlx::query_as("SELECT id, is_operator FROM users WHERE handle = $1")
+            .bind(&form.target)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+    let Some((target_id, target_is_operator)) = target else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    if target_is_operator || env_operator(&form.target) {
+        return (StatusCode::FORBIDDEN, "operators cannot be suspended").into_response();
+    }
+    let changed =
+        sqlx::query("UPDATE users SET suspended_at = now() WHERE id = $1 AND suspended_at IS NULL")
+            .bind(target_id)
+            .execute(&state.pool)
+            .await
+            .map(|result| result.rows_affected() == 1)
+            .unwrap_or(false);
+    if changed {
+        sqlx::query(
+            "INSERT INTO moderation_actions (actor_id, target_id, action) \
+             VALUES ($1, $2, 'suspend')",
+        )
+        .bind(current.0)
+        .bind(target_id)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/admin".to_string())],
+    )
+        .into_response()
+}
+
+// story: e29s01 — unsuspend restores the same account and every live
+// session with it: suspension is a status, never deletion.
+pub async fn unsuspend_account(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<ModerationForm>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let target: Option<uuid::Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE handle = $1")
+        .bind(&form.target)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+    let Some(target_id) = target else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    let changed = sqlx::query("UPDATE users SET suspended_at = NULL WHERE id = $1")
+        .bind(target_id)
+        .execute(&state.pool)
+        .await
+        .map(|result| result.rows_affected() == 1)
+        .unwrap_or(false);
+    if changed {
+        sqlx::query(
+            "INSERT INTO moderation_actions (actor_id, target_id, action) \
+             VALUES ($1, $2, 'unsuspend')",
+        )
+        .bind(current.0)
+        .bind(target_id)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/admin".to_string())],
+    )
+        .into_response()
 }
 
 // story: e09s02 — one operation in the audit log: who did what to which

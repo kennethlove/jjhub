@@ -54,6 +54,7 @@ fn engine() -> &'static Tera {
                 include_str!("../templates/password_reset.html"),
             ),
             ("settings.html", include_str!("../templates/settings.html")),
+            ("admin.html", include_str!("../templates/admin.html")),
             (
                 "token_details.html",
                 include_str!("../templates/token_details.html"),
