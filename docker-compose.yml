@@ -31,6 +31,12 @@ services:
       JJHUB_SSH_HOST_KEY_DIR: /var/lib/jjhub/host-keys
       # story: e05s03 — the app proxies /review/** to the sidecar
       KATA_UPSTREAM: http://kata:7878
+      # SMTP relay for the v0.7.0 mail arm. Blank = unset = LogMailer dev
+      # arm; no code reads these until the mail arm lands.
+      JJHUB_SMTP_HOST: ${JJHUB_SMTP_HOST:-}
+      JJHUB_SMTP_PORT: ${JJHUB_SMTP_PORT:-}
+      JJHUB_SMTP_USER: ${JJHUB_SMTP_USER:-}
+      JJHUB_SMTP_PASSWORD: ${JJHUB_SMTP_PASSWORD:-}
     volumes:
       - repo-data:/var/lib/jjhub
     # story: e18s01 — host ports live in docker-compose.ports.yaml, loaded
