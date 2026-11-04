@@ -1,0 +1,60 @@
+story_id: e31s01
+title: "configured CAPTCHA refuses an unsolved signup"
+spec: e31s01-captcha-signup.md
+status: planned
+bcps: 8
+tasks:
+  - id: e31s01t1
+    description: >
+      research-first: pick the verifier (siteverify-style HTTP
+      challenge) against prior art, record the choice and the
+      rejected alternatives in the story spec's Prior art
+      section before any code
+    verify: >-
+      grep -q 'Prior art'
+      specs/epics/e31-captcha-signup/e31s01-captcha-signup.md
+    risk: P2
+    status: planned
+    allure:
+      severity: minor
+      categories: ["research"]
+  - id: e31s01t2
+    description: >
+      RED test: with the verifier configured, a signup with a
+      missing or failing challenge creates no account row and
+      renders the form again with a clear message; a passing
+      challenge signs up normally; with no verifier configured
+      signup behaves exactly as today (env-shaped feature, like
+      mail)
+    verify: "cargo test -p server --test captcha_signup"
+    risk: P1
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e31s01t3
+    description: >
+      GREEN: challenge widget on the signup form when configured,
+      server-side verifier call before the account row, fail
+      closed to a retry message when the verifier rejects or is
+      unreachable while configured, rate-limit the endpoint per
+      the e20 pattern
+    verify: "cargo test -p server --test captcha_signup"
+    risk: P1
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e31s01t4
+    description: >
+      gates: fmt, clippy, full preflight suite, build, ux_audit,
+      and signup at 1440 and 390 keeps zero horizontal overflow
+      with the challenge rendered
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]

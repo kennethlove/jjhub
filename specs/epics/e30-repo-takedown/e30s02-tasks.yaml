@@ -1,0 +1,40 @@
+story_id: e30s02
+title: "taken-down repo refused on smart HTTP and SSH"
+spec: e30s02-takedown-transports.md
+status: planned
+bcps: 5
+tasks:
+  - id: e30s02t1
+    description: >
+      RED test: a taken-down repo's smart-HTTP info-refs and
+      push are refused for a non-owner account while the owner
+      and operator still pass; SSH admission refuses too, before
+      any git process spawns; an untouched repo behaves as today
+    verify: "cargo test -p server --test repo_takedown"
+    risk: P0
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e30s02t2
+    description: >
+      GREEN: takedown checked at the transport admission seam
+      both transports already share — one check, both entries;
+      owner and operator bypass; e22 scope/expiry behavior for
+      unaffected repos untouched
+    verify: "cargo test -p server --test repo_takedown"
+    risk: P0
+    status: planned
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e30s02t3
+    description: >
+      regression + gates: token and transport suites stay green
+      and full preflight passes
+    verify: "cargo test -p server && cargo fmt --all --check"
+    risk: P3
+    status: planned
+    allure:
+      severity: minor
+      categories: ["gates"]

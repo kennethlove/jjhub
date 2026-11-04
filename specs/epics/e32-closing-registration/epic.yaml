@@ -1,0 +1,10 @@
+epic: e32
+slug: closing-registration
+title: "Closing registration — an operator stops the inflow"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e32s01
+    title: "operator toggle refuses new signups, sessions untouched"
+    bcps: 5
+    delta: ADDED

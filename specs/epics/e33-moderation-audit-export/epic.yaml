@@ -1,0 +1,10 @@
+epic: e33
+slug: moderation-audit-export
+title: "Moderation audit export — read and export the trail"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+stories:
+  - id: e33s01
+    title: "filterable moderation log on /admin with CSV export"
+    bcps: 5
+    delta: ADDED
