@@ -242,6 +242,9 @@ fn app_from_state(state: AppState) -> Router {
         // story: e29s01 — site-level moderation console (session + CSRF;
         // the handlers gate on the operator role)
         .route("/admin", get(routes::admin_page))
+        // story: e32s01 — registration toggle (session + CSRF;
+        // the handler gates on the operator role)
+        .route("/admin/registration", post(routes::set_registration))
         .route("/admin/suspend", post(routes::suspend_account))
         .route("/admin/unsuspend", post(routes::unsuspend_account))
         .route(

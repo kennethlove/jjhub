@@ -42,6 +42,34 @@ Operators only; the route gate answers 404 for everyone else. #}
     </ul>
   </div>
 </section>
+{# story: e32s01 — the inflow toggle: one state line, one flip. #}
+<h2>Registration</h2>
+<section class="panel" aria-labelledby="registration-heading">
+  <div class="panel-head">
+    <h2 id="registration-heading" class="panel-title">Registration</h2>
+  </div>
+  <div class="panel-body">
+{% if registration_closed %}
+    <p>Closed — new signups are refused.</p>
+    <form method="post" action="/admin/registration">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <input type="hidden" name="action" value="open">
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Open registration</button>
+      </div>
+    </form>
+{% else %}
+    <p>Open — anyone can sign up.</p>
+    <form method="post" action="/admin/registration">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <input type="hidden" name="action" value="close">
+      <div class="actions">
+        <button type="submit" class="btn btn-secondary">Close registration</button>
+      </div>
+    </form>
+{% endif %}
+  </div>
+</section>
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">

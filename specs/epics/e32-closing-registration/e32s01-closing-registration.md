@@ -13,7 +13,7 @@ The cheapest inflow brake a public node can offer: for a private
 party, a conference, or a node under signup flood, one toggle
 stops the flood without touching a single existing account. It
 reuses the operator gate, CSRF, and moderation_actions trail
-e29 shipped, so the lever costs one column and one form —
+e29 shipped, so the lever costs one settings row and one form —
 SCOPE v0.6.0 in_scope e32.
 
 ## 3. Type
@@ -38,8 +38,8 @@ scope says reversible from the surface, not from a deploy.
    account; an authenticated non-operator POSTs the toggle and
    gets 404 with no row change; a logged-in session keeps
    fetching /settings while closed → verify: `cargo test -p
-   server --test registration_gate` (expected RED: no column,
-   no route, register unaware)
+   server --test registration_gate` (expected RED: no
+   site_settings row, no route, register unaware)
 2. GREEN: migration adds the registration-closed setting;
    `POST /admin/registration` (on/off) behind the existing
    protected router with session + CSRF; register handler

@@ -88,7 +88,33 @@ pub async fn register_form(headers: axum::http::HeaderMap) -> Html<String> {
     }
 }
 
+// story: e32s01 — one read point for the toggle: a missing row means
+// open, so a fresh node signs up like it always did.
+async fn registration_closed(pool: &sqlx::PgPool) -> bool {
+    sqlx::query_scalar::<_, String>(
+        "SELECT value FROM site_settings WHERE key = 'registration_closed'",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .is_some_and(|value| value == "true")
+}
+
 pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
+    // story: e32s01 — closed registration refuses before any row is
+    // considered; existing accounts and sessions are untouched.
+    if registration_closed(&state.pool).await {
+        return (
+            StatusCode::FORBIDDEN,
+            Html(register_page(
+                "registration is closed on this node",
+                &form.email,
+            )),
+        )
+            .into_response();
+    }
+
     let (email, handle) = match domain::validate_registration(&form.email, &form.password) {
         Ok(pair) => pair,
         Err(err) => {
@@ -2643,6 +2669,56 @@ pub struct ModerationForm {
     target: String,
 }
 
+// story: e32s01 — the inflow toggle: close or open, nothing else.
+#[derive(serde::Deserialize)]
+pub struct RegistrationForm {
+    action: String,
+}
+
+// story: e32s01 — close/open the door: operator-gated, audited, and
+// reversible from the same console; no target user, so the audit row
+// keeps a null target.
+pub async fn set_registration(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<RegistrationForm>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let (value, action) = match form.action.as_str() {
+        "close" => ("true", "registration_close"),
+        "open" => ("false", "registration_open"),
+        _ => return (StatusCode::UNPROCESSABLE_ENTITY, "unknown action").into_response(),
+    };
+    let changed = sqlx::query(
+        "INSERT INTO site_settings (key, value) \
+         VALUES ('registration_closed', $1) \
+         ON CONFLICT (key) DO UPDATE SET value = $1",
+    )
+    .bind(value)
+    .execute(&state.pool)
+    .await
+    .map(|result| result.rows_affected() == 1)
+    .unwrap_or(false);
+    if changed {
+        sqlx::query(
+            "INSERT INTO moderation_actions (actor_id, target_id, action) \
+             VALUES ($1, NULL, $2)",
+        )
+        .bind(current.0)
+        .bind(action)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/admin".to_string())],
+    )
+        .into_response()
+}
+
 // story: e29s01 — the site-level console. Non-operators get 404: the
 // surface does not exist for them.
 pub async fn admin_page(
@@ -2673,6 +2749,9 @@ pub async fn admin_page(
         .unwrap_or_default();
     let mut context = themed_page_context(&state, viewer.as_deref(), &csrf).await;
     context.insert("accounts", &accounts);
+    // story: e32s01 — the toggle's current state rides the console page
+    let closed = registration_closed(&state.pool).await;
+    context.insert("registration_closed", &closed);
     Html(crate::render::render("admin.html", &context)).into_response()
 }
 
