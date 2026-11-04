@@ -61,7 +61,7 @@ mod landing_page {
         // status + roadmap + footer
         assert!(html.contains("Early development"), "status badge: {html}");
         assert!(
-            html.contains("Protected-ref configuration"),
+            html.contains("Moderation follow-through"),
             "roadmap: {html}"
         );
         assert!(html.contains("Apache License 2.0"), "footer: {html}");
