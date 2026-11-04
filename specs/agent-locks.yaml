@@ -179,7 +179,3 @@ locks:
   locked_at: '2026-10-24T22:59:51Z'
   locked_by: 'agent: e18s01'
   story_id: e18s01
-- files_touched: []
-  locked_at: '2026-11-03T21:06:32Z'
-  locked_by: 'agent: develop-tdd'
-  story_id: e29s01

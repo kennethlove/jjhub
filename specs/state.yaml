@@ -6,31 +6,27 @@ vcs:
   remote: origin
 session:
   started: "2026-10-19T00:00:00Z"
-  active_epic_id: e29-operator-moderation
-  active_story_id: e29s01
+  active_epic_id: ""
+  active_story_id: ""
 handoff:
-  next_skill: develop-tdd
+  next_skill: survey-context
   notes: |
-    kickff-branch DONE: workspace ../e29-operator-moderation at change
-    xwrporvx (feat commit 03e3a496, tree = plan da521132 + empty main @
-    lzqqzmtx), story lock e29s01 acquired (specs/agent-locks.yaml),
-    preflight green in main repo (fmt, clippy, 390 tests 131.75s, build)
-    on identical content. Develop-tdd started on e29s01t1.
-    v0.5.0 PLANNED: e29 operator moderation (SCOPE_LATEST.yaml, release-plan
-    e29 WSJF 12.9). plan-work DONE: capsule specs/epics/e29-operator-moderation/
-    (epic.yaml + e29s01/e29s02 story mds + tasks yamls, spec: fields set,
-    tasks status failing) — plan-consistency-check PASS (0/0/0).
-    Decisions: bootstrap = env JJHUB_OPERATOR=<handle> (user) OR
-    users.is_operator column; surface = site-level /admin page (user),
-    settings-page pattern.
-    e29s01 = web lockout (migration 0016: is_operator, suspended_at,
-    moderation_actions; enforce in middleware.rs:33 + login routes.rs:434 +
-    review_proxy.rs:56; audit row per action; operators not suspendable).
-    e29s02 = transport lockout (suspended_at check in token.rs:109 authenticate,
-    fail-closed to None; both transports + review-proxy token path share it).
-    Seam map + risk/trust-boundary rules live in the story mds.
-    NEXT: kickoff-branch then develop-tdd on e29s01t1 (RED suite
-    crates/server/tests/operator_moderation.rs). Test DB
-    jjhub-pg:5432 jjhub_test.
-    Relevance of old lessons: `jj new -m -b` errors; gh pr create --body-file;
-    merged bookmark = jj bookmark forget.
+    v0.5.0 SHIPPED: e29 operator moderation (#80, trunk dd687847).
+    e29s01 = operator designation (env JJHUB_OPERATOR=<handle> OR
+    users.is_operator, effective operator = either at query time) +
+    site-level /admin console + suspension walls (middleware.rs:33,
+    login routes.rs:434, review_proxy session path) + moderation_actions
+    audit + operators never suspendable; unsuspend restores live sessions.
+    e29s02 = one fail-closed suspended_at check inside token.rs authenticate,
+    so smart HTTP 401s, SSH rejects pre-spawn, review-proxy token path
+    refuses; TransportAuth/authorize contracts untouched.
+    Verify: cargo test -p server --test operator_moderation (11 passed);
+    suite at merge = 401 passed / 120 suites. Capsule intact at
+    specs/epics/e29-operator-moderation/; story lock released.
+    NEXT: nothing active — scope v0.5.0 held only e29. Await the next
+    scope-work or a new user ask. Test DB = container jjhub-pg:5432
+    jjhub_test; shared CARGO_TARGET_DIR = ../jjhub/target.
+    Lessons carried: `jj new -m -b` errors (use jj new + describe +
+    bookmark set); gh pr create --body-file for multi-line bodies;
+    merged bookmark = jj bookmark forget; after verify-tdd-red-commit.sh
+    worktree checkouts, touch sources before retesting (stale RED binary).
