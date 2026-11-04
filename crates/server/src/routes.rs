@@ -58,12 +58,16 @@ pub struct RegisterForm {
     email: String,
     password: String,
     password_confirm: String,
+    // story: e31s01 — the verifier's answer rides the signup form
+    #[serde(rename = "cf-turnstile-response", default)]
+    cf_turnstile_response: String,
 }
 
 fn register_page(error: &str, email: &str) -> String {
     let mut context = page_context(None, "");
     context.insert("error", error);
     context.insert("email", email);
+    context.insert("captcha_sitekey", &crate::captcha::widget_sitekey());
     crate::render::render("register.html", &context)
 }
 
@@ -77,6 +81,7 @@ fn register_card(error: &str, email: &str) -> String {
     let mut context = page_context(None, "");
     context.insert("error", error);
     context.insert("email", email);
+    context.insert("captcha_sitekey", &crate::captcha::widget_sitekey());
     crate::render::render("register_card.html", &context)
 }
 
@@ -101,7 +106,18 @@ async fn registration_closed(pool: &sqlx::PgPool) -> bool {
     .is_some_and(|value| value == "true")
 }
 
-pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterForm>) -> Response {
+pub async fn register(
+    State(state): State<AppState>,
+    ip: crate::rate_limit::OptionalPeerIp,
+    Form(form): Form<RegisterForm>,
+) -> Response {
+    // story: e31s01 — signup joins the e20 create budget; keyed by IP
+    // because no identity exists yet (login's pre-auth pattern).
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) = limiter.try_charge(crate::rate_limit::Action::Create, &ip.0, &ip.0) {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
     // story: e32s01 — closed registration refuses before any row is
     // considered; existing accounts and sessions are untouched.
     if registration_closed(&state.pool).await {
@@ -113,6 +129,23 @@ pub async fn register(State(state): State<AppState>, Form(form): Form<RegisterFo
             )),
         )
             .into_response();
+    }
+
+    // story: e31s01 — configured means enforced: missing, rejected, or
+    // unreachable verifier fails closed to the retry before any row.
+    if let Some(verifier) = crate::captcha::Verifier::from_env() {
+        if form.cf_turnstile_response.is_empty()
+            || !verifier.verify(&form.cf_turnstile_response).await
+        {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Html(register_page(
+                    "please complete the challenge and try again",
+                    &form.email,
+                )),
+            )
+                .into_response();
+        }
     }
 
     let (email, handle) = match domain::validate_registration(&form.email, &form.password) {

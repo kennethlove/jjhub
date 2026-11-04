@@ -1,5 +1,6 @@
 // story: e01s01
 pub mod browse;
+pub mod captcha;
 pub mod creation;
 pub mod divergence;
 pub mod email;

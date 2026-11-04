@@ -116,7 +116,10 @@ mod captcha_signup {
         let response = get(&pool, "/register").await;
         assert_eq!(response.status(), StatusCode::OK);
         let page = body_of(response).await;
-        assert!(page.contains("data-sitekey=\"cfg-site-key\""), "widget missing: {page}");
+        assert!(
+            page.contains("data-sitekey=\"cfg-site-key\""),
+            "widget missing: {page}"
+        );
 
         let response = post(&pool, signup_body("alice@example.com", None)).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
@@ -164,7 +167,10 @@ mod captcha_signup {
         assert_eq!(response.status(), StatusCode::OK);
         let page = body_of(response).await;
         assert!(!page.contains("cf-turnstile"), "widget leaked: {page}");
-        assert!(!page.contains("challenges.cloudflare.com"), "widget leaked: {page}");
+        assert!(
+            !page.contains("challenges.cloudflare.com"),
+            "widget leaked: {page}"
+        );
         assert!(page.contains("Create your account"), "form changed: {page}");
 
         let response = post(&pool, signup_body("erin@example.com", None)).await;

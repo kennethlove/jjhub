@@ -1,7 +1,7 @@
 story_id: e31s01
 title: "configured CAPTCHA refuses an unsolved signup"
 spec: e31s01-captcha-signup.md
-status: planned
+status: passing
 bcps: 8
 tasks:
   - id: e31s01t1
@@ -14,7 +14,7 @@ tasks:
       grep -q 'Prior art'
       specs/epics/e31-captcha-signup/e31s01-captcha-signup.md
     risk: P2
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["research"]
@@ -28,7 +28,7 @@ tasks:
       mail)
     verify: "cargo test -p server --test captcha_signup"
     risk: P1
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -41,7 +41,7 @@ tasks:
       the e20 pattern
     verify: "cargo test -p server --test captcha_signup"
     risk: P1
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -54,7 +54,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

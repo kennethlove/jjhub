@@ -18,6 +18,10 @@
       <input id="register-confirm" name="password_confirm" type="password"
              autocomplete="new-password" required>
     </div>
+    {% if captcha_sitekey %}
+    <div class="cf-turnstile" data-sitekey="{{ captcha_sitekey }}"></div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
     <button class="btn btn-primary" type="submit">Create account</button>
   </form>
   <p class="quiet-line">Already have an account? <a href="/login" hx-get="/login" hx-push-url="/login" hx-target="#auth-card" hx-swap="outerHTML">Log in</a></p>
