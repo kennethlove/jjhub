@@ -16,15 +16,17 @@ Git forges fight the jj workflow: review identity dies on force-push, stacks are
 ## Roadmap
 
 Shipped since the MVP cut: revset search, operation-log audit, conflict-aware
-browsing, protected-ref enforcement on push, email confirmation and password
-reset, rate limiting (off by default), personal access tokens (mint,
-regenerate-rotate, revoke), and account preferences (profile, password,
-account deletion).
+browsing, protected-ref enforcement on push, protected-ref configuration in
+the Operations panel, email confirmation and password reset, rate limiting
+(off by default), personal access tokens (mint, regenerate-rotate, revoke),
+token permissions (scopes, expiry, repo pin, allowlist), account preferences
+(profile, password, account deletion), and operator moderation — suspend and
+unsuspend abusers across the web UI, smart HTTP, and SSH from a site-level
+`/admin` console.
 
-Remaining: a settings screen for choosing which heads the server
-protects — enforcement and display already ship (`receive_guard`),
-push acceptance of conflicted commits is already pinned by
-`tests/conflict_refs.rs`.
+Next up (v0.6.0, being scoped): moderation follow-through — repo
+takedown, CAPTCHA on signup, closing registration, and a readable
+moderation audit export.
 
 ## Development
 

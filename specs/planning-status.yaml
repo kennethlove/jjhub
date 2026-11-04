@@ -1,47 +1,54 @@
-# discover-phase checklist for the v0.3.0 planning cycle — run-planning
+# discover-phase checklist for the v0.5.0 planning cycle — run-planning
 context_capsule:
-  written_at: "2026-10-23"
-  written_by: elaborate-spec
-  feature_name: "jjhub v0.3.0"
+  written_at: "2026-11-03"
+  written_by: run-planning
+  feature_name: "jjhub v0.5.0 — operator moderation"
 workflows:
   survey-context:
     required: true
     status: done
     note: >
-      v0.2.0 shipped (#38-#52, released); vision items 8 and 9 were
-      the only unshipped post-MVP entries.
+      v0.4.0 shipped (#61–#74, released); the public-node viability
+      gap (no way to refuse an abuser) was the only unshipped
+      blocker from the vision review.
   scope-work:
     required: true
     status: done
     note: >
-      Interview with the user chose MR+repo divergence surfaces and a
-      built-in sshd; SCOPE_v0.2.0 snapshotted before rewrite.
+      Interview chose site-level operator moderation; per-owner
+      blocklists rejected (one suspension covers every authenticated
+      surface). v0.4.0 scope snapshotted to
+      specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml.
   research-first:
     required: true
     status: done
     note: >
-      Prior Art appended to SCOPE_LATEST.yaml — adopt: russh 0.64.1
-      (tokio SSH server, Apache-2.0), jj divergence semantics over the
-      pushed graph, git-upload-pack binaries already on host; reject:
-      system-sshd forced commands, stored divergence columns.
+      Reuse the e22 authenticate seam for transport refusal; no new
+      crate dependency; russh Auth::Reject semantics confirmed from
+      source before the SSH test was written.
   elaborate-spec:
     required: true
     status: done
     note: >
-      Capsule refreshed for v0.3.0 from the confirmed scope — key
-      decisions recorded (compute-not-store, surfaces, russh listener).
+      Decisions recorded: bootstrap = env JJHUB_OPERATOR=<handle> OR
+      users.is_operator (user); surface = site-level /admin page
+      (user); enforcement only where identity is already checked.
   plan-release:
     required: true
     status: done
     note: >
-      v0.3.0 index written with 2 WSJF-ordered epics (e16 divergence
-      visible 16, e17 ssh transport 14); bug registry carried (1/1
-      fixed).
+      v0.5.0 index written with 1 epic (e29 WSJF 12.9); capsule
+      specs/epics/e29-operator-moderation/ (epic + 2 stories + tasks).
   slice-tasks:
     required: true
     status: done
     note: >
-      5 vertical slices across e16-e17: tasks.yaml with verify
-      commands (e16s01 detect, e16s02 MR surfaces, e16s03 repo page,
-      e17s01 listener/clone, e17s02 push/url/e2e), epic.yaml
-      manifests, execution-status todos.
+      e29s01 web lockout (designation, /admin, session/login walls,
+      audit) and e29s02 transport refusal (token authenticate seam).
+  plan-work:
+    required: true
+    status: done
+    note: >
+      Task specs written with RED/GREEN/verify per story; both
+      stories passing; shipped via PR #80, closeout #81. Cycle
+      complete — next cycle starts at scope-work.

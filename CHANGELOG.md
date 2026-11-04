@@ -2,6 +2,41 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-11-03
+
+The v0.5.0 build: a public node can refuse an abuser. Operator
+moderation and protected-ref configuration ship, and preflight CI
+shards four ways under nextest. Shipped as PRs #75–#81.
+
+### Added
+
+- **Protected-refs configuration** (#77): the Operations panel lists
+  the enforced defaults (`refs/heads/<trunk>` and `refs/tags/*`) and
+  takes user-added patterns, merged into `receive_guard`'s admission
+  list — defaults are never rows and never removable, patterns are
+  charset-checked at the schema and at the form, and every add/remove
+  is CSRF-protected with an admission test proving a stored pattern
+  refuses non-fast-forwards and deletions
+- **Operator moderation** (#80): an operator designated by
+  `JJHUB_OPERATOR=<handle>` or `users.is_operator` gets a site-level
+  `/admin` console to suspend and unsuspend accounts — live sessions
+  die at the session middleware, login answers with the exact
+  bad-password response, smart HTTP returns 401, SSH rejects before
+  any git process spawns, and every action lands in
+  `moderation_actions` with actor, target, and time; operators can
+  never be suspended, and unsuspend restores the same account and
+  its live sessions
+
+### Changed
+
+- **Preflight CI** (#78, #79): tests run under cargo-nextest and
+  preflight shards four ways with a test-only cheap Argon2 cost —
+  warm preflight dropped from 5m14s to about 2m per shard with the
+  same checks
+- README and the landing roadmap now match shipped capabilities
+  (#75); the cycle's spec and planning docs landed with it (#76,
+  #81)
+
 ## [0.4.0] - 2026-11-02
 
 The v0.4.0 build: bounded credentials, throttled abuse paths, verified

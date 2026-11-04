@@ -99,3 +99,57 @@ epics:
     status: passing
     stories:
       e18s01: passing
+  e19-push-to-create:
+    status: passing
+    stories:
+      e19s01: passing
+      e19s02: passing
+      e19s03: passing
+  e20-rate-limiting:
+    status: passing
+    stories:
+      e20s01: passing
+      e20s02: passing
+      e20s03: passing
+  e21-token-model:
+    status: passing
+    stories:
+      e21s01: passing
+      e21s02: passing
+      e21s03: passing
+  e22-token-permissions:
+    status: passing
+    stories:
+      e22s01: passing
+      e22s02: passing
+      e22s03: passing
+  e23-landing:
+    status: passing
+    stories:
+      e23s01: passing
+  e24-auth:
+    status: passing
+    stories:
+      e24s01: passing
+      e24s02: passing
+      e24s03: passing
+  e25-preferences:
+    status: passing
+    stories:
+      e25s01: passing
+      e25s02: passing
+      e25s03: passing
+      e25s04: passing
+  e26-repo:
+    status: passing
+    stories:
+      e26s01: passing
+  e28-protected-refs-config:
+    status: passing
+    stories:
+      e28s01: passing
+  e29-operator-moderation:
+    status: passing
+    stories:
+      e29s01: passing
+      e29s02: passing
