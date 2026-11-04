@@ -1,7 +1,7 @@
 story_id: e33s01
 title: "filterable moderation log on /admin with CSV export"
 spec: e33s01-audit-export.md
-status: planned
+status: passing
 bcps: 5
 tasks:
   - id: e33s01t1
@@ -13,7 +13,7 @@ tasks:
       page section and the export endpoint
     verify: "cargo test -p server --test moderation_log"
     risk: P1
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -25,7 +25,7 @@ tasks:
       reader for the trail e29 writes
     verify: "cargo test -p server --test moderation_log"
     risk: P2
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["ux"]
@@ -38,7 +38,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

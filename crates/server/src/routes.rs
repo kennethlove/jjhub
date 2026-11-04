@@ -2719,11 +2719,47 @@ pub async fn set_registration(
         .into_response()
 }
 
+// story: e33s01 — filter state for the log list and its CSV twin: the
+// same selection, two surfaces.
+#[derive(serde::Deserialize)]
+pub struct LogFilters {
+    pub action: Option<String>,
+    pub target: Option<String>,
+}
+
+// story: e33s01 — one row of the append-only moderation record.
+#[derive(sqlx::FromRow, serde::Serialize)]
+pub struct ModLogRow {
+    pub actor: String,
+    pub target: Option<String>,
+    pub action: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+// story: e33s01 — newest-first selection shared by the console list and
+// the export; an empty filter value means "no filter".
+async fn moderation_log_rows(pool: &sqlx::PgPool, action: &str, target: &str) -> Vec<ModLogRow> {
+    sqlx::query_as::<_, ModLogRow>(
+        "SELECT a.handle AS actor, t.handle AS target, m.action, m.created_at \
+         FROM moderation_actions m \
+         JOIN users a ON a.id = m.actor_id \
+         LEFT JOIN users t ON t.id = m.target_id \
+         WHERE ($1 = '' OR m.action = $1) AND ($2 = '' OR t.handle = $2) \
+         ORDER BY m.created_at DESC, a.handle LIMIT 200",
+    )
+    .bind(action)
+    .bind(target)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+}
+
 // story: e29s01 — the site-level console. Non-operators get 404: the
 // surface does not exist for them.
 pub async fn admin_page(
     State(state): State<AppState>,
     axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Query(filters): axum::extract::Query<LogFilters>,
     jar: CookieJar,
 ) -> Response {
     if !is_operator(&state.pool, current.0).await {
@@ -2752,7 +2788,54 @@ pub async fn admin_page(
     // story: e32s01 — the toggle's current state rides the console page
     let closed = registration_closed(&state.pool).await;
     context.insert("registration_closed", &closed);
+    // story: e33s01 — the log rides the console page, filtered and exportable
+    let action = filters.action.unwrap_or_default();
+    let target = filters.target.unwrap_or_default();
+    let modlog = moderation_log_rows(&state.pool, &action, &target).await;
+    context.insert("modlog_rows", &modlog);
+    context.insert("log_action", &action);
+    context.insert("log_target", &target);
     Html(crate::render::render("admin.html", &context)).into_response()
+}
+
+// story: e33s01 — the export half: same filters, RFC 4180 quoting,
+// downloaded as a file. Non-operators get 404 like the page itself.
+pub async fn moderation_csv(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    axum::extract::Query(filters): axum::extract::Query<LogFilters>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let action = filters.action.unwrap_or_default();
+    let target = filters.target.unwrap_or_default();
+    let rows = moderation_log_rows(&state.pool, &action, &target).await;
+    let mut csv = String::from("actor,target,action,created_at\n");
+    for row in &rows {
+        let cell_target = row.target.as_deref().unwrap_or_default();
+        let at = row
+            .created_at
+            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        csv.push_str(&format!(
+            "\"{}\",\"{}\",\"{}\",\"{}\"\n",
+            row.actor.replace('"', "\"\""),
+            cell_target.replace('"', "\"\""),
+            row.action.replace('"', "\"\""),
+            at
+        ));
+    }
+    (
+        [
+            (header::CONTENT_TYPE, "text/csv; charset=utf-8"),
+            (
+                header::CONTENT_DISPOSITION,
+                "attachment; filename=\"moderation.csv\"",
+            ),
+        ],
+        csv,
+    )
+        .into_response()
 }
 
 // story: e29s01 — suspend: reversible, audited, and the lockout guard

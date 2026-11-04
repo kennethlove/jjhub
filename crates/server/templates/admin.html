@@ -70,6 +70,53 @@ Operators only; the route gate answers 404 for everyone else. #}
 {% endif %}
   </div>
 </section>
+{# story: e33s01 — the moderation log: the append-only record the
+console and transports already write, newest first, filterable,
+exportable. Operators only; the route gate answers 404 for others. #}
+<h2>Moderation log</h2>
+<section class="panel" aria-labelledby="modlog-heading">
+  <div class="panel-head">
+    <h2 id="modlog-heading" class="panel-title">Moderation log</h2>
+  </div>
+  <div class="panel-body">
+    <form method="get" action="/admin" class="log-filters">
+      <label class="field">Action
+        <input type="text" name="action" value="{{ log_action }}" placeholder="filter by action">
+      </label>
+      <label class="field">Target
+        <input type="text" name="target" value="{{ log_target }}" placeholder="handle">
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        <a href="/admin" class="btn btn-secondary btn-sm">Clear</a>
+      </div>
+    </form>
+{% if modlog_rows %}
+    <div class="table-wrap">
+      <table class="modlog-table">
+        <thead>
+          <tr><th>Actor</th><th>Action</th><th>Target</th><th>When (UTC)</th></tr>
+        </thead>
+        <tbody>
+{% for row in modlog_rows %}
+          <tr>
+            <td>{{ row.actor }}</td>
+            <td><span class="pill">{{ row.action }}</span></td>
+            <td>{% if row.target %}{{ row.target }}{% else %}-{% endif %}</td>
+            <td class="modlog-time">{{ row.created_at }}</td>
+          </tr>
+{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-help">
+      <a href="/admin/moderation.csv{% if log_action or log_target %}?{% endif %}{% if log_action %}action={{ log_action }}{% endif %}{% if log_action and log_target %}&amp;{% endif %}{% if log_target %}target={{ log_target }}{% endif %}" download>Download CSV</a>
+    </p>
+{% else %}
+    <p class="log-empty">No moderation actions yet.</p>
+{% endif %}
+  </div>
+</section>
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">
