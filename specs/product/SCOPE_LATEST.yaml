@@ -1,138 +1,154 @@
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.5.0
-# v0.4.0 scope archived at specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml
-version: "0.5.0"
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for jjhub v0.6.0
+# v0.5.0 scope archived at specs/product/snapshots/SCOPE-v0.5.0-2026-11-03.yaml
+version: "0.6.0"
 feature_name: "jjhub"
 core_value: >
-  A public jjhub node can designate an operator who suspends an
-  abuser, and suspension actually cuts them off — web session,
-  tokens, and both git transports — while the node keeps serving
-  everyone else.
+  After v0.5.0 taught an operator to cut off an abuser's account,
+  v0.6.0 gives the operator the rest of the public-node toolkit:
+  take a repository down, keep bots out of signup, close the door
+  on registration entirely, and read the moderation trail after
+  the fact.
 summary: >
-  jjhub today has no moderation surface: no operator role, no
-  account suspension, no way for an operator to stop a registered
-  user from signing in, pushing, or minting tokens. On a private
-  single-tenant install that gap is invisible; on a public node it
-  is disqualifying — the only levers are shared rate-limit budgets
-  and deleting your own account. v0.5.0 adds exactly one new
-  capability class: operator moderation. An account can be
-  designated operator (with a defined bootstrap path on a fresh
-  install), and an operator can suspend or unsuspend any other
-  account from the web UI. Suspension is enforced at every
-  authentication and authorization seam the product already has —
-  login refused, live sessions rejected, HTTP token auth refused,
-  SSH access refused — so "blocked" means blocked on all paths,
-  not just the UI. Moderation actions are recorded so a node
-  operator can see what they did and when. Deployment stays one
-  Coolify container: state is rows, enforcement reuses the seams
-  e22 already built, no new dependency.
+  v0.5.0 shipped account suspension across every auth seam, but
+  suspension alone leaves three public-node gaps and one
+  usability gap. First, a suspended abuser's public repositories
+  stay readable and a non-registered viewer still sees them — an
+  operator needs a reversible way to take a repository down
+  without deleting anyone's work. Second, registration is open
+  and costless beyond rate budgets; a CAPTCHA on signup raises
+  the cost of mass account creation to a real one. Third, an
+  operator who wants the node quiet can stop the inflow entirely
+  by closing registration, with existing accounts untouched.
+  Fourth, the moderation_actions rows e29 writes cannot be
+  reviewed — the audit trail exists but nobody can read it, so
+  v0.6.0 adds an export the operator can actually use. All four
+  build on the operator surface and audit table v0.5.0 already
+  established; nothing here adds a new auth path or a new
+  service tier.
 in_scope:
-  - id: e29
-    title: "Operator moderation — operator role and account suspension"
+  - id: e30
+    title: "Repo takedown — reversible operator action on repository content"
     detail: >
-      Accounts gain a moderation status: designated operator, or
-      ordinary, or suspended. A fresh install has a defined
-      bootstrap path to its first operator. An operator can
-      suspend and unsuspend other accounts (not themselves as the
-      last operator — the role must not be lockout-able) from a
-      moderation surface in the web UI that non-operators cannot
-      reach. Suspension is enforced where identity is already
-      checked: session cookie rejected for live sessions, login
-      refused, transport tokens refused on smart HTTP and SSH
-      alike, and new signups cannot be reached by simply minting
-      another token. Suspension is reversible: unsuspend restores
-      the same account, sessions, and tokens without re-registration.
-      Each suspend/unsuspend is recorded with actor, target, and
-      time. A suspended account's public repositories remain
-      readable — this epic cuts off the abuser, not their content.
+      An operator can take a repository down from the web UI: the
+      repo stops serving browse, smart HTTP, and SSH to everyone
+      except the operator and the repository's owner, while the
+      underlying history is preserved untouched. The operator can
+      restore it the same way, and every takedown and restore is
+      recorded in moderation_actions like suspend and unsuspend.
+      This is visibility, not deletion — no history is rewritten,
+      no rows are dropped.
     why: >
-      Blocking an abuser is the minimum viability test for running
-      a public node; today there is no mechanism at any layer.
-      Enforcing at the existing auth seams (session + token, both
-      transports) means one status check covers every entry point
-      instead of a per-route checklist, and reversal matters
-      because false positives happen.
+      Suspension cuts off the person; takedown cuts off the
+      content. A public node needs a reversible lever for
+      doxxed or illegal material where the account action is
+      either too late (the content already spread from an
+      unsuspended account) or too blunt (suspending an account
+      whose repo a third party relies on).
+  - id: e31
+    title: "CAPTCHA on signup"
+    detail: >
+      New-account registration presents a CAPTCHA challenge; a
+      solved proof-of-human is required before the account row is
+      created. Login, password reset, and every existing flow are
+      untouched. The check fails closed when the verifier is
+      unreachable only in the sense that signup is refused with a
+      clear retry message — never silently skipped.
+    why: >
+      Rate budgets (e20) bound the cost of abuse per IP but a
+      distributed signup burst still buys accounts cheaply.
+      CAPTCHA makes each account cost human attention, which is
+      the one currency botnets cannot budget for.
+  - id: e32
+    title: "Closing registration"
+    detail: >
+      An operator can close registration from the web UI: the
+      signup surface refuses new accounts with a clear message,
+      existing accounts and sessions are untouched, and the
+      operator can reopen the door the same way. The setting is
+      one row, the state change is recorded in moderation_actions,
+      and it survives restarts because it is not an env var.
+    why: >
+      The cheapest moderation a public node can offer is stopping
+      the inflow — for a private party, a conference, or a node
+      under signup flood. Reversible and operator-gated, same as
+      every other lever in this cycle.
+  - id: e33
+    title: "Moderation audit export"
+    detail: >
+      The operator can read and export moderation_actions from
+      the web UI: a filterable list (actor, target, action, time)
+      on the admin surface and a CSV download of the same rows.
+      Ordinary users never see the surface; the export covers the
+      full retention of the table, not a rolling window.
+    why: >
+      e29 writes an audit trail nobody can read. A trail exists
+      for review after the fact — incident write-ups, disputes,
+      "when did I do that" — and a table with no reader is a
+      write-only promise.
 out_of_scope:
-  - item: "Per-owner block lists (hide one user from another owner)"
+  - item: "Multi-tier roles (moderator / admin / superadmin)"
     why: >
-      Every interactive surface already requires auth, so one
-      suspension removes all of an abuser's reach. A per-target
-      list only earns its complexity when a harassment report
-      shows suspension is too blunt — deferred until evidence.
-  - item: >
-      Repo takedown, forced visibility change, or
-      content deletion by operators
+      User decision: can wait. One operator role still covers the
+      single-node deployment this product targets.
+  - item: "Appeals, suspension notification mail, any out-of-band messaging"
     why: >
-      Destructive and irreversible on someone else's work; needs a
-      due-process design jjhub does not have. Cutting off the
-      account is the reversible 80%.
-  - item: "Multi-tier roles (moderator / admin / superadmin, org-scoped rights)"
+      Needs mail infrastructure first; requirements are drafted
+      separately and land with the epic that adopts them, not
+      implicitly here.
+  - item: "Per-owner block lists"
     why: >
-      One operator role covers single-node deployment; a role
-      hierarchy is speculative governance for a solo operator.
-  - item: "Appeals, notification emails, or any out-of-band messaging"
-    why: "No mail infrastructure (standing v0.4.0 exclusion, unchanged)."
-  - item: "IP bans beyond the existing per-IP rate budget"
+      Carried deferral from v0.5.0: one suspension still covers
+      every authenticated surface; a per-target list earns its
+      complexity only when a harassment report shows suspension is
+      too blunt.
+  - item: "IP bans beyond the e20 rate budget"
     why: >
-      e20 already bounds anonymous abuse per IP; banning IPs
-      punishes shared NATs and is trivially evaded — wrong lever.
-  - item: "Signup friction (CAPTCHA, invite-only mode, email reputation checks)"
+      Carried deferral: banning IPs punishes shared NATs and is
+      trivially evaded — wrong lever, rate budgets stay the brake.
+  - item: "Content deletion, history rewriting, or forced visibility change"
     why: >
-      Rate budgets cap the cost of mass signup; friction is a
-      separate UX decision with a real cost to legitimate users.
-  - item: "Moderation audit export, reporting dashboards, retention policies"
+      Destructive and irreversible on someone else's work. Takedown
+      (e30) is the reversible 80%; actual deletion needs a
+      due-process design jjhub does not have.
+  - item: "Hiding or delisting the node itself"
     why: >
-      The record rows land in e29; querying and exporting them is
-      a consumer that does not exist yet (YAGNI).
-  - item: "Hiding or delisting the node itself / closing registration"
-    why: >
-      Product inversion — the node stays public and open; an
-      operator who wants it closed is outside this use case.
+      Product inversion — the node stays public; closing
+      registration (e32) stops the inflow without hiding what is
+      already there.
 constraints:
   - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
-  - "No new crate dependency: enforcement reuses existing auth seams"
   - >
     Enforcement lives where identity is already checked (session,
-    token authenticate/authorize); no parallel auth path is added
+    token authenticate/authorize, transport admission); no
+    parallel auth path is added
   - >
-    Moderation routes are operator-only behind the same session +
-    CSRF protection as every other POST, and the operator check
-    itself is tested at the trust boundary
+    CAPTCHA implies one outbound verifier call at signup — the
+    only external dependency this cycle, selected and verified by
+    research-first before any code
   - >
-    The 390-test suite stays green; suspension is off until a
-    row/designation exists
-  - "Conventional Commits; TDD where possible; specs/ as planning SoT"
-  - >
-    Preflight and CI green before forward work; every story
-    carries a story: eNNsNN tag
-  - "Page HTML lives in Tera templates; routes.rs holds handlers only"
-  - >
-    UI work runs keystone render gates, impeccable live tools, and
-    the ux audit before handoff
+    Every operator action is reversible and recorded in
+    moderation_actions (the v0.5.0 rule, still load-bearing)
 success_criteria: >
-  On a fresh install the documented bootstrap produces one
-  operator. That operator, from the web UI, suspends a second
-  account: the suspended account's live session is rejected on the
-  next request, its login attempt is refused, and its transport
-  token is refused on both smart HTTP and SSH — each proven by an
-  automated test, not by inspection. A non-operator cannot reach
-  the moderation action (refused at the trust-boundary test).
-  Unsuspending restores the same account's access with no
-  re-registration, and its pre-existing repositories are
-  unchanged and still publicly readable throughout. Every
-  suspend/unsuspend leaves a record naming actor, target, and
-  time. `cargo test`, `cargo clippy --workspace --all-targets --
-  -D warnings`, `cargo fmt --all -- --check`, and `cargo build`
-  all pass; CI stays green.
+  From the admin surface an operator takes a public repository
+  down: an anonymous visitor and a normal account both get a
+  refusal on browse, smart HTTP, and SSH, while the owner and the
+  operator still see it — and a restore returns it for everyone,
+  proven by automated tests. A signup with an unsolved CAPTCHA
+  creates no account row, and a solved one does. Closing
+  registration refuses a new signup with a clear message while
+  existing sessions keep working, and reopening clears it. The
+  operator exports moderation_actions as CSV containing the
+  suspend, unsuspend, takedown, restore, and close/reopen rows
+  with actor, target, and time. Every state change is one row in
+  moderation_actions, and a non-operator can reach none of these
+  surfaces (404/403, tested).
 references:
   - >
-    specs/product/VISION_LATEST.yaml — actors (solo
-    self-hosters now, public/commercial node later)
+    specs/product/VISION_LATEST.yaml — post-MVP conflict-tolerant
+    hosting and the public/commercial node actors
   - >
-    specs/planning-context.yaml — v0.4.0 decisions (auth seams
-    from e22 token permissions)
+    specs/epics/e29-operator-moderation/ — the operator surface,
+    audit table, and enforcement seams this cycle builds on
   - >
-    CONVENTIONS.md — Defensive Code and Tests (F.I.R.S.T,
-    trust-boundary tests)
-  - >
-    specs/epics/e22-token-permissions/ — authenticate/authorize
-    seam this enforces into
+    specs/planning-context.yaml — v0.6.0 problem statement and
+    carried constraints
