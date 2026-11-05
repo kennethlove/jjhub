@@ -313,6 +313,11 @@ fn app_from_state(state: AppState) -> Router {
             "/reset-password",
             get(routes::reset_password_form).post(routes::set_new_password),
         )
+        // story: e34s02 — path form of the link; query form above unchanged
+        .route(
+            "/reset/{token}",
+            get(routes::reset_password_path).post(routes::set_new_password_path),
+        )
         .route(
             "/logout",
             post(routes::logout).layer(axum::middleware::from_fn_with_state(
