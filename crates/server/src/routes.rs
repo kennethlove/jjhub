@@ -574,9 +574,81 @@ pub async fn verify_email_link(
 
 // story: e23s01 — the mail-sent page: plain English, one action.
 pub async fn verify_sent() -> Response {
+    // story: e34s01 — the sent page carries the resend affordance.
+    let context = page_context(None, "");
     (
         StatusCode::OK,
-        Html(login_page("Check your email for a confirmation link.")),
+        Html(crate::render::render("verify_sent.html", &context)),
+    )
+        .into_response()
+}
+
+/// story: e34s01 — the path form of the same link: /verify/<token>.
+pub async fn verify_email_path(
+    State(state): State<AppState>,
+    axum::extract::Path(token): axum::extract::Path<String>,
+) -> Response {
+    match crate::email::verify_email(&state.pool, &token).await {
+        Some(user_id) => session_response(&state, user_id, "/token-details"),
+        None => (StatusCode::UNPROCESSABLE_ENTITY, crate::email::LINK_REFUSED).into_response(),
+    }
+}
+
+/// story: e34s01 — resend, neutral by contract: the same redirect for
+/// known and unknown addresses, so an address never enumerates.
+#[derive(serde::Deserialize)]
+pub struct ResendForm {
+    email: String,
+}
+
+pub async fn verify_resend(
+    State(state): State<AppState>,
+    ip: crate::rate_limit::OptionalPeerIp,
+    Form(form): Form<ResendForm>,
+) -> Response {
+    // WHY: reuse the login bucket — pre-auth address triggering shares the
+    // space with password attempts; test apps run rate_limiter = None.
+    if let Some(limiter) = state.rate_limiter.as_ref() {
+        if let Err(retry) = limiter.consume(crate::rate_limit::Action::Login, &ip.0) {
+            return crate::rate_limit::too_many_requests(retry);
+        }
+    }
+    if let Ok(user_id) =
+        sqlx::query_scalar::<_, uuid::Uuid>("SELECT id FROM users WHERE lower(email) = lower($1)")
+            .bind(&form.email)
+            .fetch_one(&state.pool)
+            .await
+    {
+        // The cooldown key is the pending row itself: a verification minted
+        // in the last 60 seconds is left alone (created_at column, 0014).
+        let fresh: bool = sqlx::query_scalar(
+            "SELECT exists(
+                SELECT 1 FROM email_verifications WHERE user_id = $1 AND used_at IS NULL
+                  AND created_at > now() - interval '60 seconds'
+            )",
+        )
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or(false);
+        if !fresh {
+            let verification = crate::email::send_verification(&state.pool, user_id).await;
+            let _ = state
+                .mailer
+                .send(
+                    &form.email,
+                    "Confirm your jjhub address",
+                    &format!(
+                        "Open {} once to confirm your address. It expires in 24 hours.",
+                        crate::email::verify_link(&verification.token)
+                    ),
+                )
+                .await;
+        }
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/verify-sent".to_string())],
     )
         .into_response()
 }

@@ -294,6 +294,10 @@ fn app_from_state(state: AppState) -> Router {
         )
         // story: e23s01 — the click: consume the link, sign in
         .route("/verify", get(routes::verify_email_link))
+        // story: e34s01 — path form of the link; query form above unchanged
+        .route("/verify/{token}", get(routes::verify_email_path))
+        // story: e34s01 — neutral resend, unauthenticated by contract
+        .route("/verify-resend", post(routes::verify_resend))
         // story: e23s01 — the mail-sent page
         .route("/verify-sent", get(routes::verify_sent))
         .route(

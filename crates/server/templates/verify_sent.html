@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Check your email · jjhub{% endblock %}
+{% block body %}
+{% include "nav.html" %}
+<main class="auth-flow">
+<section id="auth-card" class="auth-card" aria-label="Check your email">
+  <h1>Check your email</h1>
+  <p>We sent a confirmation link. It works once and expires in 24 hours.</p>
+  <form method="post" action="/verify-resend">
+    <div class="field">
+      <label for="resend-email">Email</label>
+      <input id="resend-email" name="email" type="email" autocomplete="email"
+             placeholder="you@example.com" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Resend the link</button>
+  </form>
+  <p class="quiet-line">The link can take a minute. Check your spam folder first.</p>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <a class="wordmark" href="/">jjhub</a>
+    <div class="footer-links">
+      <span>Apache License 2.0</span>
+      <a href="https://jj-vcs.dev">jj-vcs.dev</a>
+      <a href="https://github.com/kennethlove/jjhub">GitHub</a>
+    </div>
+  </div>
+</footer>
+{% endblock %}

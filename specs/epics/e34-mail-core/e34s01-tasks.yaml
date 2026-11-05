@@ -1,7 +1,7 @@
 story_id: e34s01
 title: "Mailer core and address verification"
 spec: e34s01-mailer-core-verification.md
-status: todo
+status: passing
 bcps: 12
 tasks:
   - id: e34s01t1
@@ -12,7 +12,7 @@ tasks:
       addresses with a 60s cooldown; mail failure never 500s
     verify: "cargo test -p server --test mail_core"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -24,7 +24,7 @@ tasks:
       60s cooldown, neutral response always
     verify: "cargo test -p server --test mail_core"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -38,7 +38,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: todo
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]
