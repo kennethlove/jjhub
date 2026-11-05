@@ -1,8 +1,10 @@
-// story: e30s01
+// story: e30s01 + e30s02
 
 mod repo_takedown {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
+    use russh::server::Handler;
+    use server::ssh::SshHandler;
     use tower::ServiceExt;
 
     const SECRET: &[u8] = b"test-session-secret";
@@ -76,6 +78,24 @@ mod repo_takedown {
                 .headers_mut()
                 .insert("cookie", cookie.parse().unwrap());
         }
+        app(pool.clone(), root).oneshot(request).await.unwrap()
+    }
+
+    /// transport identity is a token, not a session — smart HTTP reads
+    /// `Authorization: Basic base64("x-access-token:<token>")`.
+    async fn get_with_token(
+        pool: &sqlx::PgPool,
+        root: &tempfile::TempDir,
+        path: &str,
+        token: &str,
+    ) -> axum::response::Response {
+        use base64::Engine as _;
+        let credentials =
+            base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{token}"));
+        let request = Request::get(path)
+            .header("authorization", format!("Basic {credentials}"))
+            .body(Body::empty())
+            .unwrap();
         app(pool.clone(), root).oneshot(request).await.unwrap()
     }
 
@@ -295,5 +315,126 @@ mod repo_takedown {
             get(&pool, &root, "/alice/doxrepo", None).await.status(),
             StatusCode::OK
         );
+    }
+
+    // story: e30s02 — the wall also refuses the transports: fetch and
+    // push advertisements over smart HTTP, and the SSH exec path, all
+    // decided in the shared authorize chain before git spawns.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn taken_down_repo_refuses_stranger_transports(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let alice = register(&pool, &root, "alice").await;
+        let bob = register(&pool, &root, "bob").await;
+        let carol = register(&pool, &root, "carol").await;
+        make_operator(&pool, "carol").await;
+        create_public_repo(&pool, &root, &alice, "doxrepo").await;
+        let root_str = root.path().to_str().unwrap().to_string();
+        let upload_refs = "/git/alice/doxrepo.git/info/refs?service=git-upload-pack";
+        let receive_refs = "/git/alice/doxrepo.git/info/refs?service=git-receive-pack";
+
+        // baseline: both transports are open while the repo is live
+        assert_eq!(
+            get(&pool, &root, upload_refs, Some(&bob)).await.status(),
+            StatusCode::OK
+        );
+        let mut anon = SshHandler::with_storage(pool.clone(), root_str.clone());
+        anon.run_git_exec("git-upload-pack '/alice/doxrepo.git'")
+            .await
+            .expect("public clone over ssh is open while the repo is live");
+
+        take_down(&pool, &root, &carol, "doxrepo").await;
+
+        // stranger + anonymous: fetch and push refused over smart HTTP
+        assert_eq!(
+            get(&pool, &root, upload_refs, Some(&bob)).await.status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            get(&pool, &root, receive_refs, Some(&bob)).await.status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            get(&pool, &root, upload_refs, None).await.status(),
+            StatusCode::NOT_FOUND
+        );
+
+        // ssh refuses before any git process spawns
+        let err = anon
+            .run_git_exec("git-upload-pack '/alice/doxrepo.git'")
+            .await
+            .expect_err("anonymous ssh fetch must be refused before spawn");
+        assert_eq!(err, "forbidden");
+        let bob_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'bob'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let bob_token = server::token::create(&pool, bob_id, "ssh").await.plaintext;
+        let mut stranger = SshHandler::with_storage(pool.clone(), root_str.clone());
+        assert!(matches!(
+            stranger.auth_password("bob", &bob_token).await.unwrap(),
+            russh::server::Auth::Accept
+        ));
+        let err = stranger
+            .run_git_exec("git-upload-pack '/alice/doxrepo.git'")
+            .await
+            .expect_err("stranger ssh fetch must be refused before spawn");
+        assert_eq!(err, "forbidden");
+
+        // owner and operator pass through both transports while it is down
+        let alice_id: uuid::Uuid =
+            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let alice_token = server::token::create(&pool, alice_id, "git")
+            .await
+            .plaintext;
+        assert_eq!(
+            get_with_token(&pool, &root, upload_refs, &alice_token)
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            get_with_token(&pool, &root, receive_refs, &alice_token)
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        let carol_id: uuid::Uuid =
+            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'carol'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let carol_token = server::token::create(&pool, carol_id, "git")
+            .await
+            .plaintext;
+        assert_eq!(
+            get_with_token(&pool, &root, upload_refs, &carol_token)
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        let mut owner = SshHandler::with_storage(pool.clone(), root_str.clone());
+        assert!(matches!(
+            owner.auth_password("alice", &alice_token).await.unwrap(),
+            russh::server::Auth::Accept
+        ));
+        owner
+            .run_git_exec("git-upload-pack '/alice/doxrepo.git'")
+            .await
+            .expect("owner ssh fetch stays admitted while it is down");
+
+        // restore reopens every stranger path that was refused above
+        restore(&pool, &root, &carol, "doxrepo").await;
+        assert_eq!(
+            get(&pool, &root, upload_refs, Some(&bob)).await.status(),
+            StatusCode::OK
+        );
+        let mut after = SshHandler::with_storage(pool.clone(), root_str);
+        after
+            .run_git_exec("git-upload-pack '/alice/doxrepo.git'")
+            .await
+            .expect("stranger ssh fetch returns after restore");
     }
 }
