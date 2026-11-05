@@ -88,10 +88,26 @@ impl Mailer for SendGridMailer {
     }
 }
 
+/// story: e35s01 — one wrapper around every provider: the single write
+/// point for the mail rollup. Recipient and subject only, never the body
+/// (bodies carry verification and reset tokens).
+struct LoggedMailer(Box<dyn Mailer>);
+
+#[async_trait::async_trait]
+impl Mailer for LoggedMailer {
+    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+        let mut fields = serde_json::Map::new();
+        fields.insert("to".into(), to.into());
+        fields.insert("subject".into(), subject.into());
+        let _ = crate::retention::append("mail_log", chrono::Utc::now(), &fields);
+        self.0.send(to, subject, body).await
+    }
+}
+
 /// story: e23s01 — env chooses the provider; log is the safe default.
 pub fn from_env() -> Box<dyn Mailer> {
     let from = std::env::var("JJHUB_MAIL_FROM").unwrap_or_else(|_| "jjhub@localhost".into());
-    match std::env::var("JJHUB_EMAIL_PROVIDER").as_deref() {
+    let inner: Box<dyn Mailer> = match std::env::var("JJHUB_EMAIL_PROVIDER").as_deref() {
         Ok("resend") => {
             let api_key = std::env::var("RESEND_API_KEY").expect("RESEND_API_KEY for resend");
             Box::new(ResendMailer { api_key, from })
@@ -110,7 +126,8 @@ pub fn from_env() -> Box<dyn Mailer> {
         // unset and unknown providers keep the in-box LogMailer.
         Ok("smtp") => Box::new(SmtpMailer::from_env()),
         _ => Box::new(LogMailer),
-    }
+    };
+    Box::new(LoggedMailer(inner))
 }
 
 /// story: e34s03 — SMTP transport configured by JJHUB_SMTP_* env only.

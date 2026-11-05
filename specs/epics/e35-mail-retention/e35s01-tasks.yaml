@@ -1,7 +1,7 @@
 story_id: e35s01
 title: "Monthly JSONL rollups at the single write points"
 spec: e35s01-jsonl-retention.md
-status: todo
+status: passing
 bcps: 8
 tasks:
   - id: e35s01t1
@@ -12,7 +12,7 @@ tasks:
       date, no drain env means file only
     verify: "cargo test -p server --test jsonl_retention"
     risk: P2
-    status: todo
+    status: passing
     allure:
       severity: major
       categories: ["security"]
@@ -23,7 +23,7 @@ tasks:
       INSERT sites, JJHUB_LOG_DIR config
     verify: "cargo test -p server --test jsonl_retention"
     risk: P2
-    status: todo
+    status: passing
     allure:
       severity: major
       categories: ["security"]
@@ -34,7 +34,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: todo
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

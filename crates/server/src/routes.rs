@@ -2915,6 +2915,7 @@ pub async fn set_registration(
         .execute(&state.pool)
         .await
         .ok();
+        crate::retention::append_moderation(action, current.0, None);
     }
     (
         StatusCode::SEE_OTHER,
@@ -3104,6 +3105,7 @@ pub async fn suspend_account(
         .execute(&state.pool)
         .await
         .ok();
+        crate::retention::append_moderation("suspend", current.0, Some(target_id));
         // story: e34s03 — notify only after the row stands.
         moderation_notice(&state, target_id, "suspend", &form.reason).await;
     }
@@ -3149,6 +3151,7 @@ pub async fn unsuspend_account(
         .execute(&state.pool)
         .await
         .ok();
+        crate::retention::append_moderation("unsuspend", current.0, Some(target_id));
         moderation_notice(&state, target_id, "unsuspend", &form.reason).await;
     }
     (
@@ -3211,6 +3214,7 @@ pub async fn takedown_repo(
         .execute(&state.pool)
         .await
         .ok();
+        crate::retention::append_moderation("takedown", current.0, Some(owner_id));
         // story: e34s03 — the repository's owner hears what happened.
         moderation_notice(&state, owner_id, "takedown", &form.reason).await;
     }
@@ -3262,6 +3266,7 @@ pub async fn takedown_restore(
         .execute(&state.pool)
         .await
         .ok();
+        crate::retention::append_moderation("restore", current.0, Some(owner_id));
         moderation_notice(&state, owner_id, "restore", &form.reason).await;
     }
     (

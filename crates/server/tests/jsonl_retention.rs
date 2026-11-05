@@ -38,13 +38,6 @@ mod jsonl_retention {
             .unwrap()
     }
 
-    async fn body_of(response: http::Response<Body>) -> String {
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        String::from_utf8_lossy(&bytes).to_string()
-    }
-
     /// Registers, verifies the address in the database, promotes alice to
     /// operator, logs in, and returns the session cookie.
     async fn register(pool: &sqlx::PgPool, app_: &axum::Router, handle: &str) -> String {
@@ -110,10 +103,7 @@ mod jsonl_retention {
             std::env::set_var("SESSION_SECRET", SECRET);
             std::env::set_var("JJHUB_LOG_DIR", dir.path());
             std::env::remove_var("JJHUB_LOG_DRAIN");
-            LogDir {
-                _guard: guard,
-                dir,
-            }
+            LogDir { _guard: guard, dir }
         }
 
         fn path(&self) -> &std::path::Path {
@@ -125,9 +115,12 @@ mod jsonl_retention {
     async fn one_send_appends_one_line_to_the_monthly_mail_log(pool: sqlx::PgPool) {
         let logs = LogDir::new();
         let app_ = server::app(pool.clone());
-        // Registration is the one send this test performs: its verification
-        // mail goes through the mailer, so exactly one line lands.
-        register(&pool, &app_, "alice").await;
+        let cookie = register(&pool, &app_, "alice").await;
+        register(&pool, &app_, "bob").await;
+        // The suspension notice is the one send this test performs.
+        let form = format!("target=bob&_csrf={}", csrf(&cookie));
+        let response = post(&app_, "/admin/suspend", &form, &cookie).await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
         let path = logs.path().join(format!("mail_log_{}.jsonl", month()));
         let lines = lines(&path);
@@ -139,7 +132,7 @@ mod jsonl_retention {
             lines
         );
         assert!(
-            lines[0].contains("\"to\":\"alice@example.test\""),
+            lines[0].contains("\"to\":\"bob@example.test\""),
             "line missing the recipient: {}",
             lines[0]
         );
@@ -152,10 +145,7 @@ mod jsonl_retention {
         let cookie = register(&pool, &app_, "alice").await;
         register(&pool, &app_, "bob").await;
 
-        let form = format!(
-            "target=bob&_csrf={}&reason=for+testing",
-            csrf(&cookie)
-        );
+        let form = format!("target=bob&_csrf={}&reason=for+testing", csrf(&cookie));
         let response = post(&app_, "/admin/suspend", &form, &cookie).await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
@@ -200,15 +190,12 @@ mod jsonl_retention {
         );
         let value: serde_json::Value = serde_json::from_str(line)
             .unwrap_or_else(|err| panic!("line is not one JSON object: {err}: {line}"));
-        chrono::DateTime::parse_from_rfc3339(value["ts"].as_str().unwrap())
-            .expect("ts is rfc3339");
+        chrono::DateTime::parse_from_rfc3339(value["ts"].as_str().unwrap()).expect("ts is rfc3339");
         assert_eq!(value["action"], "suspend");
     }
 
     #[sqlx::test]
-    async fn events_in_one_month_share_one_file_named_for_its_write_date(
-        pool: sqlx::PgPool,
-    ) {
+    async fn events_in_one_month_share_one_file_named_for_its_write_date(pool: sqlx::PgPool) {
         let logs = LogDir::new();
         let app_ = server::app(pool.clone());
         let cookie = register(&pool, &app_, "alice").await;
