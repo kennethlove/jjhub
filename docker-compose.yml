@@ -65,7 +65,9 @@ services:
       context: .
       dockerfile: Dockerfile.kata
       args:
-        KATA_COMMIT: ${KATA_COMMIT:-9c7903dd458160a7b91eb1e43d2a35e11731ccf8}
+        # The pin lives in Dockerfile.kata (shell default at checkout);
+        # this entry only forwards an explicit KATA_COMMIT override.
+        KATA_COMMIT: ${KATA_COMMIT:-}
     depends_on:
       db:
         condition: service_healthy

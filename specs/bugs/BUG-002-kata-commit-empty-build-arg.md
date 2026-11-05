@@ -101,4 +101,21 @@ home.
 
 ## Resolution
 
-<!-- filled in by validate-fix -->
+Fixed on `fix/kata-commit-fallback`:
+
+- RED `1ea9e235` — `scripts/check-kata-pin.sh`, fails all 3 assertions
+  pre-fix (no shell default; compose holds the literal; CI reads compose).
+- GREEN `febbf8f4` — pin moved to a shell default at the checkout command
+  in Dockerfile.kata; compose keeps `KATA_COMMIT: ${KATA_COMMIT:-}` as an
+  override conduit only; CI extracts the pin from Dockerfile.kata, keys
+  the kata cache on it, and runs the check script.
+- Behavioral proof: source stage builds with `--build-arg KATA_COMMIT=`
+  (empty, the production failure mode) and `/src` HEAD equals
+  `9c7903dd458160a7b91eb1e43d2a35e11731ccf8` (docker 29.8.2).
+- Override proof: `KATA_COMMIT=<sha> docker compose config` shows the
+  value in kata build args.
+- Preflight: `fmt` clean; `clippy` no issues; `cargo test --workspace`
+  421 passed / 124 suites / 0 failed (`DATABASE_URL` per CI);
+  `cargo build` OK; `bash scripts/check-kata-pin.sh` OK.
+- Platform side: Coolify may still pass an empty `KATA_COMMIT` — it is
+  now harmless; no Coolify configuration change is required.
