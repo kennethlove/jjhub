@@ -11,8 +11,6 @@ use axum::http::{self, header, Request, StatusCode};
 use axum::Router;
 use tower::util::ServiceExt;
 
-const SECRET: &[u8] = b"test-session-secret";
-
 // --- recorded-mailer scaffold (shape copied from email_confirmation.rs) ---
 
 #[derive(Clone)]
@@ -63,10 +61,6 @@ async fn app(pool: sqlx::PgPool, recorded: Recorded) -> Router {
     )
 }
 
-fn csrf(secret: &[u8], cookie: &str) -> String {
-    server::session::csrf_token(secret, cookie.strip_prefix("session=").unwrap_or(cookie))
-}
-
 async fn post(url: &str, form: &str, cookie: Option<&str>) -> http::Request<axum::body::Body> {
     let mut builder = Request::builder()
         .method("POST")
@@ -109,9 +103,7 @@ fn token_after(haystack: &str, prefix: &str) -> String {
 }
 
 async fn register(pool: &sqlx::PgPool, app_: &Router, email: &str, password: &str) {
-    let form = format!(
-        "email={email}&password={password}&password_confirm={password}&_csrf="
-    );
+    let form = format!("email={email}&password={password}&password_confirm={password}&_csrf=");
     let response = app_
         .clone()
         .oneshot(post("/register", &form, None).await)
@@ -171,19 +163,29 @@ async fn known_address_gets_a_path_reset_link_delivery(pool: sqlx::PgPool) {
     assert_eq!(recorded.count(), 1, "exactly one delivery recorded");
     let (to, subject, body) = recorded.last();
     assert_eq!(to, "known@example.test");
-    assert!(subject.to_lowercase().contains("password"), "subject: {subject}");
+    assert!(
+        subject.to_lowercase().contains("password"),
+        "subject: {subject}"
+    );
 
     // Path form, and no query-form link anywhere in the mail.
     assert!(body.contains("/reset/"), "body: {body}");
-    assert!(!body.contains("reset-password?token="), "query form leaked: {body}");
+    assert!(
+        !body.contains("reset-password?token="),
+        "query form leaked: {body}"
+    );
 
     let token = token_after(&body, "/reset/");
     assert!(token.len() >= 16, "token looks too short: {token:?}");
 
-    // Stored hash is the sha256 of the token, never the plaintext.
+    // Stored value is never the plaintext (salted argon2 by e24 design),
+    // and it must still verify against the delivered token.
     let (_, stored) = latest_token(&pool, "known@example.test").await;
     assert_ne!(stored, token, "plaintext token stored");
-    assert_eq!(stored, server::token::hash(&token), "stored hash mismatch");
+    assert!(
+        server::token::find_reset(&pool, &token).await.is_some(),
+        "stored hash does not verify the delivered token"
+    );
     assert!(!body.contains(&stored), "hash leaked into the mail");
 }
 
@@ -204,7 +206,11 @@ async fn unknown_address_gets_the_same_response(pool: sqlx::PgPool) {
 
     assert_eq!(known_status, unknown_status, "oracle differs by account");
     assert_eq!(known_body, unknown_body, "page oracle differs by account");
-    assert_eq!(recorded.count(), 1, "unknown address must not record a delivery");
+    assert_eq!(
+        recorded.count(),
+        1,
+        "unknown address must not record a delivery"
+    );
 }
 
 #[sqlx::test]
@@ -231,7 +237,11 @@ async fn expired_reset_token_is_refused(pool: sqlx::PgPool) {
         .oneshot(get(&format!("/reset/{token}"), None).await)
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST, "expired token served");
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "expired token served"
+    );
 }
 
 #[sqlx::test]
@@ -273,7 +283,11 @@ async fn consumed_token_cannot_be_used_twice(pool: sqlx::PgPool) {
         )
         .await
         .unwrap();
-    assert_eq!(second.status(), StatusCode::BAD_REQUEST, "second use must refuse");
+    assert_eq!(
+        second.status(),
+        StatusCode::BAD_REQUEST,
+        "second use must refuse"
+    );
 }
 
 #[sqlx::test]
@@ -305,17 +319,39 @@ async fn successful_path_reset_rotates_the_password(pool: sqlx::PgPool) {
 
     let old_login = app
         .clone()
-        .oneshot(post("/login", "email=known@example.test&password=correct-horse-battery", None).await)
+        .oneshot(
+            post(
+                "/login",
+                "email=known@example.test&password=correct-horse-battery",
+                None,
+            )
+            .await,
+        )
         .await
         .unwrap();
-    assert_eq!(old_login.status(), StatusCode::UNAUTHORIZED, "old password still works");
+    assert_eq!(
+        old_login.status(),
+        StatusCode::UNAUTHORIZED,
+        "old password still works"
+    );
 
     let new_login = app
         .clone()
-        .oneshot(post("/login", "email=known@example.test&password=brand-new-pass-456", None).await)
+        .oneshot(
+            post(
+                "/login",
+                "email=known@example.test&password=brand-new-pass-456",
+                None,
+            )
+            .await,
+        )
         .await
         .unwrap();
-    assert_eq!(new_login.status(), StatusCode::SEE_OTHER, "new password rejected");
+    assert_eq!(
+        new_login.status(),
+        StatusCode::SEE_OTHER,
+        "new password rejected"
+    );
 }
 
 #[sqlx::test]

@@ -371,17 +371,28 @@ pub async fn request_reset(
         .execute(&state.pool)
         .await;
         match stored {
-            // story: e24s02 — alpha delivery: the link is printed to the
-            // server log; a mailer replaces this once SMTP is justified
+            // story: e34s02 — the link is delivered, in path form, and the
+            // plaintext never reaches the server log
             Ok(_) => {
                 let host = headers
                     .get("host")
                     .and_then(|v| v.to_str().ok())
                     .unwrap_or("localhost:3000");
-                eprintln!(
-                    "jjhub: password reset for {}: http://{host}/reset-password?token={plaintext}",
-                    form.email
-                );
+                let link = format!("http://{host}/reset/{plaintext}");
+                if let Err(err) = state
+                    .mailer
+                    .send(
+                        &form.email,
+                        "Reset your password",
+                        &format!(
+                            "Someone asked to reset the password for this address.\n\
+                             The link works once and expires in 1 hour.\n\n{link}"
+                        ),
+                    )
+                    .await
+                {
+                    eprintln!("jjhub: send reset link: {}", err.reason);
+                }
             }
             Err(err) => eprintln!("jjhub: store reset token: {err}"),
         }
@@ -397,6 +408,9 @@ pub struct ResetPasswordQuery {
 
 #[derive(Deserialize)]
 pub struct ResetPasswordForm {
+    // The path-form POST carries the token in the URL, not the body —
+    // absent here, it defaults and the handler's path token wins.
+    #[serde(default)]
     token: String,
     password: String,
     password_confirm: String,
@@ -411,14 +425,10 @@ fn reset_password_page(error: &str, token: &str) -> String {
     crate::render::render("password_reset.html", &context)
 }
 
-// story: e24s03 — GET /reset-password?token=... renders the set-password
-// form only while the link is unexpired and unused
-pub async fn reset_password_form(
-    State(state): State<AppState>,
-    axum::extract::Query(query): axum::extract::Query<ResetPasswordQuery>,
-) -> Response {
-    match crate::token::find_reset(&state.pool, &query.token).await {
-        Some(_) => (StatusCode::OK, Html(reset_password_page("", &query.token))).into_response(),
+// story: e34s02 — one acceptance check for both token forms
+async fn reset_password_response(state: &AppState, token: &str) -> Response {
+    match crate::token::find_reset(&state.pool, token).await {
+        Some(_) => (StatusCode::OK, Html(reset_password_page("", token))).into_response(),
         None => (
             StatusCode::BAD_REQUEST,
             Html(reset_password_page(RESET_REFUSED, "")),
@@ -427,12 +437,42 @@ pub async fn reset_password_form(
     }
 }
 
+// story: e24s03 — GET /reset-password?token=... renders the set-password
+// form only while the link is unexpired and unused
+pub async fn reset_password_form(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<ResetPasswordQuery>,
+) -> Response {
+    reset_password_response(&state, &query.token).await
+}
+
+// story: e34s02 — path form of the same link; the query route stays open
+pub async fn reset_password_path(
+    State(state): State<AppState>,
+    axum::extract::Path(token): axum::extract::Path<String>,
+) -> Response {
+    reset_password_response(&state, &token).await
+}
+
 // story: e24s03 — validate, burn the link, then store the new password
 pub async fn set_new_password(
     State(state): State<AppState>,
     Form(form): Form<ResetPasswordForm>,
 ) -> Response {
-    let Some((token_id, user_id)) = crate::token::find_reset(&state.pool, &form.token).await else {
+    complete_reset(&state, &form.token, &form).await
+}
+
+// story: e34s02 — the same completion from the path form of the link
+pub async fn set_new_password_path(
+    State(state): State<AppState>,
+    axum::extract::Path(token): axum::extract::Path<String>,
+    Form(form): Form<ResetPasswordForm>,
+) -> Response {
+    complete_reset(&state, &token, &form).await
+}
+
+async fn complete_reset(state: &AppState, token: &str, form: &ResetPasswordForm) -> Response {
+    let Some((token_id, user_id)) = crate::token::find_reset(&state.pool, token).await else {
         return (
             StatusCode::BAD_REQUEST,
             Html(reset_password_page(RESET_REFUSED, "")),
@@ -443,7 +483,7 @@ pub async fn set_new_password(
     if form.password != form.password_confirm {
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
-            Html(reset_password_page("passwords do not match", &form.token)),
+            Html(reset_password_page("passwords do not match", token)),
         )
             .into_response();
     }
@@ -451,7 +491,7 @@ pub async fn set_new_password(
         let too_short = domain::RegistrationError::PasswordTooShort.to_string();
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
-            Html(reset_password_page(&too_short, &form.token)),
+            Html(reset_password_page(&too_short, token)),
         )
             .into_response();
     }

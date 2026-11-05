@@ -1,7 +1,7 @@
 story_id: e34s02
 title: "Password reset"
 spec: e34s02-password-reset.md
-status: todo
+status: passing
 bcps: 8
 tasks:
   - id: e34s02t1
@@ -11,7 +11,7 @@ tasks:
       single use, password actually rotates, LogMailer default
     verify: "cargo test -p server --test reset_mail"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -22,7 +22,7 @@ tasks:
       link, single-use 1h token, mail errors indistinguishable
     verify: "cargo test -p server --test reset_mail"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -33,7 +33,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: todo
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]
