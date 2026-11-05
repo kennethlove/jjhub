@@ -14,7 +14,7 @@ mod mail_core {
 
     fn csrf(cookie: &str) -> String {
         let value = cookie.strip_prefix("session=").unwrap_or("");
-        server::session::csrf_token(SECRET, value)
+        server::session::csrf_token(SECRET.as_bytes(), value)
     }
 
     async fn body_of(response: axum::response::Response) -> String {
@@ -147,12 +147,12 @@ mod mail_core {
         let user_id = register(&pool, &email).await;
 
         // An unverified user with a live verification, as signup leaves them.
-        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1")
+        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1::uuid")
             .bind(&user_id)
             .execute(&pool)
             .await
             .unwrap();
-        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).await.unwrap())
+        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap())
             .await;
         let app = server::app(pool.clone());
 
@@ -168,12 +168,12 @@ mod mail_core {
         assert!(verified, "path link marked the address verified");
 
         // e23's query form: same contract, still accepted.
-        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1")
+        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1::uuid")
             .bind(&user_id)
             .execute(&pool)
             .await
             .unwrap();
-        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).await.unwrap())
+        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap())
             .await;
         let (status, _) = get(&app, &format!("/verify?token={}", pending.token)).await;
         assert_eq!(status, StatusCode::SEE_OTHER, "query link still works");
@@ -185,21 +185,27 @@ mod mail_core {
     #[sqlx::test]
     async fn resend_is_neutral_and_cools_down(pool: sqlx::PgPool) {
         let email = fresh_email("resend");
-        let _ = register(&pool, &email).await;
+        let user_id = register(&pool, &email).await;
+        let user_uuid = uuid::Uuid::parse_str(&user_id).unwrap();
         // Back to unverified with a pending row, as signup leaves it.
-        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE email = $1")
-            .bind(&email)
+        sqlx::query("UPDATE users SET email_verified_at = NULL WHERE id = $1::uuid")
+            .bind(user_uuid)
             .execute(&pool)
             .await
             .unwrap();
-        let pending_before: i64 =
-            sqlx::query_scalar("SELECT count(*) FROM email_verifications WHERE used_at IS NULL")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
-        let hash_before: Vec<u8> = sqlx::query_scalar(
-            "SELECT token_hash FROM email_verifications WHERE used_at IS NULL LIMIT 1",
+        server::email::send_verification(&pool, user_uuid).await;
+        let pending_before: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM email_verifications WHERE user_id = $1 AND used_at IS NULL",
         )
+        .bind(user_uuid)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert!(pending_before >= 1, "a pending verification exists");
+        let hash_before: Vec<u8> = sqlx::query_scalar(
+            "SELECT token_hash FROM email_verifications WHERE user_id = $1 AND used_at IS NULL LIMIT 1",
+        )
+        .bind(user_uuid)
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -214,16 +220,18 @@ mod mail_core {
         let status = post_form(&app, "/verify-resend", &format!("email={email}")).await;
         assert_eq!(status, StatusCode::SEE_OTHER, "repeat within cooldown");
 
-        let rows = sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM email_verifications WHERE used_at IS NULL",
+        let rows: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM email_verifications WHERE user_id = $1 AND used_at IS NULL",
         )
+        .bind(user_uuid)
         .fetch_one(&pool)
         .await
         .unwrap();
         assert_eq!(rows, pending_before, "cooldown: no second pending row");
         let hash_after: Vec<u8> = sqlx::query_scalar(
-            "SELECT token_hash FROM email_verifications WHERE used_at IS NULL LIMIT 1",
+            "SELECT token_hash FROM email_verifications WHERE user_id = $1 AND used_at IS NULL LIMIT 1",
         )
+        .bind(user_uuid)
         .fetch_one(&pool)
         .await
         .unwrap();
