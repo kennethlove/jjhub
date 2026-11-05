@@ -1,54 +1,43 @@
-# discover-phase checklist for the v0.5.0 planning cycle — run-planning
+# discover-phase checklist for the v0.7.0 planning cycle — run-planning
 context_capsule:
-  written_at: "2026-11-03"
+  written_at: "2026-11-05"
   written_by: run-planning
-  feature_name: "jjhub v0.5.0 — operator moderation"
+  feature_name: "jjhub v0.7.0 — mail operations"
 workflows:
   survey-context:
     required: true
     status: done
     note: >
-      v0.4.0 shipped (#61–#74, released); the public-node viability
-      gap (no way to refuse an abuser) was the only unshipped
-      blocker from the vision review.
+      v0.6.0 shipped (#85–#91); the remaining public-node gap is mail —
+      no verification link, no reset link, no notices, no log hygiene
+      for secrets.
   scope-work:
     required: true
     status: done
     note: >
-      Interview chose site-level operator moderation; per-owner
-      blocklists rejected (one suspension covers every authenticated
-      surface). v0.4.0 scope snapshotted to
-      specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml.
+      v0.6.0 scope snapshotted to
+      specs/product/snapshots/SCOPE-v0.6.0-2026-11-05.yaml; v0.7.0
+      scope written from specs/requirements/MAIL-LATEST.md (operator
+      decisions: notice mail yes, JSONL logging, protocol-generic
+      providers). Multi-tier roles and inbound mail stay out.
   research-first:
     required: true
-    status: done
+    status: pending
     note: >
-      Reuse the e22 authenticate seam for transport refusal; no new
-      crate dependency; russh Auth::Reject semantics confirmed from
-      source before the SSH test was written.
+      Next: SMTP client crate decision (lettere vs alternatives) and
+      mail-provider protocol research, recorded before any code.
   elaborate-spec:
     required: true
-    status: done
-    note: >
-      Decisions recorded: bootstrap = env JJHUB_OPERATOR=<handle> OR
-      users.is_operator (user); surface = site-level /admin page
-      (user); enforcement only where identity is already checked.
+    status: pending
   plan-release:
     required: true
-    status: done
+    status: pending
     note: >
-      v0.5.0 index written with 1 epic (e29 WSJF 12.9); capsule
-      specs/epics/e29-operator-moderation/ (epic + 2 stories + tasks).
+      v0.7.0 index with the mail epic(s) and capsules under
+      specs/epics/e34-*/.
   slice-tasks:
     required: true
-    status: done
-    note: >
-      e29s01 web lockout (designation, /admin, session/login walls,
-      audit) and e29s02 transport refusal (token authenticate seam).
+    status: pending
   plan-work:
     required: true
-    status: done
-    note: >
-      Task specs written with RED/GREEN/verify per story; both
-      stories passing; shipped via PR #80, closeout #81. Cycle
-      complete — next cycle starts at scope-work.
+    status: pending

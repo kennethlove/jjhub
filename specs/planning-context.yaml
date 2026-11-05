@@ -1,26 +1,28 @@
 # specs/planning-context.yaml — elaborate-spec output; consumed by scope-work
-# v0.5.0 shipped (operator moderation, PR #80). Refreshed for the
-# v0.6.0 scope-work pass below; elaborate-spec will overwrite this
+# v0.6.0 shipped (moderation follow-through, PRs #85–#91). Refreshed for the
+# v0.7.0 scope-work pass below; elaborate-spec will overwrite this
 # when the cycle's spec is written.
-feature_name: "jjhub v0.6.0 — moderation follow-through"
+feature_name: "jjhub v0.7.0 — mail operations"
 problem_statement: >
-  v0.5.0 taught jjhub to cut off an abuser's account, but four gaps
-  remain for a public node. An operator can suspend a person yet
-  cannot take down a repository's content. Registration is open and
-  CAPTCHA-free, so rate budgets are the only brake on mass signup.
-  And the moderation_actions rows written by e29 cannot be reviewed
-  after the fact — the operator has an audit trail nobody can read.
+  v0.6.0 shipped every moderation surface, but jjhub still never sends
+  an email. There is no address-verification link, no password-reset
+  link, and no way to tell a suspended user what happened. The
+  requirements are drafted in specs/requirements/MAIL-LATEST.md: every
+  operator action that touches a user must email that user, delivery
+  must fail closed before anything ships, and no secret may reach a log
+  line.
 constraints:
   - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
-  - "Enforcement lives where identity is already checked; no parallel auth path"
-  - >
-    Destructive actions must be reversible or audited (v0.5.0 rule,
-    still load-bearing)
+  - >-
+    One Mailer interface; SMTP is the primary transport, no provider
+    enum in code
+  - >-
+    Phase gate: no live send until confirmation links and a delivery
+    readout are proven in staging
+  - "Secrets live in one env family and never appear in a log line"
 out_of_scope:
   - "Multi-tier roles — user decision: can wait"
-  - >
-    Appeals and notification mail — needs mail infra first
-    (requirements drafted separately)
-  - >
-    Per-owner block lists and IP bans beyond the e20 rate budget
-    (v0.5.0 deferrals, unchanged)
+  - "Per-owner block lists and IP bans beyond the e20 rate budget"
+  - >-
+    Inbound mail, attachments, tracking pixels, notification
+    preferences, appeals automation

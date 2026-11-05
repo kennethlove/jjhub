@@ -9,24 +9,27 @@ session:
   active_epic_id: ""
   active_story_id: ""
 handoff:
-  next_skill: survey-context
+  next_skill: plan-release
   notes: |
-    v0.5.0 SHIPPED: e29 operator moderation (#80, trunk dd687847).
-    e29s01 = operator designation (env JJHUB_OPERATOR=<handle> OR
-    users.is_operator, effective operator = either at query time) +
-    site-level /admin console + suspension walls (middleware.rs:33,
-    login routes.rs:434, review_proxy session path) + moderation_actions
-    audit + operators never suspendable; unsuspend restores live sessions.
-    e29s02 = one fail-closed suspended_at check inside token.rs authenticate,
-    so smart HTTP 401s, SSH rejects pre-spawn, review-proxy token path
-    refuses; TransportAuth/authorize contracts untouched.
-    Verify: cargo test -p server --test operator_moderation (11 passed);
-    suite at merge = 401 passed / 120 suites. Capsule intact at
-    specs/epics/e29-operator-moderation/; story lock released.
-    NEXT: nothing active — scope v0.5.0 held only e29. Await the next
-    scope-work or a new user ask. Test DB = container jjhub-pg:5432
-    jjhub_test; shared CARGO_TARGET_DIR = ../jjhub/target.
-    Lessons carried: `jj new -m -b` errors (use jj new + describe +
-    bookmark set); gh pr create --body-file for multi-line bodies;
-    merged bookmark = jj bookmark forget; after verify-tdd-red-commit.sh
-    worktree checkouts, touch sources before retesting (stale RED binary).
+    v0.6.0 SHIPPED: moderation follow-through — e32 closing
+    registration (#85), e33 moderation log + CSV export (#86),
+    e31 CAPTCHA on signup (#88), e30 repo takedown web (#89) and
+    transports (#91); SMTP relay deploy envs (#87), kata pin fix
+    (#90). Suite at last merge = 422 passed / 124 suites.
+    Verify: cargo test -p server --test registration_gate /
+    moderation_log / captcha_signup / repo_takedown.
+    v0.7.0 SCOPED (this cycle): mail operations from
+    specs/requirements/MAIL-LATEST.md — address verification,
+    password reset, moderation notices; SMTP-primary provider
+    abstraction; phase gate before any live send.
+    NEXT: plan-release (v0.7.0 index + e34 capsule) then
+    develop-tdd. Test DB = container jjhub-pg:5432 jjhub_test;
+    shared CARGO_TARGET_DIR = ../jjhub/target.
+    Lessons carried: jj working copy is one mutable change —
+    duplicate or new BEFORE describing RED (describe otherwise
+    overwrites it); transport identity = Basic
+    x-access-token:<token>, sessions never authenticate
+    transports; restoring a shipped migration with jj restore =
+    checksum bomb, restore from git show <trunk>:path instead;
+    verify-tdd-red-commit.sh needs git HEAD at GREEN and a touch
+    of the sources after any worktree checkout (stale binaries).

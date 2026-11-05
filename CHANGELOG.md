@@ -2,6 +2,53 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-11-05
+
+The v0.6.0 build: moderation follow-through is complete. Repos come
+down and come back, CAPTCHA guards signup, registration can close,
+and the audit trail is readable. Shipped as PRs #82–#91.
+
+### Added
+
+- **Repo takedown with restore** (#89): an operator marks a repository
+  taken down from the `/admin` console — every browse route 404s for
+  everyone except the owner and operators, rows, refs, and history
+  are untouched, each flip lands in `moderation_actions`, and restore
+  brings the repo back with its own audit row
+- **Transport refusal for taken-down repos** (#91): smart HTTP
+  answers 404 and SSH refuses before any git process spawns for
+  stranger fetch and push on a taken-down repo — the decision lives
+  in the shared `authorize` chain ahead of the scope gate, the owner
+  passes on argument alone, fresh rows are never taken down, and
+  restore reopens every path
+- **CAPTCHA on signup** (#88): when `JJHUB_CAPTCHA_*` is configured,
+  the register form renders the Turnstile widget and a signup without
+  a solved token creates no account; a rejected, stale, or
+  unreachable verifier fails closed to the retry message;
+  unconfigured nodes sign up exactly as before, with no widget or
+  provider script in the page
+- **Registration toggle** (#85): one `site_settings` row flips new
+  signups closed from the `/admin` Registration panel — refusal is
+  403, live sessions survive the flip, reopen reopens, and every
+  transition is an audit row
+- **Moderation log with CSV export** (#86): `/admin` lists
+  `moderation_actions` newest-first with action and target filters
+  and an explicit empty state; `/admin/moderation.csv` serves the
+  same selection RFC4180-quoted with a filename; both are
+  operator-only, and the timestamp column folds away below 768px
+
+### Changed
+
+- **SMTP relay configuration** (#87): deployment gained the SMTP
+  relay environment family — the transport arm the v0.7.0 mail
+  epic will use
+- README and the landing roadmap now match shipped capabilities;
+  the cycle's planning docs and capsules landed with the code
+
+### Fixed
+
+- The deploy kata pin survives an empty Coolify build-arg (#90)
+
 ## [0.5.0] - 2026-11-03
 
 The v0.5.0 build: a public node can refuse an abuser. Operator
