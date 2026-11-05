@@ -13,6 +13,7 @@ pub mod rate_limit;
 pub mod receive_guard;
 pub mod render;
 pub mod repo;
+pub mod retention;
 pub mod review_proxy;
 pub mod revsets;
 pub mod routes;
