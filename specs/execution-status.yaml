@@ -170,3 +170,13 @@ epics:
     status: passing
     stories:
       e33s01: passing
+  e34-mail-core:
+    status: todo
+    stories:
+      e34s01: todo
+      e34s02: todo
+      e34s03: todo
+  e35-mail-retention:
+    status: todo
+    stories:
+      e35s01: todo

@@ -1,0 +1,44 @@
+story_id: e34s01
+title: "Mailer core and address verification"
+spec: e34s01-mailer-core-verification.md
+status: todo
+bcps: 12
+tasks:
+  - id: e34s01t1
+    description: >
+      RED test: unset/unknown provider records the verification
+      delivery with a path-form link and changes nothing;
+      resend endpoint answers neutrally for known and unknown
+      addresses with a 60s cooldown; mail failure never 500s
+    verify: "cargo test -p server --test mail_core"
+    risk: P1
+    status: todo
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e34s01t2
+    description: >
+      GREEN: LogMailer default for unset/unknown
+      JJHUB_EMAIL_PROVIDER, path-form verify links (query form
+      still accepted), resend endpoint with hashed per-address
+      60s cooldown, neutral response always
+    verify: "cargo test -p server --test mail_core"
+    risk: P1
+    status: todo
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e34s01t3
+    description: >
+      resend affordance on the verify-sent page plus gates:
+      fmt, clippy, full preflight suite, build — zero
+      horizontal overflow at 1440 and 390 (ux_audit + CDP
+      probe)
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: todo
+    allure:
+      severity: minor
+      categories: ["gates"]

@@ -1,0 +1,25 @@
+id: e34
+slug: mail-core
+title: "Mail core — verification, reset, notices through one mailer"
+wsjf: 3.7
+total_bcps: 30
+status: planning
+stories:
+  - id: e34s01
+    title: "Mailer core and address verification"
+    bcps: 12
+    status: todo
+    spec: e34s01-mailer-core-verification.md
+    tasks: e34s01-tasks.yaml
+  - id: e34s02
+    title: "Password reset"
+    bcps: 8
+    status: todo
+    spec: e34s02-password-reset.md
+    tasks: e34s02-tasks.yaml
+  - id: e34s03
+    title: "SMTP arm and moderation notices"
+    bcps: 10
+    status: todo
+    spec: e34s03-smtp-and-notices.md
+    tasks: e34s03-tasks.yaml

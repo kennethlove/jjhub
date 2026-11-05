@@ -14,5 +14,8 @@ bugs:
       build-arg
     scope: deploy
     severity: high
-    status: open
+    status: fixed
+    fix: >-
+      PR 90 — KATA_COMMIT pinned via shell default at
+      Dockerfile.kata; evidence in BUG-002 file (GREEN febbf8f4)
     file: "specs/bugs/BUG-002-kata-commit-empty-build-arg.md"
