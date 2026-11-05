@@ -60,10 +60,7 @@ mod landing_page {
 
         // status + roadmap + footer
         assert!(html.contains("Early development"), "status badge: {html}");
-        assert!(
-            html.contains("Mail operations"),
-            "roadmap: {html}"
-        );
+        assert!(html.contains("Mail operations"), "roadmap: {html}");
         assert!(html.contains("Apache License 2.0"), "footer: {html}");
 
         // visitor paths survive
