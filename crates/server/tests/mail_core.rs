@@ -152,14 +152,14 @@ mod mail_core {
             .execute(&pool)
             .await
             .unwrap();
-        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap())
-            .await;
+        let pending =
+            server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap()).await;
         let app = server::app(pool.clone());
 
         let (status, _) = get(&app, &format!("/verify/{}", pending.token)).await;
         assert_eq!(status, StatusCode::SEE_OTHER, "path link session");
         let verified = sqlx::query_scalar::<_, bool>(
-            "SELECT email_verified_at IS NOT NULL FROM users WHERE id = $1",
+            "SELECT email_verified_at IS NOT NULL FROM users WHERE id = $1::uuid",
         )
         .bind(&user_id)
         .fetch_one(&pool)
@@ -173,8 +173,8 @@ mod mail_core {
             .execute(&pool)
             .await
             .unwrap();
-        let pending = server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap())
-            .await;
+        let pending =
+            server::email::send_verification(&pool, uuid::Uuid::parse_str(&user_id).unwrap()).await;
         let (status, _) = get(&app, &format!("/verify?token={}", pending.token)).await;
         assert_eq!(status, StatusCode::SEE_OTHER, "query link still works");
     }

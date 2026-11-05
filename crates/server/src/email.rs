@@ -215,8 +215,9 @@ pub async fn verify_email(pool: &sqlx::PgPool, token: &str) -> Option<uuid::Uuid
 }
 
 /// The link body the mail carries.
+/// story: e34s01 — path form; the e23 query route keeps accepting ?token=.
 pub fn verify_link(token: &str) -> String {
-    format!("/verify?token={token}")
+    format!("/verify/{token}")
 }
 
 /// The refusal shown when a link is dead.

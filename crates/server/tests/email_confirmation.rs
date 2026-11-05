@@ -89,7 +89,9 @@ mod email_confirmation {
     }
 
     fn token_from(mail: &(String, String, String)) -> String {
-        let start = mail.2.find("/verify?token=").expect("link in mail") + "/verify?token=".len();
+        // story: e34s01 — mails carry the path form; /verify?token= still
+        // verifies when hand-built.
+        let start = mail.2.find("/verify/").expect("link in mail") + "/verify/".len();
         let rest = &mail.2[start..];
         rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
             .next()
@@ -144,7 +146,7 @@ mod email_confirmation {
         let (to, subject, body) = recorded.last();
         assert_eq!(to, "bob@example.com");
         assert!(subject.to_lowercase().contains("confirm"));
-        assert!(body.contains("/verify?token="));
+        assert!(body.contains("/verify/"), "the path-form link");
 
         // the stored row is a hash, never the plaintext
         let plaintext = token_from(&recorded.last());
