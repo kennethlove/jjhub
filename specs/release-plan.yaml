@@ -1,70 +1,53 @@
 # specs/release-plan.yaml — WSJF-ordered epic index for jjhub
 
-# v0.6.0 cycle. version is a non-authoritative mirror; semantic-release
+# v0.7.0 cycle. version is a non-authoritative mirror; semantic-release
 # decides the real tag at merge (gh release view wins).
-# v0.5.0 epic (e29) shipped; its capsule remains in specs/epics/.
+# v0.6.0 epics (e30-e33) shipped; their capsules remain in specs/epics/.
 
-version: "0.6.0"
-status: ready
+version: "0.7.0"
+status: planning
 workflow_mode: solo-git
 bump_hint: minor
 
 # WSJF = (business value + time criticality + risk reduction) / job
 # size; job size in day-equivalents (4 BCP ~= 1 focused day), the
 # same scale as the prior cycles' entries. No security boost applied
-# (no THREAT_MODEL files exist for these epics). Moderation JSONL
-# retention rolls with the mail epic (v0.7.0) — e33 exports the
-# moderation_actions table it inherits from e29.
+# (no THREAT_MODEL files exist for these epics). Requirements source:
+# specs/requirements/MAIL-LATEST.md — no secret actions, SMTP primary,
+# phase gate before any live send.
 epics:
-  - id: e32
-    slug: closing-registration
-    title: "Closing registration — an operator stops the inflow"
-    wsjf: 20.8
-    bcp_total: 5
+  - id: e34
+    slug: mail-core
+    title: "Mail core — verification, reset, notices through one mailer"
+    wsjf: 3.7
+    bcp_total: 30
     delta: ADDED
     note: >
-      (10 + 8 + 8) / (5 / 4) = 20.8. Cheapest lever in the
-      cycle: one toggle on the /admin surface e29 shipped stops
-      new accounts node-wide, existing sessions untouched, one
-      moderation_actions row per flip.
-  - id: e33
-    slug: moderation-audit-export
-    title: "Moderation audit export — read and export the trail"
-    wsjf: 15.2
-    bcp_total: 5
-    delta: ADDED
-    note: >
-      (8 + 5 + 6) / (5 / 4) = 15.2. e29 writes moderation_actions
-      with no reader; a filterable /admin list plus CSV export
-      turns the write-only promise into a reviewable one.
-  - id: e31
-    slug: captcha-signup
-    title: "CAPTCHA on signup — raise the cost of mass accounts"
-    wsjf: 13.5
+      (10 + 9 + 9) / (30 / 4) = 3.7. Biggest job in the cycle but
+      the only one that keeps the no-secret-actions promise: every
+      operator action that touches a user must reach that user,
+      password reset must exist for a public node, and the phase
+      gate keeps LogMailer the default until staging proves a live
+      send. Three stories: mailer core + address verification,
+      password reset, SMTP arm + moderation notices.
+  - id: e35
+    slug: mail-retention
+    title: "Mail retention — monthly JSONL rollups, drain-ready"
+    wsjf: 6.5
     bcp_total: 8
     delta: ADDED
     note: >
-      (10 + 9 + 8) / (8 / 4) = 13.5. Rate budgets bound cost per
-      IP; CAPTCHA bills human attention per account. Verifier
-      selected by research-first before any code (scope
-      constraint); enforced only when configured, like every
-      other env-shaped feature.
-  - id: e30
-    slug: repo-takedown
-    title: "Repo takedown — reversible refusal on an abuser's content"
-    wsjf: 9.8
-    bcp_total: 13
-    delta: ADDED
-    note: >
-      (12 + 10 + 10) / (13 / 4) = 9.8. Suspension cuts the
-      person; takedown cuts the content. Two stories: web
-      browse wall first (state, action, audit, restore), then
-      both transports at the e22 seams. Owner and operator keep
-      visibility; history untouched.
+      (6 + 3 + 4) / (8 / 4) = 6.5. Score is higher than e34's but
+      the order is a sequencing constraint, not a score error:
+      e35's mail_log half records the sends e34 produces, and its
+      moderation_log half gives the trail e29/e33 write an
+      unbounded home. One story: timestamp-first monthly JSONL at
+      single write points, rotation by write date, optional
+      JJHUB_LOG_DRAIN hook.
 
 bugs:
-  total: 1
-  fixed: 1
+  total: 2
+  fixed: 2
   deferred: 0
   wontfix: 0
   open: 0

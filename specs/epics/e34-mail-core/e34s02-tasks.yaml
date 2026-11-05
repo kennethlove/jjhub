@@ -1,0 +1,39 @@
+story_id: e34s02
+title: "Password reset"
+spec: e34s02-password-reset.md
+status: todo
+bcps: 8
+tasks:
+  - id: e34s02t1
+    description: >
+      RED test: neutral response for known and unknown reset
+      requests, one delivery with a path-form link, 1h expiry,
+      single use, password actually rotates, LogMailer default
+    verify: "cargo test -p server --test reset_mail"
+    risk: P1
+    status: todo
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e34s02t2
+    description: >
+      GREEN: reset request delivered through the mailer,
+      always-identical response, path-form /reset/<token>
+      link, single-use 1h token, mail errors indistinguishable
+    verify: "cargo test -p server --test reset_mail"
+    risk: P1
+    status: todo
+    allure:
+      severity: critical
+      categories: ["security"]
+  - id: e34s02t3
+    description: >
+      gates: fmt, clippy, full preflight suite, build
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: todo
+    allure:
+      severity: minor
+      categories: ["gates"]

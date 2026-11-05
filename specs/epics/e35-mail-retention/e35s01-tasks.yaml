@@ -1,0 +1,40 @@
+story_id: e35s01
+title: "Monthly JSONL rollups at the single write points"
+spec: e35s01-jsonl-retention.md
+status: todo
+bcps: 8
+tasks:
+  - id: e35s01t1
+    description: >
+      RED test: one send = one line in mail_log_YYYY-MM.jsonl,
+      one moderation action = one line in
+      moderation_log_YYYY-MM.jsonl, ts first, rotation by write
+      date, no drain env means file only
+    verify: "cargo test -p server --test jsonl_retention"
+    risk: P2
+    status: todo
+    allure:
+      severity: major
+      categories: ["security"]
+  - id: e35s01t2
+    description: >
+      GREEN: single jsonl writer (structured fields, no free
+      bodies) hooked at Mailer::send and the four moderation
+      INSERT sites, JJHUB_LOG_DIR config
+    verify: "cargo test -p server --test jsonl_retention"
+    risk: P2
+    status: todo
+    allure:
+      severity: major
+      categories: ["security"]
+  - id: e35s01t3
+    description: >
+      gates: fmt, clippy, full preflight suite, build
+    verify: >-
+      cargo fmt --all --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+    risk: P3
+    status: todo
+    allure:
+      severity: minor
+      categories: ["gates"]
