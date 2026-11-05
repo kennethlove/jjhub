@@ -1,7 +1,7 @@
 story_id: e30s02
 title: "taken-down repo refused on smart HTTP and SSH"
 spec: e30s02-takedown-transports.md
-status: planned
+status: passing
 bcps: 5
 tasks:
   - id: e30s02t1
@@ -12,7 +12,7 @@ tasks:
       any git process spawns; an untouched repo behaves as today
     verify: "cargo test -p server --test repo_takedown"
     risk: P0
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -24,7 +24,7 @@ tasks:
       unaffected repos untouched
     verify: "cargo test -p server --test repo_takedown"
     risk: P0
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -34,7 +34,7 @@ tasks:
       and full preflight passes
     verify: "cargo test -p server && cargo fmt --all --check"
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

@@ -237,9 +237,12 @@ impl SshHandler {
                 None,
             )
             .await
-            .map_err(|_| "server error")?;
+            .map_err(|_| "server error")?
+            // fresh rows are never taken down (story e30s02)
+            .map(|(id, owner, vis)| (id, owner, vis, false));
         }
-        let (repo_id, repo_owner, visibility) = resolved.ok_or("repository not found")?;
+        let (repo_id, repo_owner, visibility, taken_down) =
+            resolved.ok_or("repository not found")?;
         // story: e17s02 — receive-pack uses the SAME transport::authorize
         // chain as HTTP smart-http receive; no SSH-specific bypass.
         crate::transport::authorize(
@@ -249,6 +252,7 @@ impl SshHandler {
             &visibility,
             &self.state.pool,
             repo_id,
+            taken_down,
             self.auth.as_ref(),
         )
         .await

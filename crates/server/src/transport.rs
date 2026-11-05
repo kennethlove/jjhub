@@ -192,8 +192,8 @@ pub async fn smart_http(
         }
     }
 
-    let repo: Option<(uuid::Uuid, uuid::Uuid, String)> = sqlx::query_as(
-        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    let repo: Option<(uuid::Uuid, uuid::Uuid, String, bool)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
     .bind(&name)
@@ -225,12 +225,13 @@ pub async fn smart_http(
             )
             .await
             {
-                Ok(repo) => repo,
+                // fresh rows are never taken down (story e30s02)
+                Ok(repo) => repo.map(|(id, owner, vis)| (id, owner, vis, false)),
                 Err(response) => return *response,
             }
         }
     };
-    let Some((repo_id, repo_owner, visibility)) = repo else {
+    let Some((repo_id, repo_owner, visibility, taken_down)) = repo else {
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -241,6 +242,7 @@ pub async fn smart_http(
         &visibility,
         &state.pool,
         repo_id,
+        taken_down,
         user.as_ref(),
     )
     .await
@@ -518,9 +520,9 @@ pub(crate) async fn lookup_repo(
     pool: &sqlx::PgPool,
     owner: &str,
     name: &str,
-) -> Option<(uuid::Uuid, uuid::Uuid, String)> {
+) -> Option<(uuid::Uuid, uuid::Uuid, String, bool)> {
     sqlx::query_as(
-        "SELECT r.id, r.owner_id, r.visibility FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+        "SELECT r.id, r.owner_id, r.visibility, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(owner)
     .bind(name)
@@ -532,6 +534,9 @@ pub(crate) async fn lookup_repo(
 
 // WHY: pub(crate) — ssh.rs runs this exact chain for exec admission:
 // one admission decision for both transports, no SSH-specific bypass.
+// WHY allow: this is the shared admission contract itself; splitting the
+// parameters would re-create the per-transport paths it exists to prevent.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn authorize(
     op: GitOp,
     user: Option<uuid::Uuid>,
@@ -539,10 +544,31 @@ pub(crate) async fn authorize(
     visibility: &str,
     pool: &sqlx::PgPool,
     repo_id: uuid::Uuid,
+    // story: e30s02 — the takedown wall for BOTH transports, decided where
+    // the repo is already resolved. Owner bypass is pure argument (no
+    // query); everyone else needs a live is_operator row, and a lookup
+    // failure fails closed to the wall (Err = HTTP 404, SSH disconnect
+    // before any git process spawns).
+    taken_down: bool,
     // story: e22s02 — scope + pin ride the shared gate for both
     // transports; absent token keeps the anonymous rules below.
     authz: Option<&crate::token::TransportAuth>,
 ) -> Result<(), AuthzError> {
+    if taken_down && !user.is_some_and(|uid| uid == repo_owner) {
+        let operator = match user {
+            Some(uid) => {
+                sqlx::query_scalar::<_, bool>("SELECT is_operator FROM users WHERE id = $1")
+                    .bind(uid)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(false)
+            }
+            None => false,
+        };
+        if !operator {
+            return Err((StatusCode::NOT_FOUND, Vec::new()));
+        }
+    }
     if crate::token::transport_gate(authz, op, Some(repo_id)).is_err() {
         return Err((StatusCode::FORBIDDEN, Vec::new()));
     }

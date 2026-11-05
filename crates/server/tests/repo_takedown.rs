@@ -90,8 +90,8 @@ mod repo_takedown {
         token: &str,
     ) -> axum::response::Response {
         use base64::Engine as _;
-        let credentials = base64::engine::general_purpose::STANDARD
-            .encode(format!("x-access-token:{token}"));
+        let credentials =
+            base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{token}"));
         let request = Request::get(path)
             .header("authorization", format!("Basic {credentials}"))
             .body(Body::empty())
@@ -381,11 +381,14 @@ mod repo_takedown {
         assert_eq!(err, "forbidden");
 
         // owner and operator pass through both transports while it is down
-        let alice_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
-            .fetch_one(&pool)
+        let alice_id: uuid::Uuid =
+            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'alice'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let alice_token = server::token::create(&pool, alice_id, "git")
             .await
-            .unwrap();
-        let alice_token = server::token::create(&pool, alice_id, "git").await.plaintext;
+            .plaintext;
         assert_eq!(
             get_with_token(&pool, &root, upload_refs, &alice_token)
                 .await
@@ -398,11 +401,14 @@ mod repo_takedown {
                 .status(),
             StatusCode::OK
         );
-        let carol_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE handle = 'carol'")
-            .fetch_one(&pool)
+        let carol_id: uuid::Uuid =
+            sqlx::query_scalar("SELECT id FROM users WHERE handle = 'carol'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let carol_token = server::token::create(&pool, carol_id, "git")
             .await
-            .unwrap();
-        let carol_token = server::token::create(&pool, carol_id, "git").await.plaintext;
+            .plaintext;
         assert_eq!(
             get_with_token(&pool, &root, upload_refs, &carol_token)
                 .await
