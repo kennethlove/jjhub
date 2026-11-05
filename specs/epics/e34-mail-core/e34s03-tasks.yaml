@@ -1,7 +1,7 @@
 story_id: e34s03
 title: "SMTP arm and moderation notices"
 spec: e34s03-smtp-and-notices.md
-status: todo
+status: passing
 bcps: 10
 tasks:
   - id: e34s03t1
@@ -12,7 +12,7 @@ tasks:
       or its row; unset provider stays in-box
     verify: "cargo test -p server --test mail_notices"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -24,7 +24,7 @@ tasks:
       best-effort swallow
     verify: "cargo test -p server --test mail_notices"
     risk: P1
-    status: todo
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -37,7 +37,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: todo
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]

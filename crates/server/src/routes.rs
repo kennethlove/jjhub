@@ -2839,6 +2839,38 @@ struct AccountRow {
 #[derive(Deserialize)]
 pub struct ModerationForm {
     target: String,
+    // story: e34s03 — passed straight to the affected account's notice;
+    // the audit row keeps recording target/action only.
+    #[serde(default)]
+    reason: String,
+}
+
+// story: e34s03 — tell the affected account what happened. Best effort:
+// the recorded row stands when the relay is down, and the renderer escapes
+// {{ reason }} as text — operator input is never interpolated into HTML.
+async fn moderation_notice(state: &AppState, target: uuid::Uuid, action: &str, reason: &str) {
+    let Ok(email) = sqlx::query_scalar::<_, String>("SELECT email FROM users WHERE id = $1")
+        .bind(target)
+        .fetch_one(&state.pool)
+        .await
+    else {
+        return;
+    };
+    let headline = match action {
+        "suspend" => "Your account was suspended",
+        "unsuspend" => "Your account is active again",
+        "takedown" => "Your repository was taken down",
+        "restore" => "Your repository is available again",
+        _ => "Your jjhub status changed",
+    };
+    let mut context = page_context(None, "");
+    context.insert("headline", headline);
+    context.insert("action", action);
+    context.insert("reason", reason);
+    let body = crate::render::render("moderation_notice.html", &context);
+    if let Err(err) = state.mailer.send(&email, headline, &body).await {
+        eprintln!("jjhub: moderation notice: {}", err.reason);
+    }
 }
 
 // story: e32s01 — the inflow toggle: close or open, nothing else.
@@ -3072,6 +3104,8 @@ pub async fn suspend_account(
         .execute(&state.pool)
         .await
         .ok();
+        // story: e34s03 — notify only after the row stands.
+        moderation_notice(&state, target_id, "suspend", &form.reason).await;
     }
     (
         StatusCode::SEE_OTHER,
@@ -3115,6 +3149,7 @@ pub async fn unsuspend_account(
         .execute(&state.pool)
         .await
         .ok();
+        moderation_notice(&state, target_id, "unsuspend", &form.reason).await;
     }
     (
         StatusCode::SEE_OTHER,
@@ -3129,6 +3164,9 @@ pub async fn unsuspend_account(
 pub struct TakedownForm {
     pub owner: String,
     pub name: String,
+    // story: e34s03 — carried to the owner's notice, not the audit row.
+    #[serde(default)]
+    pub reason: String,
 }
 
 // story: e30s01 — take a repository down: reversible visibility, never
@@ -3173,6 +3211,8 @@ pub async fn takedown_repo(
         .execute(&state.pool)
         .await
         .ok();
+        // story: e34s03 — the repository's owner hears what happened.
+        moderation_notice(&state, owner_id, "takedown", &form.reason).await;
     }
     (
         StatusCode::SEE_OTHER,
@@ -3222,6 +3262,7 @@ pub async fn takedown_restore(
         .execute(&state.pool)
         .await
         .ok();
+        moderation_notice(&state, owner_id, "restore", &form.reason).await;
     }
     (
         StatusCode::SEE_OTHER,

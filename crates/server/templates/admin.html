@@ -24,6 +24,9 @@ Operators only; the route gate answers 404 for everyone else. #}
         <form method="post" action="/admin/unsuspend">
           <input type="hidden" name="_csrf" value="{{ csrf }}">
           <input type="hidden" name="target" value="{{ a.handle }}">
+          <label class="field"><span>Reason</span>
+            <input type="text" name="reason" placeholder="optional" autocomplete="off">
+          </label>
           <div class="actions">
             <button type="submit" class="btn btn-secondary btn-sm">Unsuspend {{ a.handle }}</button>
           </div>
@@ -32,6 +35,9 @@ Operators only; the route gate answers 404 for everyone else. #}
         <form method="post" action="/admin/suspend">
           <input type="hidden" name="_csrf" value="{{ csrf }}">
           <input type="hidden" name="target" value="{{ a.handle }}">
+          <label class="field"><span>Reason</span>
+            <input type="text" name="reason" placeholder="optional" autocomplete="off">
+          </label>
           <div class="actions">
             <button type="submit" class="btn btn-secondary btn-sm">Suspend {{ a.handle }}</button>
           </div>
@@ -89,6 +95,9 @@ the moderation log below records both flips. #}
           <input type="hidden" name="_csrf" value="{{ csrf }}">
           <input type="hidden" name="owner" value="{{ r.owner }}">
           <input type="hidden" name="name" value="{{ r.name }}">
+          <label class="field"><span>Reason</span>
+            <input type="text" name="reason" placeholder="optional" autocomplete="off">
+          </label>
           <div class="actions">
             <button type="submit" class="btn btn-secondary btn-sm">Restore {{ r.owner }}/{{ r.name }}</button>
           </div>
@@ -98,6 +107,9 @@ the moderation log below records both flips. #}
           <input type="hidden" name="_csrf" value="{{ csrf }}">
           <input type="hidden" name="owner" value="{{ r.owner }}">
           <input type="hidden" name="name" value="{{ r.name }}">
+          <label class="field"><span>Reason</span>
+            <input type="text" name="reason" placeholder="optional" autocomplete="off">
+          </label>
           <div class="actions">
             <button type="submit" class="btn btn-danger btn-sm">Take down {{ r.owner }}/{{ r.name }}</button>
           </div>

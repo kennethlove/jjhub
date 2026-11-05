@@ -31,10 +31,7 @@ impl EnvGuard {
         ];
         // A panicking test must not poison the guard for its peers.
         let lock = ENV.lock().unwrap_or_else(|e| e.into_inner());
-        let saved = KEYS
-            .iter()
-            .map(|k| (*k, std::env::var(k).ok()))
-            .collect();
+        let saved = KEYS.iter().map(|k| (*k, std::env::var(k).ok())).collect();
         for (k, v) in vars {
             std::env::set_var(k, v);
         }
@@ -123,13 +120,6 @@ fn csrf(cookie: &str) -> String {
     )
 }
 
-async fn body_of(response: http::Response<axum::body::Body>) -> String {
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    String::from_utf8_lossy(&bytes).to_string()
-}
-
 async fn post(
     app_: &Router,
     url: &str,
@@ -141,23 +131,12 @@ async fn post(
             axum::extract::Request::builder()
                 .method("POST")
                 .uri(url)
-                .header(http::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .header(
+                    http::header::CONTENT_TYPE,
+                    "application/x-www-form-urlencoded",
+                )
                 .header(http::header::COOKIE, cookie)
                 .body(axum::body::Body::from(form.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap()
-}
-
-async fn get(app_: &Router, url: &str, cookie: &str) -> http::Response<axum::body::Body> {
-    app_.clone()
-        .oneshot(
-            axum::extract::Request::builder()
-                .method("GET")
-                .uri(url)
-                .header(http::header::COOKIE, cookie)
-                .body(axum::body::Body::empty())
                 .unwrap(),
         )
         .await
@@ -188,15 +167,11 @@ async fn register(pool: &sqlx::PgPool, app_: &Router, handle: &str, email: &str)
         "",
     )
     .await;
-    assert_eq!(login.status(), http::StatusCode::SEE_OTHER, "login {handle}");
-}
-
-async fn session_cookie(app_: &Router, handle: &str) -> String {
-    let response = get(app_, &format!("/api/me"), "").await;
-    // Sign in through /login is done by register(); mint a fresh session via
-    // the login route is already covered — reuse the jar from /login instead.
-    let _ = (response, handle);
-    String::new()
+    assert_eq!(
+        login.status(),
+        http::StatusCode::SEE_OTHER,
+        "login {handle}"
+    );
 }
 
 async fn suspend_actions_count(pool: &sqlx::PgPool) -> i64 {
@@ -221,16 +196,8 @@ async fn app(pool: &sqlx::PgPool, recorded: &Recorded) -> (Router, tempfile::Tem
     (app_, root)
 }
 
-async fn make_operator(app_: &Router, cookie: &str) {
-    // alice signs in during register(); the login route stores the session
-    // cookie — recover it from a second login's Set-Cookie header.
-    let _ = (app_, cookie);
-}
-
 #[sqlx::test]
-async fn each_action_notices_affected_user_once_with_escaped_reason(
-    pool: sqlx::PgPool,
-) {
+async fn each_action_notices_affected_user_once_with_escaped_reason(pool: sqlx::PgPool) {
     let recorded = Recorded::new();
     let (app, _root) = app(&pool, &recorded).await;
     register(&pool, &app, "alice", "alice@example.test").await;
@@ -246,7 +213,10 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(
                 axum::extract::Request::builder()
                     .method("POST")
                     .uri("/login")
-                    .header(http::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                    .header(
+                        http::header::CONTENT_TYPE,
+                        "application/x-www-form-urlencoded",
+                    )
                     .body(axum::body::Body::from(format!(
                         "email={email}&password=correct-horse-battery"
                     )))
@@ -323,15 +293,23 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(
     assert_eq!(r4.status(), http::StatusCode::SEE_OTHER, "restore");
 
     let all = recorded.all();
-    let to_bob: Vec<&(String, String, String)> =
-        all.iter().filter(|(to, _, _)| to == "bob@example.test").collect();
-    let to_alice = all.iter().filter(|(to, _, _)| to == "alice@example.test").count();
+    let to_bob: Vec<&(String, String, String)> = all
+        .iter()
+        .filter(|(to, _, _)| to == "bob@example.test")
+        .collect();
+    let to_alice = all
+        .iter()
+        .filter(|(to, _, _)| to == "alice@example.test")
+        .count();
 
     assert_eq!(
         to_bob.len(),
         4,
         "exactly one notice per action to the affected user, got {:?}",
-        to_bob.iter().map(|(_, s, _)| s.as_str()).collect::<Vec<_>>()
+        to_bob
+            .iter()
+            .map(|(_, s, _)| s.as_str())
+            .collect::<Vec<_>>()
     );
     assert_eq!(to_alice, 0, "the operator must not be notified");
 
@@ -339,7 +317,8 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(
     // as live markup.
     for (_, _, body) in &to_bob {
         assert!(
-            body.contains("&lt;b&gt;loud&lt;/b&gt; &amp; clear"),
+            // Tera escapes `/` too: `&lt;&#x2F;b&gt;` decodes to `</b>`.
+            body.contains("&lt;b&gt;loud&lt;&#x2F;b&gt; &amp; clear"),
             "reason not escaped verbatim: {body}"
         );
         assert!(
@@ -427,7 +406,10 @@ async fn a_dead_relay_never_fails_the_action_or_its_row(pool: sqlx::PgPool) {
                 axum::extract::Request::builder()
                     .method("POST")
                     .uri("/login")
-                    .header(http::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                    .header(
+                        http::header::CONTENT_TYPE,
+                        "application/x-www-form-urlencoded",
+                    )
                     .body(axum::body::Body::from(format!(
                         "email={email}&password=correct-horse-battery"
                     )))
@@ -463,8 +445,6 @@ async fn a_dead_relay_never_fails_the_action_or_its_row(pool: sqlx::PgPool) {
         "a dead relay must never fail the action"
     );
     assert_eq!(suspend_actions_count(&pool).await, 1, "the row must stand");
-    assert_eq!(response.status(), http::StatusCode::SEE_OTHER);
-    let _ = body_of(response).await;
 }
 
 #[sqlx::test]

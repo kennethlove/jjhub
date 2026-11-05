@@ -87,6 +87,30 @@ SSH host keys live on the `repo-data` volume at
 `/var/lib/jjhub/host-keys`, so clone fingerprints stay stable across
 redeploys.
 
+## Mail delivery
+
+jjhub's default mailer writes to the server log: verification and reset
+links appear in `docker compose logs`. Set these to relay through an SMTP
+server instead:
+
+```bash
+JJHUB_EMAIL_PROVIDER=smtp   # unset keeps the in-box log mailer
+JJHUB_SMTP_HOST=
+JJHUB_SMTP_PORT=587
+JJHUB_SMTP_USERNAME=
+JJHUB_SMTP_PASSWORD=
+JJHUB_MAIL_FROM=jjhub@your.domain
+```
+
+The SMTP arm exists only when `JJHUB_EMAIL_PROVIDER=smtp`; unset or an
+unknown value keeps the log mailer. An unreachable relay never fails the
+action that triggered a send — the moderation row stands and the failure
+is logged.
+
+SPF, DKIM, and DMARC are DNS records in your zone. jjhub cannot manage
+them for you; add them for the `JJHUB_MAIL_FROM` domain using the values
+your mail provider publishes (start DMARC with `p=none`).
+
 ## Rate limiting
 
 Token buckets, in memory, off by default. Set `JJHUB_RATE_LIMIT=on`
