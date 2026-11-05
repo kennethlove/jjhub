@@ -51,8 +51,8 @@ pub(crate) async fn visible_repo(
     name: &str,
     jar: &CookieJar,
 ) -> Option<(uuid::Uuid, String)> {
-    let found: (uuid::Uuid, uuid::Uuid, String, String) = sqlx::query_as(
-        "SELECT r.id, r.owner_id, r.visibility, r.trunk FROM repositories r \
+    let found: (uuid::Uuid, uuid::Uuid, String, String, bool) = sqlx::query_as(
+        "SELECT r.id, r.owner_id, r.visibility, r.trunk, (r.taken_down_at IS NOT NULL) FROM repositories r \
          JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(owner)
@@ -61,7 +61,12 @@ pub(crate) async fn visible_repo(
     .await
     .ok()
     .flatten()?;
-    let (repo_id, repo_owner_id, visibility, trunk) = found;
+    let (repo_id, repo_owner_id, visibility, trunk, taken) = found;
+    // story: e30s01 — a taken-down repo is refused to strangers at the
+    // same seam that hides private ones; its owner and any operator pass.
+    if taken && takedown_denies(state, repo_owner_id, jar).await {
+        return None;
+    }
     // story: e11s01 — a private repo is indistinguishable from a missing one
     // to strangers.
     if visibility == "private" && !is_visible_to(state, repo_id, repo_owner_id, jar).await {
@@ -168,4 +173,56 @@ async fn is_visible_to(
             .ok()
             .flatten();
     collaborator.is_some()
+}
+
+// story: e30s01 — the single bypass rule for the takedown wall: the
+// repository's owner and any site operator see a taken-down repo;
+// everyone else, dead sessions and lookup failures included, is refused.
+pub(crate) async fn takedown_denies(
+    state: &AppState,
+    repo_owner_id: uuid::Uuid,
+    jar: &CookieJar,
+) -> bool {
+    let Some(cookie) = jar.get(crate::session::SESSION_COOKIE) else {
+        return true;
+    };
+    let Some(user_id) = crate::session::verify(&state.session_secret, cookie.value()) else {
+        return true;
+    };
+    if user_id == repo_owner_id {
+        return false;
+    }
+    let operator = sqlx::query_scalar::<_, bool>("SELECT is_operator FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or(false);
+    // fail closed: an error on the operator lookup counts as "denied".
+    !operator
+}
+
+// story: e30s01 — the takedown wall for filesystem-first browse
+// resolvers (tree/blob): resolve owner + taken-down by handle/name and
+// refuse strangers when taken. A repo with no database row falls
+// through to the filesystem's own existence check, exactly as before.
+pub(crate) async fn wall_taken_down(
+    state: &AppState,
+    owner: &str,
+    name: &str,
+    jar: &CookieJar,
+) -> bool {
+    let row: Option<(uuid::Uuid, bool)> = sqlx::query_as(
+        "SELECT r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r \
+         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((owner_id, taken)) = row else {
+        return false;
+    };
+    taken && takedown_denies(state, owner_id, jar).await
 }

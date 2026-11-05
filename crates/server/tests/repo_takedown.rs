@@ -166,9 +166,7 @@ mod repo_takedown {
     }
 
     #[sqlx::test]
-    async fn taken_down_repo_hides_from_strangers_but_not_owner_or_operator(
-        pool: sqlx::PgPool,
-    ) {
+    async fn taken_down_repo_hides_from_strangers_but_not_owner_or_operator(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let alice = register(&pool, &root, "alice").await;
         let bob = register(&pool, &root, "bob").await;
@@ -182,7 +180,23 @@ mod repo_takedown {
             StatusCode::OK
         );
         assert_eq!(
-            get(&pool, &root, "/alice/doxrepo", Some(&bob)).await.status(),
+            get(&pool, &root, "/alice/doxrepo", Some(&bob))
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        // the tree resolver on an empty repo answers "unknown revision"
+        // (filesystem check); the MR list renders. Both give the wall
+        // something other than the wall's own 404 to distinguish from.
+        let before = body_of(get(&pool, &root, "/alice/doxrepo/tree/trunk", None).await).await;
+        assert!(
+            before.contains("unknown revision"),
+            "baseline tree: {before}"
+        );
+        assert_eq!(
+            get(&pool, &root, "/alice/doxrepo/merge-requests", None)
+                .await
+                .status(),
             StatusCode::OK
         );
 
@@ -196,6 +210,7 @@ mod repo_takedown {
             "/alice/doxrepo",
             "/alice/doxrepo/search",
             "/alice/doxrepo/operations",
+            "/alice/doxrepo/merge-requests",
         ] {
             assert_eq!(
                 get(&pool, &root, path, None).await.status(),
@@ -208,14 +223,31 @@ mod repo_takedown {
                 "stranger {path} must be refused"
             );
         }
+        // the tree resolver's refusal comes from the wall, not the
+        // filesystem: its answer changes when the wall goes up
+        let after = body_of(get(&pool, &root, "/alice/doxrepo/tree/trunk", None).await).await;
+        assert!(
+            after.contains("repository not found") && !after.contains("unknown revision"),
+            "tree must answer with the wall's 404: {after}"
+        );
 
         // owner and operator still see it
         assert_eq!(
-            get(&pool, &root, "/alice/doxrepo", Some(&alice)).await.status(),
+            get(&pool, &root, "/alice/doxrepo", Some(&alice))
+                .await
+                .status(),
             StatusCode::OK
         );
         assert_eq!(
-            get(&pool, &root, "/alice/doxrepo", Some(&carol)).await.status(),
+            get(&pool, &root, "/alice/doxrepo", Some(&carol))
+                .await
+                .status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            get(&pool, &root, "/alice/doxrepo/merge-requests", Some(&carol))
+                .await
+                .status(),
             StatusCode::OK
         );
 

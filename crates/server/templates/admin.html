@@ -70,6 +70,47 @@ Operators only; the route gate answers 404 for everyone else. #}
 {% endif %}
   </div>
 </section>
+{# story: e30s01 — reversible takedown: one action per repository row;
+the moderation log below records both flips. #}
+<h2>Repositories</h2>
+<section class="panel" aria-labelledby="repos-heading">
+  <div class="panel-head">
+    <h2 id="repos-heading" class="panel-title">Repositories</h2>
+  </div>
+  <div class="panel-body">
+{% if repositories %}
+    <ul class="account-list">
+{% for r in repositories %}
+      <li class="account-row">
+        <span class="account-handle">{{ r.owner }}/{{ r.name }}</span>
+{% if r.taken %}
+        <span class="pill pill-suspended">taken down</span>
+        <form method="post" action="/admin/takedown/restore">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="hidden" name="owner" value="{{ r.owner }}">
+          <input type="hidden" name="name" value="{{ r.name }}">
+          <div class="actions">
+            <button type="submit" class="btn btn-secondary btn-sm">Restore {{ r.owner }}/{{ r.name }}</button>
+          </div>
+        </form>
+{% else %}
+        <form method="post" action="/admin/takedown">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="hidden" name="owner" value="{{ r.owner }}">
+          <input type="hidden" name="name" value="{{ r.name }}">
+          <div class="actions">
+            <button type="submit" class="btn btn-danger btn-sm">Take down {{ r.owner }}/{{ r.name }}</button>
+          </div>
+        </form>
+{% endif %}
+      </li>
+{% endfor %}
+    </ul>
+{% else %}
+    <p class="log-empty">No repositories yet.</p>
+{% endif %}
+  </div>
+</section>
 {# story: e33s01 — the moderation log: the append-only record the
 console and transports already write, newest first, filterable,
 exportable. Operators only; the route gate answers 404 for others. #}

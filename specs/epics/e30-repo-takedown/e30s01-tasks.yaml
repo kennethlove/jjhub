@@ -1,7 +1,7 @@
 story_id: e30s01
 title: "operator takes a repo down; visitor refused; restore works"
 spec: e30s01-takedown-web.md
-status: planned
+status: passing
 bcps: 8
 tasks:
   - id: e30s01t1
@@ -14,7 +14,7 @@ tasks:
       (404)
     verify: "cargo test -p server --test repo_takedown"
     risk: P0
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -27,7 +27,7 @@ tasks:
       flip
     verify: "cargo test -p server --test repo_takedown"
     risk: P0
-    status: planned
+    status: passing
     allure:
       severity: critical
       categories: ["security"]
@@ -40,7 +40,7 @@ tasks:
       cargo fmt --all --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
     risk: P3
-    status: planned
+    status: passing
     allure:
       severity: minor
       categories: ["gates"]
