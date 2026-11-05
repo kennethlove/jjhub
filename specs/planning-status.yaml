@@ -1,54 +1,57 @@
-# discover-phase checklist for the v0.5.0 planning cycle — run-planning
+# discover-phase checklist for the v0.6.0 planning cycle — run-planning
 context_capsule:
-  written_at: "2026-11-03"
+  written_at: "2026-11-05"
   written_by: run-planning
-  feature_name: "jjhub v0.5.0 — operator moderation"
+  feature_name: "jjhub v0.6.0 — moderation follow-through"
 workflows:
   survey-context:
     required: true
     status: done
     note: >
-      v0.4.0 shipped (#61–#74, released); the public-node viability
-      gap (no way to refuse an abuser) was the only unshipped
-      blocker from the vision review.
+      v0.5.0 shipped (#75–#81, released); the four remaining public-node
+      gaps — no takedown, open CAPTCHA-free registration, no registration
+      switch, unreadable audit trail — became this cycle's scope.
   scope-work:
     required: true
     status: done
     note: >
-      Interview chose site-level operator moderation; per-owner
-      blocklists rejected (one suspension covers every authenticated
-      surface). v0.4.0 scope snapshotted to
-      specs/product/snapshots/SCOPE-v0.4.0-2026-11-03.yaml.
+      v0.5.0 scope snapshotted to
+      specs/product/snapshots/SCOPE-v0.5.0-2026-11-03.yaml; the v0.6.0
+      scope held four epics (e30 repo takedown, e31 CAPTCHA, e32 closing
+      registration, e33 audit export) with multi-tier roles and appeals
+      mail left out on purpose.
   research-first:
     required: true
     status: done
     note: >
-      Reuse the e22 authenticate seam for transport refusal; no new
-      crate dependency; russh Auth::Reject semantics confirmed from
-      source before the SSH test was written.
+      CAPTCHA prior art recorded before code: Cloudflare Turnstile
+      chosen (recaptcha/hcaptcha rejected on tracking/ads, proof-of-work
+      rejected as an arms race); no new crate (reqwest already present);
+      the transport authorize seam confirmed from source before e30s02.
   elaborate-spec:
     required: true
     status: done
     note: >
-      Decisions recorded: bootstrap = env JJHUB_OPERATOR=<handle> OR
-      users.is_operator (user); surface = site-level /admin page
-      (user); enforcement only where identity is already checked.
+      Capsules written: specs/epics/e30-repo-takedown/ (web + transports
+      stories), e31-captcha-signup/, e32-closing-registration/,
+      e33-moderation-audit-export/.
   plan-release:
     required: true
     status: done
     note: >
-      v0.5.0 index written with 1 epic (e29 WSJF 12.9); capsule
-      specs/epics/e29-operator-moderation/ (epic + 2 stories + tasks).
+      v0.6.0 index written with 4 epics in WSJF order (e32 20.8, e33 15.2,
+      e31 13.5, e30 9.8); e32→e33→e31→e30 shipped in that order.
   slice-tasks:
     required: true
     status: done
     note: >
-      e29s01 web lockout (designation, /admin, session/login walls,
-      audit) and e29s02 transport refusal (token authenticate seam).
+      Stories: e32s01 one-settings-row toggle, e33s01 log + CSV twin,
+      e31s01 configured-CAPTCHA refusal, e30s01 web wall + e30s02
+      transport wall.
   plan-work:
     required: true
     status: done
     note: >
-      Task specs written with RED/GREEN/verify per story; both
-      stories passing; shipped via PR #80, closeout #81. Cycle
-      complete — next cycle starts at scope-work.
+      Task specs written with RED/GREEN/verify per story; all passing;
+      shipped via PRs #85–#91. Cycle complete — next cycle starts at
+      scope-work for v0.7.0 mail operations.

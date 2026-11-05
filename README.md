@@ -20,13 +20,18 @@ browsing, protected-ref enforcement on push, protected-ref configuration in
 the Operations panel, email confirmation and password reset, rate limiting
 (off by default), personal access tokens (mint, regenerate-rotate, revoke),
 token permissions (scopes, expiry, repo pin, allowlist), account preferences
-(profile, password, account deletion), and operator moderation — suspend and
+(profile, password, account deletion), operator moderation — suspend and
 unsuspend abusers across the web UI, smart HTTP, and SSH from a site-level
-`/admin` console.
+`/admin` console — moderation follow-through (repo takedown with restore
+refused everywhere but the owner and operator, CAPTCHA on signup,
+registration that closes from the same console, and a filterable
+moderation log with CSV export), and SMTP relay configuration for the
+mail that is coming.
 
-Next up (v0.6.0, being scoped): moderation follow-through — repo
-takedown, CAPTCHA on signup, closing registration, and a readable
-moderation audit export.
+Next up (v0.7.0, being scoped): mail operations — address-verification
+and password-reset links plus moderation notices from one
+protocol-generic transport, with delivery as the phase gate and
+secrets kept out of every log.
 
 ## Development
 

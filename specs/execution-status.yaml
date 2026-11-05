@@ -153,3 +153,20 @@ epics:
     stories:
       e29s01: passing
       e29s02: passing
+  e30-repo-takedown:
+    status: passing
+    stories:
+      e30s01: passing
+      e30s02: passing
+  e31-captcha-signup:
+    status: passing
+    stories:
+      e31s01: passing
+  e32-closing-registration:
+    status: passing
+    stories:
+      e32s01: passing
+  e33-moderation-audit-export:
+    status: passing
+    stories:
+      e33s01: passing
