@@ -110,22 +110,23 @@ jobs:
             "https://github.com/jj-vcs/jj/releases/download/v$V/$NAME.tar.gz"
           sudo tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
       # kata-server builds outside this repo, so it gets its own cache
-      # slot keyed on the compose pin — the pin is the only input that
+      # slot keyed on the Dockerfile pin — the pin is the only input that
       # changes it
       # WHY: clone before the cache restore (BUG-001) — a cache hit
       # pre-creates the workspace dir and git clone refuses a non-empty
       # destination; the restore then extracts target/ over the checkout.
-      - name: Clone kata sidecar at the compose-pinned commit
+      - name: Clone kata sidecar at the pinned commit
         run: |
-          PIN='s/.*KATA_COMMIT: ${KATA_COMMIT:-\([0-9a-f]\{40\}\)}.*/\1/p'
-          KATA_COMMIT=$(sed -n "$PIN" docker-compose.yml)
+          bash scripts/check-kata-pin.sh
+          PIN='s/.*KATA_COMMIT:-\([0-9a-f]\{40\}\).*/\1/p'
+          KATA_COMMIT=$(sed -n "$PIN" Dockerfile.kata)
           git clone --quiet https://github.com/martint/kata.git \
             "$RUNNER_TEMP/kata"
           git -C "$RUNNER_TEMP/kata" checkout --quiet "$KATA_COMMIT"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "${{ runner.temp }}/kata"
-          key: kata-${{ hashFiles('docker-compose.yml') }}
+          key: kata-${{ hashFiles('Dockerfile.kata') }}
       - name: Build kata sidecar
         env:
           KATA_SKIP_WEB_BUILD: "1"

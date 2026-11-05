@@ -8,3 +8,11 @@ bugs:
     severity: high
     status: fixed
     fix: "PR 35 — cache restore moved after clone; merged as bd34df9c"
+  - id: BUG-002
+    title: >-
+      Coolify deploy fails — kata build receives empty KATA_COMMIT
+      build-arg
+    scope: deploy
+    severity: high
+    status: open
+    file: "specs/bugs/BUG-002-kata-commit-empty-build-arg.md"
