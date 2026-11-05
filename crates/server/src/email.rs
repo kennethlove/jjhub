@@ -106,7 +106,80 @@ pub fn from_env() -> Box<dyn Mailer> {
                 from,
             })
         }
+        // story: e34s03 — the relay arm exists ONLY on this explicit opt-in;
+        // unset and unknown providers keep the in-box LogMailer.
+        Ok("smtp") => Box::new(SmtpMailer::from_env()),
         _ => Box::new(LogMailer),
+    }
+}
+
+/// story: e34s03 — SMTP transport configured by JJHUB_SMTP_* env only.
+pub struct SmtpMailer {
+    host: String,
+    port: u16,
+    username: String,
+    password: String,
+    from: String,
+}
+
+impl SmtpMailer {
+    fn from_env() -> Self {
+        SmtpMailer {
+            host: std::env::var("JJHUB_SMTP_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
+            port: std::env::var("JJHUB_SMTP_PORT")
+                .ok()
+                .and_then(|port| port.parse().ok())
+                .unwrap_or(587),
+            username: std::env::var("JJHUB_SMTP_USERNAME").unwrap_or_default(),
+            password: std::env::var("JJHUB_SMTP_PASSWORD").unwrap_or_default(),
+            from: std::env::var("JJHUB_MAIL_FROM").unwrap_or_else(|_| "jjhub@localhost".into()),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl Mailer for SmtpMailer {
+    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+        use lettre::transport::smtp::authentication::Credentials;
+        use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
+
+        let relay = AsyncSmtpTransport::<Tokio1Executor>::relay(&self.host)
+            .map_err(|err| MailError {
+                reason: format!("smtp relay: {err}"),
+            })?
+            .port(self.port);
+        let relay = if self.username.is_empty() {
+            relay.build()
+        } else {
+            relay
+                .credentials(Credentials::new(
+                    self.username.clone(),
+                    self.password.clone(),
+                ))
+                .build()
+        };
+        let message = lettre::message::Message::builder()
+            .from(
+                self.from
+                    .parse::<lettre::message::Mailbox>()
+                    .map_err(|err| MailError {
+                        reason: format!("smtp from: {err}"),
+                    })?,
+            )
+            .to(to
+                .parse::<lettre::message::Mailbox>()
+                .map_err(|err| MailError {
+                    reason: format!("smtp to: {err}"),
+                })?)
+            .subject(subject)
+            .body(body.to_string())
+            .map_err(|err| MailError {
+                reason: format!("smtp message: {err}"),
+            })?;
+        relay.send(message).await.map_err(|err| MailError {
+            reason: format!("smtp send: {err}"),
+        })?;
+        Ok(())
     }
 }
 

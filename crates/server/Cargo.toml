@@ -32,6 +32,9 @@ jj-lib = "0.41"
 axum-extra = { version = "0.10", features = ["cookie"] }
 base64 = "0.22"
 serde_json = "1"
+# WHY: lettre — de-facto standard SMTP client, recorded as prior art in
+# specs/requirements/MAIL-LATEST.md (phase 3); rustls only, no OpenSSL.
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls"] }
 # WHY: russh — story e17s01 needs an in-process SSH server; the stdlib
 # has no SSH and OpenSSH sshd cannot consult the token table.
 russh = "0.64.1"

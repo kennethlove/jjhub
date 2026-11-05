@@ -33,6 +33,10 @@ fn engine() -> &'static Tera {
                 include_str!("../templates/verify_sent.html"),
             ),
             (
+                "moderation_notice.html",
+                include_str!("../templates/moderation_notice.html"),
+            ),
+            (
                 "login_card.html",
                 include_str!("../templates/login_card.html"),
             ),
