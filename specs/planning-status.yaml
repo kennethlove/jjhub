@@ -22,22 +22,22 @@ workflows:
       providers). Multi-tier roles and inbound mail stay out.
   research-first:
     required: true
-    status: pending
+    status: done
     note: >
-      Next: SMTP client crate decision (lettere vs alternatives) and
-      mail-provider protocol research, recorded before any code.
+      Recorded in e34s01 Prior Art: lettre (rustls) for SMTP; no
+      provider enum — protocol-generic over SMTP by design.
   elaborate-spec:
     required: true
-    status: pending
+    status: done
   plan-release:
     required: true
-    status: pending
+    status: done
     note: >
       v0.7.0 index with the mail epic(s) and capsules under
       specs/epics/e34-*/.
   slice-tasks:
     required: true
-    status: pending
+    status: done
   plan-work:
     required: true
-    status: pending
+    status: done
