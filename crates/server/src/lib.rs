@@ -250,6 +250,8 @@ fn app_from_state(state: AppState) -> Router {
         .route("/admin/registration", post(routes::set_registration))
         .route("/admin/suspend", post(routes::suspend_account))
         .route("/admin/unsuspend", post(routes::unsuspend_account))
+        .route("/admin/takedown", post(routes::takedown_repo))
+        .route("/admin/takedown/restore", post(routes::takedown_restore))
         .route(
             "/{owner}/{name}/settings/collaborators",
             post(routes::manage_collaborators),

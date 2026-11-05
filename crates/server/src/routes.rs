@@ -1143,8 +1143,8 @@ pub async fn repo_page(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("localhost:3000")
         .to_string();
-    let repo: Option<(uuid::Uuid, String, String)> = sqlx::query_as(
-        "SELECT r.id, r.visibility, r.trunk FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
+    let repo: Option<(uuid::Uuid, String, String, uuid::Uuid, bool)> = sqlx::query_as(
+        "SELECT r.id, r.visibility, r.trunk, r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
     .bind(&name)
@@ -1153,9 +1153,14 @@ pub async fn repo_page(
     .ok()
     .flatten();
 
-    let Some((repo_id, visibility, trunk)) = repo else {
+    let Some((repo_id, visibility, trunk, owner_id, taken)) = repo else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
+    // story: e30s01 — the takedown wall: one bypass rule (owner or
+    // operator) regardless of which browse surface resolved the repo.
+    if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
 
     // story: e10s02 — the settings listing shares the push gate's resolver;
     // display and enforcement can never diverge
@@ -1630,8 +1635,8 @@ pub async fn merge_requests_page(
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
     jar: CookieJar,
 ) -> Response {
-    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
-        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+    let repo: Option<(uuid::Uuid, uuid::Uuid, bool)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id \
          WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
@@ -1640,9 +1645,13 @@ pub async fn merge_requests_page(
     .await
     .ok()
     .flatten();
-    let Some((repo_id,)) = repo else {
+    let Some((repo_id, owner_id, taken)) = repo else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
+    // story: e30s01 — takedown wall at this surface's own resolver.
+    if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
 
     let mrs = match crate::stack::open_mrs(&state.pool, repo_id).await {
         Ok(mrs) => mrs,
@@ -1726,8 +1735,8 @@ pub async fn mr_detail_page(
     if !change_id.chars().all(|c| c.is_ascii_alphabetic()) {
         return (StatusCode::NOT_FOUND, "merge request not found").into_response();
     }
-    let repo: Option<(uuid::Uuid,)> = sqlx::query_as(
-        "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id \
+    let repo: Option<(uuid::Uuid, uuid::Uuid, bool)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id \
          WHERE u.handle = $1 AND r.name = $2",
     )
     .bind(&owner)
@@ -1736,9 +1745,13 @@ pub async fn mr_detail_page(
     .await
     .ok()
     .flatten();
-    let Some((repo_id,)) = repo else {
+    let Some((repo_id, owner_id, taken)) = repo else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
+    // story: e30s01 — takedown wall at this surface's own resolver.
+    if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
     let mr: Option<(uuid::Uuid, String)> = sqlx::query_as(
         "SELECT id, state FROM merge_requests WHERE repo_id = $1 AND change_id = $2",
     )
@@ -2346,16 +2359,18 @@ pub async fn home(State(state): State<AppState>, jar: CookieJar) -> Response {
 pub async fn tree_root(
     State(state): State<AppState>,
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
+    jar: CookieJar,
 ) -> Response {
-    render_tree(state, owner, name, "trunk".to_string(), String::new()).await
+    render_tree(state, owner, name, "trunk".to_string(), String::new(), jar).await
 }
 
 // story: e07s01 — directory listing at ref+path.
 pub async fn tree_page(
     State(state): State<AppState>,
     axum::extract::Path((owner, name, git_ref)): axum::extract::Path<(String, String, String)>,
+    jar: CookieJar,
 ) -> Response {
-    render_tree(state, owner, name, git_ref, String::new()).await
+    render_tree(state, owner, name, git_ref, String::new(), jar).await
 }
 
 // story: e07s01 — directory listing at ref+path.
@@ -2367,8 +2382,9 @@ pub async fn tree_page_at(
         String,
         String,
     )>,
+    jar: CookieJar,
 ) -> Response {
-    render_tree(state, owner, name, git_ref, path).await
+    render_tree(state, owner, name, git_ref, path, jar).await
 }
 
 async fn render_tree(
@@ -2377,7 +2393,13 @@ async fn render_tree(
     name: String,
     git_ref: String,
     path: String,
+    jar: CookieJar,
 ) -> Response {
+    // story: e30s01 — takedown wall: this resolver checks the filesystem
+    // first, so the database wall must run before it.
+    if crate::revsets::wall_taken_down(&state, &owner, &name, &jar).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
     if !bare.join("HEAD").exists() {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
@@ -2480,7 +2502,12 @@ pub async fn blob_page(
         String,
         String,
     )>,
+    jar: CookieJar,
 ) -> Response {
+    // story: e30s01 — takedown wall before the filesystem resolver.
+    if crate::revsets::wall_taken_down(&state, &owner, &name, &jar).await {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
     if !bare.join("HEAD").exists() {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
@@ -2787,6 +2814,14 @@ async fn moderation_log_rows(pool: &sqlx::PgPool, action: &str, target: &str) ->
     .unwrap_or_default()
 }
 
+// story: e30s01 — one repository row for the console's takedown panel.
+#[derive(serde::Serialize, Clone)]
+pub struct RepoRow {
+    pub owner: String,
+    pub name: String,
+    pub taken: bool,
+}
+
 // story: e29s01 — the site-level console. Non-operators get 404: the
 // surface does not exist for them.
 pub async fn admin_page(
@@ -2821,6 +2856,20 @@ pub async fn admin_page(
     // story: e32s01 — the toggle's current state rides the console page
     let closed = registration_closed(&state.pool).await;
     context.insert("registration_closed", &closed);
+    // story: e30s01 — the console's repository list drives the
+    // takedown/restore forms
+    let repo_rows: Vec<(String, String, bool)> = sqlx::query_as(
+        "SELECT u.handle, r.name, (r.taken_down_at IS NOT NULL) FROM repositories r \
+         JOIN users u ON u.id = r.owner_id ORDER BY u.handle, r.name LIMIT 200",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    let repositories: Vec<RepoRow> = repo_rows
+        .into_iter()
+        .map(|(owner, name, taken)| RepoRow { owner, name, taken })
+        .collect();
+    context.insert("repositories", &repositories);
     // story: e33s01 — the log rides the console page, filtered and exportable
     let action = filters.action.unwrap_or_default();
     let target = filters.target.unwrap_or_default();
@@ -2951,6 +3000,113 @@ pub async fn unsuspend_account(
         )
         .bind(current.0)
         .bind(target_id)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/admin".to_string())],
+    )
+        .into_response()
+}
+
+// story: e30s01 — takedown form fields: which repository, nothing else;
+// the CSRF token is checked by the route layer before this parses.
+#[derive(serde::Deserialize)]
+pub struct TakedownForm {
+    pub owner: String,
+    pub name: String,
+}
+
+// story: e30s01 — take a repository down: reversible visibility, never
+// deletion. The moderation row records actor (operator), target (the
+// repo's owner), and action; the rows/refs/history never change.
+pub async fn takedown_repo(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<TakedownForm>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let repo: Option<(uuid::Uuid, uuid::Uuid)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&form.owner)
+    .bind(&form.name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, owner_id)) = repo else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    let changed = sqlx::query(
+        "UPDATE repositories SET taken_down_at = now() WHERE id = $1 AND taken_down_at IS NULL",
+    )
+    .bind(repo_id)
+    .execute(&state.pool)
+    .await
+    .map(|result| result.rows_affected() == 1)
+    .unwrap_or(false);
+    if changed {
+        sqlx::query(
+            "INSERT INTO moderation_actions (actor_id, target_id, action) \
+             VALUES ($1, $2, 'takedown')",
+        )
+        .bind(current.0)
+        .bind(owner_id)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
+    (
+        StatusCode::SEE_OTHER,
+        [(header::LOCATION, "/admin".to_string())],
+    )
+        .into_response()
+}
+
+// story: e30s01 — restore is the mirror of takedown: clear the column,
+// record the row. Same one bypass rule keeps the two halves honest.
+pub async fn takedown_restore(
+    State(state): State<AppState>,
+    axum::extract::Extension(current): axum::extract::Extension<crate::CurrentUser>,
+    Form(form): Form<TakedownForm>,
+) -> Response {
+    if !is_operator(&state.pool, current.0).await {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    }
+    let repo: Option<(uuid::Uuid, uuid::Uuid)> = sqlx::query_as(
+        "SELECT r.id, r.owner_id FROM repositories r JOIN users u ON u.id = r.owner_id \
+         WHERE u.handle = $1 AND r.name = $2",
+    )
+    .bind(&form.owner)
+    .bind(&form.name)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    let Some((repo_id, owner_id)) = repo else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    let changed = sqlx::query(
+        "UPDATE repositories SET taken_down_at = NULL WHERE id = $1 AND taken_down_at IS NOT NULL",
+    )
+    .bind(repo_id)
+    .execute(&state.pool)
+    .await
+    .map(|result| result.rows_affected() == 1)
+    .unwrap_or(false);
+    if changed {
+        sqlx::query(
+            "INSERT INTO moderation_actions (actor_id, target_id, action) \
+             VALUES ($1, $2, 'restore')",
+        )
+        .bind(current.0)
+        .bind(owner_id)
         .execute(&state.pool)
         .await
         .ok();
