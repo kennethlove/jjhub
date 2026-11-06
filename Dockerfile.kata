@@ -26,7 +26,10 @@ RUN git clone --quiet "${KATA_REPO}" /src \
 FROM oven/bun:1.3 AS frontend
 WORKDIR /web
 COPY --from=source /src/web/package.json /src/web/bun.lock ./
-RUN bun install --frozen-lockfile
+# WHY: cache mounts — dep installs and dep builds survive across builds on
+# this builder; without them every deploy recompiles the world.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 COPY --from=source /src/web ./
 RUN bun run build
 
@@ -36,7 +39,12 @@ COPY --from=source /src /src
 COPY --from=frontend /web/dist /src/web/dist
 WORKDIR /src
 ENV KATA_SKIP_WEB_BUILD=1
-RUN cargo build --release -p kata-server \
+# WHY: same cache mounts as the app Dockerfile — the cached target dir is
+# copied out (/kata) before the stage ends since mount contents never
+# land in a layer.
+RUN --mount=type=cache,target=/src/target \
+    --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo build --release -p kata-server \
  && cp target/release/kata /kata
 
 FROM debian:bookworm-slim
