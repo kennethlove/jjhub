@@ -240,7 +240,7 @@ pub async fn register(
         return session_response(&state, user_id, "/token-details");
     }
     let verification_token = crate::email::send_verification(&state.pool, user_id).await;
-    if state
+    if let Err(err) = state
         .mailer
         .send(
             &email,
@@ -248,13 +248,10 @@ pub async fn register(
             &crate::email::verify_link(&verification_token.token),
         )
         .await
-        .is_err()
     {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "could not send confirmation email",
-        )
-            .into_response();
+        // story: e36s01 — a dead send path answers the page, never a 500;
+        // the readout records the failure (e36s02 adds the retry text).
+        eprintln!("jjhub: signup verification send failed: {}", err.reason);
     }
 
     // story: e23s01 — no session before the click; the one-time
@@ -3022,6 +3019,9 @@ pub async fn admin_page(
     context.insert("modlog_rows", &modlog);
     context.insert("log_action", &action);
     context.insert("log_target", &target);
+    // story: e36s01 — the delivery readout rides the console page
+    let deliveries = crate::retention::recent_mail(10);
+    context.insert("deliveries", &deliveries);
     Html(crate::render::render("admin.html", &context)).into_response()
 }
 

@@ -52,3 +52,40 @@ pub fn append_moderation(action: &str, actor: uuid::Uuid, target: Option<uuid::U
 fn encode(value: &impl serde::Serialize) -> Result<String, serde_json::Error> {
     serde_json::to_string(value)
 }
+
+/// One delivery-readout row for the console (story: e36s01). Lines written
+/// before outcomes existed read back as `unknown`.
+#[derive(serde::Serialize, Clone)]
+pub struct DeliveryLine {
+    pub ts: String,
+    pub recipient: String,
+    pub subject: String,
+    pub outcome: String,
+    pub reason: String,
+}
+
+/// The most recent `limit` mail_log lines from the current month's file,
+/// oldest first. The file is the readout's source — one write point, one
+/// fact.
+pub fn recent_mail(limit: usize) -> Vec<DeliveryLine> {
+    let dir = std::path::PathBuf::from(
+        std::env::var("JJHUB_LOG_DIR").unwrap_or_else(|_| "data/logs".to_string()),
+    );
+    let path = dir.join(format!("mail_log_{}.jsonl", Utc::now().format("%Y-%m")));
+    let Ok(contents) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let rows: Vec<DeliveryLine> = contents
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .map(|value| DeliveryLine {
+            ts: value["ts"].as_str().unwrap_or_default().to_string(),
+            recipient: value["to"].as_str().unwrap_or_default().to_string(),
+            subject: value["subject"].as_str().unwrap_or_default().to_string(),
+            outcome: value["outcome"].as_str().unwrap_or("unknown").to_string(),
+            reason: value["reason"].as_str().unwrap_or_default().to_string(),
+        })
+        .collect();
+    rows.into_iter().rev().take(limit).rev().collect()
+}

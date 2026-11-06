@@ -170,6 +170,38 @@ exportable. Operators only; the route gate answers 404 for others. #}
 {% endif %}
   </div>
 </section>
+{# story: e36s01 — the delivery readout: recent mail_log lines with the
+  send's outcome, straight from the single write point. Operators only
+  with the rest of the console. #}
+<h2>Recent deliveries</h2>
+<section class="panel" aria-labelledby="deliveries-heading">
+  <div class="panel-head">
+    <h2 id="deliveries-heading" class="panel-title">Recent deliveries</h2>
+  </div>
+  <div class="panel-body">
+{% if deliveries %}
+    <div class="table-wrap">
+      <table class="modlog-table">
+        <thead>
+          <tr><th>When (UTC)</th><th>To</th><th>Subject</th><th>Outcome</th></tr>
+        </thead>
+        <tbody>
+{% for row in deliveries %}
+          <tr>
+            <td class="modlog-time">{{ row.ts }}</td>
+            <td>{{ row.recipient }}</td>
+            <td>{{ row.subject }}</td>
+            <td><span class="pill">{{ row.outcome }}</span>{% if row.reason %} {{ row.reason }}{% endif %}</td>
+          </tr>
+{% endfor %}
+        </tbody>
+      </table>
+    </div>
+{% else %}
+    <p class="log-empty">No deliveries yet.</p>
+{% endif %}
+  </div>
+</section>
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">

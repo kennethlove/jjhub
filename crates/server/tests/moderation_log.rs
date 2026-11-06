@@ -87,9 +87,15 @@ mod moderation_log {
     /// The log section starts at its heading; slicing there keeps
     /// account-list handles from satisfying log assertions.
     fn log_section(body: &str) -> &str {
-        match body.find("Moderation log") {
-            Some(index) => &body[index..],
-            None => body,
+        // e36s01: the console gained a deliveries panel after this one —
+        // slice to the section's close so later panels stay out.
+        let Some(start) = body.find("Moderation log") else {
+            return body;
+        };
+        let rest = &body[start..];
+        match rest.find("</section>") {
+            Some(end) => &rest[..end],
+            None => rest,
         }
     }
 

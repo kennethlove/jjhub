@@ -6,13 +6,13 @@ tasks:
       with reason, success recorded ok, /admin lists recent
       deliveries.
     verify: "cargo test -p server --test delivery_readout"
-    status: todo
+    status: passing
   - id: e36s01t2
     description: >-
       GREEN: record outcome at the single write point; operator
       readout on /admin.
     verify: "cargo test -p server --test delivery_readout"
-    status: todo
+    status: passing
   - id: e36s01t3
     description: >-
       Gates: staging-proof README instructions plus fmt, clippy,
@@ -21,4 +21,4 @@ tasks:
       cargo fmt --all -- --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
       && cargo build
-    status: todo
+    status: passing
