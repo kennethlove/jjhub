@@ -112,6 +112,24 @@ SPF, DKIM, and DMARC are DNS records in your zone. jjhub cannot manage
 them for you; add them for the `JJHUB_MAIL_FROM` domain using the values
 your mail provider publishes (start DMARC with `p=none`).
 
+### Staging proof before you switch it on
+
+The live-mail gate (v0.8.0): prove delivery on a staging relay before
+production traffic depends on it.
+
+1. Point `JJHUB_EMAIL_PROVIDER=smtp` and `JJHUB_SMTP_*` at a staging
+   relay — a real account on any provider that speaks SMTP.
+2. Sign up one test account, then resend from the verify page.
+3. Open `/admin` → **Recent deliveries**: every send shows its outcome
+   (`ok`, or `failed` with the reason). The same lines are in
+   `mail_log_YYYY-MM.jsonl` under `JJHUB_LOG_DIR`.
+4. Suspend a test account to send a moderation notice and confirm its
+   outcome there too.
+
+A dead relay never fails the page that triggered the send; the outcome
+line is the fact you are proving. Keep production on the in-box log
+mailer until this reads `ok`.
+
 ## Rate limiting
 
 Token buckets, in memory, off by default. Set `JJHUB_RATE_LIMIT=on`

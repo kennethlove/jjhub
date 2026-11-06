@@ -60,13 +60,6 @@ impl Drop for EnvGuard {
     }
 }
 
-fn csrf(cookie: &str) -> String {
-    server::session::csrf_token(
-        b"delivery-readout-secret",
-        cookie.strip_prefix("session=").unwrap_or(cookie),
-    )
-}
-
 async fn post(
     app_: &Router,
     url: &str,
@@ -90,11 +83,7 @@ async fn post(
         .unwrap()
 }
 
-async fn get(
-    app_: &Router,
-    url: &str,
-    cookie: &str,
-) -> http::Response<axum::body::Body> {
+async fn get(app_: &Router, url: &str, cookie: &str) -> http::Response<axum::body::Body> {
     let mut builder = axum::extract::Request::builder().method("GET").uri(url);
     if !cookie.is_empty() {
         builder = builder.header(http::header::COOKIE, cookie);
@@ -135,7 +124,11 @@ async fn register(pool: &sqlx::PgPool, app_: &Router, handle: &str, email: &str)
         "",
     )
     .await;
-    assert_eq!(login.status(), http::StatusCode::SEE_OTHER, "login {handle}");
+    assert_eq!(
+        login.status(),
+        http::StatusCode::SEE_OTHER,
+        "login {handle}"
+    );
     login
         .headers()
         .get_all(http::header::SET_COOKIE)

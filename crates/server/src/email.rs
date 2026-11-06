@@ -96,11 +96,25 @@ struct LoggedMailer(Box<dyn Mailer>);
 #[async_trait::async_trait]
 impl Mailer for LoggedMailer {
     async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+        // story: e36s01 — the outcome rides the same line, recorded at the
+        // single write point AFTER the send returns: the readout is the
+        // fact, not the intention. Recipient and subject only, never the
+        // body (bodies carry verification and reset tokens).
+        let result = self.0.send(to, subject, body).await;
         let mut fields = serde_json::Map::new();
         fields.insert("to".into(), to.into());
         fields.insert("subject".into(), subject.into());
+        match &result {
+            Ok(()) => {
+                fields.insert("outcome".into(), "ok".into());
+            }
+            Err(err) => {
+                fields.insert("outcome".into(), "failed".into());
+                fields.insert("reason".into(), err.reason.as_str().into());
+            }
+        }
         let _ = crate::retention::append("mail_log", chrono::Utc::now(), &fields);
-        self.0.send(to, subject, body).await
+        result
     }
 }
 
