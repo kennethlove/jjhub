@@ -1,0 +1,42 @@
+story_id: e36s03
+title: "Staging proof — procedure assertion + recorded staging send"
+spec: e36s03-staging-proof.md
+status: failing
+bcps: 2
+tasks:
+  - id: e36s03t1
+    description: >-
+      Docs-contract test: README staging-proof section exists and
+      names the SMTP env family, the /admin readout, and the
+      keep-log-mailer-until-ok rule.
+    verify: "cargo test -p server --test staging_proof"
+    risk: P3
+    security: none
+    status: passing
+    allure:
+      severity: minor
+      categories: ["docs", "unit"]
+  - id: e36s03t2
+    description: >-
+      Staging send evidence (manual): one real relay send — signup,
+      resend, moderation notice — all outcomes ok on /admin;
+      evidence recorded in the story file and the manual QA queue.
+    verify: "verify-script: e36s03-staging-proof.md § verify-script"
+    risk: P2
+    security: low
+    status: failing
+    allure:
+      severity: normal
+      categories: ["mail", "staging-proof"]
+  - id: e36s03t3
+    description: "Gates: fmt, clippy, tests, build."
+    verify: >-
+      cargo fmt --all -- --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+      && cargo build
+    risk: P3
+    security: none
+    status: passing
+    allure:
+      severity: minor
+      categories: ["gates"]

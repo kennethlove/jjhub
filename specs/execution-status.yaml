@@ -183,5 +183,6 @@ epics:
   e36-live-mail-gate:
     status: todo
     stories:
-      e36s01: todo
-      e36s02: todo
+      e36s01: passing
+      e36s02: passing
+      e36s03: todo

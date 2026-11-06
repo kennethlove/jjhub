@@ -47,17 +47,18 @@ epics:
   - id: e36
     slug: live-mail-gate
     title: "Live-mail gate — delivery readout, clear retry, staging proof"
-    wsjf: 6.6
-    bcp_total: 14
+    wsjf: 5.75
+    bcp_total: 16
     delta: ADDED
     note: >
-      (9 + 7 + 7) / (14 / 4) = 6.6. Closes the phase gate the v0.7.0
+      (9 + 7 + 7) / (16 / 4) = 5.75. Closes the phase gate the v0.7.0
       constraints open: a per-send outcome in the retention lines and
       an operator-facing readout so mail health is a fact on the
       screen, a clear retry when the send path fails on signup or
       resend (reset stays response-neutral), and the staging proof
-      that lets a live relay be configured later. Two stories:
-      delivery readout (8) and signup/resend clear retry (6).
+      that lets a live relay be configured later. Three stories:
+      delivery readout (8), signup/resend clear retry (6), staging
+      proof (2).
 
 bugs:
   total: 2
