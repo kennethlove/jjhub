@@ -59,11 +59,7 @@ fn set_dead_relay() {
     std::env::set_var("JJHUB_SMTP_PORT", "1");
 }
 
-async fn post(
-    app_: &Router,
-    url: &str,
-    form: &str,
-) -> http::Response<axum::body::Body> {
+async fn post(app_: &Router, url: &str, form: &str) -> http::Response<axum::body::Body> {
     app_.clone()
         .oneshot(
             axum::extract::Request::builder()
@@ -225,9 +221,7 @@ async fn failed_resend_shows_a_retry(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test]
-async fn reset_response_is_identical_whether_or_not_the_send_fails(
-    pool: sqlx::PgPool,
-) {
+async fn reset_response_is_identical_whether_or_not_the_send_fails(pool: sqlx::PgPool) {
     let _guard = EnvGuard::hold();
     let email = "reset-neutral@example.test";
 

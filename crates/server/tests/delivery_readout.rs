@@ -203,7 +203,20 @@ async fn failed_send_records_a_failed_outcome_with_reason(pool: sqlx::PgPool) {
     ]);
     let (app, _root) = app_with_env_mailer(&pool);
 
-    register(&pool, &app, "broken", "broken@example.test").await;
+    // Raw post: the contract here is "answers the page, never a 500"
+    // (e36s02 turns that answer into the retry page).
+    let response = post(
+        &app,
+        "/register",
+        "email=broken@example.test&password=correct-horse-battery&password_confirm=correct-horse-battery&_csrf=",
+        "",
+    )
+    .await;
+    assert_ne!(
+        response.status(),
+        http::StatusCode::INTERNAL_SERVER_ERROR,
+        "register must answer the page, never a 500"
+    );
 
     let lines = mail_lines();
     let line = line_for(&lines, "broken@example.test");

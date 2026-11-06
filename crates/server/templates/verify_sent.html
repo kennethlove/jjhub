@@ -5,6 +5,7 @@
 <main class="auth-flow">
 <section id="auth-card" class="auth-card" aria-label="Check your email">
   <h1>Check your email</h1>
+  {% if resend_error %}<p class="alert-error">{{ resend_error }}</p>{% endif %}
   <p>We sent a confirmation link. It works once and expires in 24 hours.</p>
   <form method="post" action="/verify-resend">
     <div class="field">
