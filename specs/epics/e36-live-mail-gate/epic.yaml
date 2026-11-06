@@ -11,3 +11,6 @@ stories:
   - id: e36s02
     name: signup-retry
     business_value_cps: 6
+  - id: e36s03
+    name: staging-proof
+    business_value_cps: 2
