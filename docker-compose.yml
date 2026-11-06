@@ -31,11 +31,17 @@ services:
       JJHUB_SSH_HOST_KEY_DIR: /var/lib/jjhub/host-keys
       # story: e05s03 — the app proxies /review/** to the sidecar
       KATA_UPSTREAM: http://kata:7878
-      # SMTP relay for the v0.7.0 mail arm. Blank = unset = LogMailer dev
-      # arm; no code reads these until the mail arm lands.
+      # mail arm — provider + relay. Blank provider = LogMailer dev arm
+      # (mail lands in the log, not in mailboxes).
+      JJHUB_EMAIL_PROVIDER: ${JJHUB_EMAIL_PROVIDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      JJHUB_MAIL_FROM: ${JJHUB_MAIL_FROM:-}
+      JJHUB_EMAIL_CONFIRM: ${JJHUB_EMAIL_CONFIRM:-}
+      # SMTP relay (provider=smtp). The username var must be
+      # JJHUB_SMTP_USERNAME — that is the name the code reads.
       JJHUB_SMTP_HOST: ${JJHUB_SMTP_HOST:-}
       JJHUB_SMTP_PORT: ${JJHUB_SMTP_PORT:-}
-      JJHUB_SMTP_USER: ${JJHUB_SMTP_USER:-}
+      JJHUB_SMTP_USERNAME: ${JJHUB_SMTP_USERNAME:-}
       JJHUB_SMTP_PASSWORD: ${JJHUB_SMTP_PASSWORD:-}
     volumes:
       - repo-data:/var/lib/jjhub
