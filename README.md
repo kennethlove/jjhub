@@ -25,13 +25,14 @@ unsuspend abusers across the web UI, smart HTTP, and SSH from a site-level
 `/admin` console — moderation follow-through (repo takedown with restore
 refused everywhere but the owner and operator, CAPTCHA on signup,
 registration that closes from the same console, and a filterable
-moderation log with CSV export), and SMTP relay configuration for the
-mail that is coming.
+moderation log with CSV export), and mail operations (path-form
+verification and password-reset links plus a neutral resend from one
+mailer, moderation notices, an env-selected SMTP arm, and month-named
+JSONL rollups that keep secrets out of every line).
 
-Next up (v0.7.0, being scoped): mail operations — address-verification
-and password-reset links plus moderation notices from one
-protocol-generic transport, with delivery as the phase gate and
-secrets kept out of every log.
+Next up (v0.8.0, to be scoped): live mail — proving delivery against
+the phase gate with a staging send and a delivery readout before any
+SMTP default could ship.
 
 ## Development
 

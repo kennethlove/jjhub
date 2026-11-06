@@ -2,6 +2,50 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] - 2026-11-05
+
+The v0.7.0 build: jjhub sends mail. Verification and reset links
+arrive as path-form one-time tokens from one mailer with a neutral
+resend, moderation notices carry every operator action, an explicit
+SMTP arm sits behind env opt-in, and the whole history rolls up into
+month-named JSONL files that never hold a secret. Shipped as PRs
+#94–#97.
+
+### Added
+
+- **Mailer default and neutral resend** (#94): every provider is
+  selected through one `from_env()` with `LogMailer` as the safe
+  default for unset and unknown values, and an unauthenticated resend
+  endpoint answers identically for known and unknown addresses with a
+  60-second cooldown keyed by a hashed address — mail failure never
+  surfaces a 500
+- **Password reset through the mailer** (#95): requesting a reset
+  always returns the same neutral response and delivers the link
+  through the mailer instead of the server log; the token is
+  single-use, expires in an hour, and after rotation the old password
+  fails while the new one passes
+- **Moderation notices** (#96): suspend, unsuspend, takedown, and
+  restore each email the affected user once, after the audit row
+  stands, with the operator's reason rendered as escaped text; an
+  unreachable relay never fails the action or its row
+- **SMTP arm behind explicit env** (#96): `JJHUB_EMAIL_PROVIDER=smtp`
+  plus `JJHUB_SMTP_*` selects a lettre (rustls) relay — proven without
+  a mail server — and the README gains a Mail delivery deploy section
+  with the env table and the SPF/DKIM/DMARC note
+- **Monthly JSONL rollups** (#97): every send appends one
+  timestamp-first line to `mail_log_YYYY-MM.jsonl` and every moderation
+  row one to `moderation_log_YYYY-MM.jsonl` under `JJHUB_LOG_DIR`,
+  month named from the write date; only structured fields are written,
+  so tokens never reach the log, and no drain code ships — the file is
+  the contract
+
+### Changed
+
+- **Verification and reset links are path-form** (#94, #95):
+  `/verify/<token>` and `/reset/<token>` replace the query-string
+  forms (old query links continue to work), and reset links no longer
+  appear in the server log
+
 ## [0.6.0] - 2026-11-05
 
 The v0.6.0 build: moderation follow-through is complete. Repos come

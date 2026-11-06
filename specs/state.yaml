@@ -9,27 +9,29 @@ session:
   active_epic_id: ""
   active_story_id: ""
 handoff:
-  next_skill: plan-release
+  next_skill: scope-work
   notes: |
-    v0.6.0 SHIPPED: moderation follow-through — e32 closing
-    registration (#85), e33 moderation log + CSV export (#86),
-    e31 CAPTCHA on signup (#88), e30 repo takedown web (#89) and
-    transports (#91); SMTP relay deploy envs (#87), kata pin fix
-    (#90). Suite at last merge = 422 passed / 124 suites.
-    Verify: cargo test -p server --test registration_gate /
-    moderation_log / captcha_signup / repo_takedown.
-    v0.7.0 SCOPED (this cycle): mail operations from
-    specs/requirements/MAIL-LATEST.md — address verification,
-    password reset, moderation notices; SMTP-primary provider
-    abstraction; phase gate before any live send.
-    NEXT: plan-release (v0.7.0 index + e34 capsule) then
-    develop-tdd. Test DB = container jjhub-pg:5432 jjhub_test;
-    shared CARGO_TARGET_DIR = ../jjhub/target.
+    v0.7.0 SHIPPED: mail operations — e34s01 mailer default, path
+    verify links, neutral resend (#94), e34s02 reset through the
+    mailer with path links (#95), e34s03 moderation notices plus the
+    env-selected SMTP arm (#96), e35s01 monthly JSONL rollups at the
+    single write points (#97). Suite at last merge = 441 passed /
+    128 suites.
+    Verify: cargo test -p server --test mail_core / reset_mail /
+    mail_notices / jsonl_retention.
+    NEXT: scope-work for v0.8.0 — live-mail phase gate (staging send
+    and a delivery readout) is the standing candidate; confirm scope
+    with the user. Requirements: specs/requirements/MAIL-LATEST.md.
+    Test DB = container jjhub-pg:5432 jjhub_test; shared
+    CARGO_TARGET_DIR = ../jjhub/target.
     Lessons carried: jj working copy is one mutable change —
     duplicate or new BEFORE describing RED (describe otherwise
-    overwrites it); transport identity = Basic
-    x-access-token:<token>, sessions never authenticate
-    transports; restoring a shipped migration with jj restore =
-    checksum bomb, restore from git show <trunk>:path instead;
+    overwrites it); bookmark PR branches on the explicit GREEN rev —
+    `set -r @` can land on RED or a fresh empty change, and push
+    rejects empty commits; transport identity = Basic over the SSH
+    runtime, one socket whose lifetime is the whole connection;
+    Tera escapes `/` as &#x2F; even inside mail bodies; a poisoned
+    test env lock is recovered with into_inner(); checksum bomb,
+    restore from git show <trunk>:path instead;
     verify-tdd-red-commit.sh needs git HEAD at GREEN and a touch
     of the sources after any worktree checkout (stale binaries).
