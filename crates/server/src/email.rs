@@ -168,27 +168,44 @@ impl SmtpMailer {
     }
 }
 
+/// story: SMTP TLS mode — 465 = SMTPS (lettre `relay`, TLS wrapper), any
+/// other port = STARTTLS (`starttls_relay`, required upgrade).
+/// WHY: `relay()` is implicit TLS only; pairing it with the 587 default
+/// attempted a TLS handshake against STARTTLS ports and never connected.
+pub fn smtp_transport(
+    host: &str,
+    port: u16,
+    username: &str,
+    password: &str,
+) -> Result<lettre::AsyncSmtpTransport<lettre::Tokio1Executor>, MailError> {
+    use lettre::transport::smtp::authentication::Credentials;
+    use lettre::{AsyncSmtpTransport, Tokio1Executor};
+
+    let builder = if port == 465 {
+        AsyncSmtpTransport::<Tokio1Executor>::relay(host)
+    } else {
+        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(host)
+    }
+    .map_err(|err| MailError {
+        reason: format!("smtp relay: {err}"),
+    })?
+    .port(port);
+    let builder = if username.is_empty() {
+        builder.build()
+    } else {
+        builder
+            .credentials(Credentials::new(username.into(), password.into()))
+            .build()
+    };
+    Ok(builder)
+}
+
 #[async_trait::async_trait]
 impl Mailer for SmtpMailer {
     async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
-        use lettre::transport::smtp::authentication::Credentials;
-        use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
+        use lettre::AsyncTransport;
 
-        let relay = AsyncSmtpTransport::<Tokio1Executor>::relay(&self.host)
-            .map_err(|err| MailError {
-                reason: format!("smtp relay: {err}"),
-            })?
-            .port(self.port);
-        let relay = if self.username.is_empty() {
-            relay.build()
-        } else {
-            relay
-                .credentials(Credentials::new(
-                    self.username.clone(),
-                    self.password.clone(),
-                ))
-                .build()
-        };
+        let relay = smtp_transport(&self.host, self.port, &self.username, &self.password)?;
         let message = lettre::message::Message::builder()
             .from(
                 self.from
