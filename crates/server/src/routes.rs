@@ -249,9 +249,24 @@ pub async fn register(
         )
         .await
     {
-        // story: e36s01 — a dead send path answers the page, never a 500;
-        // the readout records the failure (e36s02 adds the retry text).
+        // story: e36s02 — a failed send rolls the account back (no
+        // half-finished row survives) and answers with the retry; the
+        // readout already recorded the failure (e36s01). Every FK off
+        // users cascades, so one DELETE clears the signup's rows.
         eprintln!("jjhub: signup verification send failed: {}", err.reason);
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(user_id)
+            .execute(&state.pool)
+            .await
+            .ok();
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Html(register_page(
+                "couldn't send the confirmation email — try again",
+                &form.email,
+            )),
+        )
+            .into_response();
     }
 
     // story: e23s01 — no session before the click; the one-time
@@ -611,8 +626,11 @@ pub async fn verify_email_link(
 
 // story: e23s01 — the mail-sent page: plain English, one action.
 pub async fn verify_sent() -> Response {
-    // story: e34s01 — the sent page carries the resend affordance.
+    // story: e34s01 — the sent page carries the resend affordance; e36s02
+    // keeps a (falsy) error slot so the template's branch always resolves.
     let context = page_context(None, "");
+    let mut context = context;
+    context.insert("resend_error", "");
     (
         StatusCode::OK,
         Html(crate::render::render("verify_sent.html", &context)),
@@ -670,7 +688,7 @@ pub async fn verify_resend(
         .unwrap_or(false);
         if !fresh {
             let verification = crate::email::send_verification(&state.pool, user_id).await;
-            let _ = state
+            if let Err(err) = state
                 .mailer
                 .send(
                     &form.email,
@@ -680,7 +698,22 @@ pub async fn verify_resend(
                         crate::email::verify_link(&verification.token)
                     ),
                 )
-                .await;
+                .await
+            {
+                // story: e36s02 — a failed resend answers with the retry,
+                // never a redirect that pretends the mail went out.
+                eprintln!("jjhub: resend verification send failed: {}", err.reason);
+                let mut context = page_context(None, "");
+                context.insert(
+                    "resend_error",
+                    "the last send didn't go through — try again",
+                );
+                return (
+                    StatusCode::OK,
+                    Html(crate::render::render("verify_sent.html", &context)),
+                )
+                    .into_response();
+            }
         }
     }
     (

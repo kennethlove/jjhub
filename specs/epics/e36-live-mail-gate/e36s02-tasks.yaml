@@ -5,17 +5,17 @@ tasks:
       RED: signup/resend send-failure shows clear retry, no 500,
       no half-account; reset stays byte-identical neutral.
     verify: "cargo test -p server --test send_retry"
-    status: todo
+    status: passing
   - id: e36s02t2
     description: >-
       GREEN: render the retry on signup and resend from the
       mailer's failure outcome; shared render for both paths.
     verify: "cargo test -p server --test send_retry"
-    status: todo
+    status: passing
   - id: e36s02t3
     description: "Gates: fmt, clippy, tests, build."
     verify: >-
       cargo fmt --all -- --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
       && cargo build
-    status: todo
+    status: passing
