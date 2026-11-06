@@ -180,3 +180,8 @@ epics:
     status: passing
     stories:
       e35s01: passing
+  e36-live-mail-gate:
+    status: todo
+    stories:
+      e36s01: todo
+      e36s02: todo

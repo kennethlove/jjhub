@@ -1,0 +1,13 @@
+id: e36
+slug: live-mail-gate
+title: "Live-mail gate — delivery readout, clear retry, staging proof"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: ADDED
+status: planning
+stories:
+  - id: e36s01
+    name: delivery-readout
+    business_value_cps: 8
+  - id: e36s02
+    name: signup-retry
+    business_value_cps: 6

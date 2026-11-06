@@ -9,7 +9,7 @@ session:
   active_epic_id: ""
   active_story_id: ""
 handoff:
-  next_skill: scope-work
+  next_skill: develop-tdd
   notes: |
     v0.7.0 SHIPPED: mail operations — e34s01 mailer default, path
     verify links, neutral resend (#94), e34s02 reset through the
