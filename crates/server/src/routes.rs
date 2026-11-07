@@ -122,12 +122,11 @@ pub async fn register(
     // story: e32s01 — closed registration refuses before any row is
     // considered; existing accounts and sessions are untouched.
     if registration_closed(&state.pool).await {
+        // story: jjhub-pdg — closed registration sends the signup to the
+        // login page with the reason instead of a dead-end 403 on the form.
         return (
-            StatusCode::FORBIDDEN,
-            Html(register_page(
-                "registration is closed on this node",
-                &form.email,
-            )),
+            StatusCode::SEE_OTHER,
+            [(header::LOCATION, "/login?notice=closed".to_string())],
         )
             .into_response();
     }
@@ -308,11 +307,25 @@ fn login_card(error: &str) -> String {
     crate::render::render("login_card.html", &context)
 }
 
-pub async fn login_form(headers: axum::http::HeaderMap) -> Html<String> {
+// story: jjhub-pdg — the closed-registration notice rides ?notice=closed;
+// only known keys map to text, so nothing user-supplied is reflected.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct LoginQuery {
+    pub notice: Option<String>,
+}
+
+pub async fn login_form(
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<LoginQuery>,
+) -> Html<String> {
+    let message = match query.notice.as_deref() {
+        Some("closed") => "registration is closed on this node",
+        _ => "",
+    };
     if htmx_fragment(&headers) {
-        Html(login_card(""))
+        Html(login_card(message))
     } else {
-        Html(login_page(""))
+        Html(login_page(message))
     }
 }
 

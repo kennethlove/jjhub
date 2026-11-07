@@ -1,8 +1,8 @@
 workflow_mode: solo-git
-active_flow: fix_bug
+active_flow: build_epic
 bug_cycle:
-  current_step: 3
-  completed_steps: [1, 2]
+  current_step: 5
+  completed_steps: [1, 2, 3, 4, 5]
   bug_id: BUG-003
 vcs:
   kind: jj
@@ -13,8 +13,17 @@ session:
   active_epic_id: ""
   active_story_id: ""
 handoff:
-  next_skill: develop-tdd
+  next_skill: survey-context
   notes: |
+    QA FIX BATCH (draft PR): BUG-003 absolute mail links via
+    email::origin/verify_link (HeaderMap on register, login_resend,
+    verify_resend), resend visible neutral notice at /verify-sent?resent=1
+    (.alert-notice, tokens only), closed registration redirects to
+    /login?notice=closed. TDD RED/GREEN pairs each commit; RED gates
+    passed verify-tdd-red-commit (email_confirmation + registration_gate);
+    preflight = fmt, clippy -D warnings, 131 suites ok, build;
+    ux_audit passed on app.css. Staging t2 evidence (three /admin ok
+    lines) still pending from the operator run.
     v0.7.0 SHIPPED: mail operations — e34s01 mailer default, path
     verify links, neutral resend (#94), e34s02 reset through the
     mailer with path links (#95), e34s03 moderation notices plus the
