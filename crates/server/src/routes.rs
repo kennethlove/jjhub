@@ -630,12 +630,30 @@ pub async fn verify_email_link(
 }
 
 // story: e23s01 — the mail-sent page: plain English, one action.
-pub async fn verify_sent() -> Response {
+// story: jjhub-2zb — the resend lands back on the sent page with a flag
+// the page turns into a confirmation; every resend answers the same way,
+// known address or not (no enumeration).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct VerifySentQuery {
+    resent: Option<String>,
+}
+
+pub async fn verify_sent(
+    axum::extract::Query(query): axum::extract::Query<VerifySentQuery>,
+) -> Response {
     // story: e34s01 — the sent page carries the resend affordance; e36s02
     // keeps a (falsy) error slot so the template's branch always resolves.
     let context = page_context(None, "");
     let mut context = context;
     context.insert("resend_error", "");
+    context.insert(
+        "resend_notice",
+        if query.resent.is_some() {
+            "if that address has an account, a fresh confirmation link is on its way"
+        } else {
+            ""
+        },
+    );
     (
         StatusCode::OK,
         Html(crate::render::render("verify_sent.html", &context)),
@@ -727,7 +745,7 @@ pub async fn verify_resend(
     }
     (
         StatusCode::SEE_OTHER,
-        [(header::LOCATION, "/verify-sent".to_string())],
+        [(header::LOCATION, "/verify-sent?resent=1".to_string())],
     )
         .into_response()
 }
