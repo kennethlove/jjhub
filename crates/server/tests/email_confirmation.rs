@@ -309,4 +309,49 @@ mod email_confirmation {
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert!(session_cookie(&response).is_some());
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn signup_link_is_absolute_and_honors_origin(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+
+        // no Host header: the local default
+        let response = post(
+            &app,
+            "/register",
+            "email=abs1%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("http://localhost:3000/verify/vfy_"),
+            "recipient gets a clickable link: {body}"
+        );
+
+        // a forwarded https origin wins over plain http
+        let request = Request::post("/register")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header(header::HOST, "mail.test")
+            .header("x-forwarded-proto", "https");
+        let response = app
+            .clone()
+            .oneshot(
+                request
+                    .body(Body::from(
+                        "email=abs2%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("https://mail.test/verify/vfy_"),
+            "scheme and host come from the request: {body}"
+        );
+    }
 }

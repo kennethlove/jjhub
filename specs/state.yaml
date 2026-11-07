@@ -1,5 +1,9 @@
 workflow_mode: solo-git
-active_flow: build_epic
+active_flow: fix_bug
+bug_cycle:
+  current_step: 3
+  completed_steps: [1, 2]
+  bug_id: BUG-003
 vcs:
   kind: jj
   repo: colocated-git
