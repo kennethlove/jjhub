@@ -109,6 +109,7 @@ async fn registration_closed(pool: &sqlx::PgPool) -> bool {
 pub async fn register(
     State(state): State<AppState>,
     ip: crate::rate_limit::OptionalPeerIp,
+    headers: axum::http::HeaderMap,
     Form(form): Form<RegisterForm>,
 ) -> Response {
     // story: e31s01 — signup joins the e20 create budget; keyed by IP
@@ -245,7 +246,11 @@ pub async fn register(
         .send(
             &email,
             "Confirm your email",
-            &crate::email::verify_link(&verification_token.token),
+            &format!(
+                "{}/verify/{}",
+                crate::email::origin(&headers),
+                verification_token.token
+            ),
         )
         .await
     {

@@ -341,6 +341,25 @@ pub fn verify_link(token: &str) -> String {
     format!("/verify/{token}")
 }
 
+/// The origin (scheme://host) mail links must carry: a recipient clicks
+/// from an inbox, where no page context exists.
+/// WHY: absolute URLs need a host known at send time — the request that
+/// triggered the send is the only place it lives (precedent: the reset
+/// link in routes.rs). X-Forwarded-Proto keeps a TLS-terminating proxy
+/// honest; plain http keeps local dev working.
+pub fn origin(headers: &axum::http::HeaderMap) -> String {
+    let scheme = headers
+        .get("x-forwarded-proto")
+        .and_then(|value| value.to_str().ok())
+        .filter(|scheme| *scheme == "https")
+        .unwrap_or("http");
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("localhost:3000");
+    format!("{scheme}://{host}")
+}
+
 /// The refusal shown when a link is dead.
 pub const LINK_REFUSED: &str =
     "That confirmation link has expired or was already used. Sign in to get a fresh one.";
