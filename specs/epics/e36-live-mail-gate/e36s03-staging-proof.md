@@ -57,7 +57,23 @@ run happens.
 
 ## Evidence
 
-(pending — filled by the t2 staging run)
+Operator staging run on the live relay (reported by the operator,
+2026-11-07):
+
+- Signup verification send — `ok`
+- Resend to the real account — `ok`
+- Resend to an `@example.com` address — refused by the relay
+  (`server refused mail`), neutral retry shown, no enumeration —
+  expected negative case, not a failure
+- Suspend / unsuspend moderation notices — `ok`
+- Verification links absolute after PR #113
+  (`http(s)://host/verify/<token>`) — the bare-path link defect this
+  procedure guards against is fixed
+- Operator confirmed the emails arrived; the verification mail first
+  landed in spam. Deliverability stays the operator DNS job
+  (SPF/DKIM/DMARC, README § Mail delivery).
+
+Manual QA queue: item confirmed off with the operator run above.
 
 ## Out of scope
 
