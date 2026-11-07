@@ -1,7 +1,7 @@
 story_id: e36s03
 title: "Staging proof — procedure assertion + recorded staging send"
 spec: e36s03-staging-proof.md
-status: failing
+status: passing
 bcps: 2
 tasks:
   - id: e36s03t1
@@ -24,7 +24,7 @@ tasks:
     verify: "verify-script: e36s03-staging-proof.md § verify-script"
     risk: P2
     security: low
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["mail", "staging-proof"]
