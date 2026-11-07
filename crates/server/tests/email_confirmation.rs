@@ -309,4 +309,164 @@ mod email_confirmation {
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert!(session_cookie(&response).is_some());
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn signup_link_is_absolute_and_honors_origin(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+
+        // no Host header: the local default
+        let response = post(
+            &app,
+            "/register",
+            "email=abs1%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("http://localhost:3000/verify/vfy_"),
+            "recipient gets a clickable link: {body}"
+        );
+
+        // a forwarded https origin wins over plain http
+        let request = Request::post("/register")
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header(header::HOST, "mail.test")
+            .header("x-forwarded-proto", "https");
+        let response = app
+            .clone()
+            .oneshot(
+                request
+                    .body(Body::from(
+                        "email=abs2%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("https://mail.test/verify/vfy_"),
+            "scheme and host come from the request: {body}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn resend_and_login_send_absolute_links(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+        register_form(&app, "gina").await;
+
+        // unverified login resends a clickable link
+        let response = post(
+            &app,
+            "/login",
+            "email=gina%40example.com&password=correct+horse+battery".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(recorded.count(), 2, "login resent a fresh link");
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("http://localhost:3000/verify/vfy_"),
+            "login resend is clickable: {body}"
+        );
+
+        // age the cooldown so the explicit resend actually fires
+        sqlx::query("UPDATE email_verifications SET created_at = now() - interval '2 minutes'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=gina%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(recorded.count(), 3, "the resend sent a fresh link");
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("Open http://localhost:3000/verify/vfy_"),
+            "resend page link is clickable: {body}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn resend_confirmation_is_visible_and_neutral(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+        register_form(&app, "iris").await;
+        sqlx::query("UPDATE email_verifications SET created_at = now() - interval '2 minutes'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=iris%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let location = response
+            .headers()
+            .get(header::LOCATION)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(location, "/verify-sent?resent=1", "lands with the notice");
+        assert_eq!(recorded.count(), 2, "the resend sent a fresh link");
+
+        let notice = "fresh confirmation link is on its way";
+        let response = get(&app, "/verify-sent?resent=1").await;
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes).contains(notice),
+            "the resend leaves a visible confirmation"
+        );
+
+        // an unknown address answers identically — no enumeration
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=ghost%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::LOCATION)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/verify-sent?resent=1",
+            "unknown address gets the same answer"
+        );
+        assert_eq!(recorded.count(), 2, "no mail for an unknown address");
+
+        // the plain signup landing carries no notice
+        let response = get(&app, "/verify-sent").await;
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            !String::from_utf8_lossy(&bytes).contains(notice),
+            "no resend notice without the flag"
+        );
+    }
 }

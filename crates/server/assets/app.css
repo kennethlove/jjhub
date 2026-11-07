@@ -947,6 +947,17 @@ input:focus-visible {
   color: var(--color-error);
 }
 
+/* notice components — confirmation that an action happened; tokens only,
+   no border: a background shift carries the status */
+.alert-notice {
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-body-sm);
+  color: var(--color-tertiary);
+}
+
 .alert-error p {
   margin: 0;
 }

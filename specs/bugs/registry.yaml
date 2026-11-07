@@ -19,3 +19,11 @@ bugs:
       PR 90 — KATA_COMMIT pinned via shell default at
       Dockerfile.kata; evidence in BUG-002 file (GREEN febbf8f4)
     file: "specs/bugs/BUG-002-kata-commit-empty-build-arg.md"
+  - id: BUG-003
+    title: >-
+      Verification mail carries a relative /verify path — recipient
+      cannot click through
+    scope: mail
+    severity: medium
+    status: fixed
+    file: "specs/bugs/BUG-003-verify-mail-relative-links.md"

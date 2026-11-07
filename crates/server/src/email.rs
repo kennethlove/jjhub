@@ -337,8 +337,29 @@ pub async fn verify_email(pool: &sqlx::PgPool, token: &str) -> Option<uuid::Uuid
 
 /// The link body the mail carries.
 /// story: e34s01 — path form; the e23 query route keeps accepting ?token=.
-pub fn verify_link(token: &str) -> String {
-    format!("/verify/{token}")
+/// WHY: origin comes from the sending request (see `origin`) — recipients
+/// click from an inbox, where a relative path resolves to the mail host.
+pub fn verify_link(origin: &str, token: &str) -> String {
+    format!("{origin}/verify/{token}")
+}
+
+/// The origin (scheme://host) mail links must carry: a recipient clicks
+/// from an inbox, where no page context exists.
+/// WHY: absolute URLs need a host known at send time — the request that
+/// triggered the send is the only place it lives (precedent: the reset
+/// link in routes.rs). X-Forwarded-Proto keeps a TLS-terminating proxy
+/// honest; plain http keeps local dev working.
+pub fn origin(headers: &axum::http::HeaderMap) -> String {
+    let scheme = headers
+        .get("x-forwarded-proto")
+        .and_then(|value| value.to_str().ok())
+        .filter(|scheme| *scheme == "https")
+        .unwrap_or("http");
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("localhost:3000");
+    format!("{scheme}://{host}")
 }
 
 /// The refusal shown when a link is dead.

@@ -109,6 +109,7 @@ async fn registration_closed(pool: &sqlx::PgPool) -> bool {
 pub async fn register(
     State(state): State<AppState>,
     ip: crate::rate_limit::OptionalPeerIp,
+    headers: axum::http::HeaderMap,
     Form(form): Form<RegisterForm>,
 ) -> Response {
     // story: e31s01 — signup joins the e20 create budget; keyed by IP
@@ -121,12 +122,11 @@ pub async fn register(
     // story: e32s01 — closed registration refuses before any row is
     // considered; existing accounts and sessions are untouched.
     if registration_closed(&state.pool).await {
+        // story: jjhub-pdg — closed registration sends the signup to the
+        // login page with the reason instead of a dead-end 403 on the form.
         return (
-            StatusCode::FORBIDDEN,
-            Html(register_page(
-                "registration is closed on this node",
-                &form.email,
-            )),
+            StatusCode::SEE_OTHER,
+            [(header::LOCATION, "/login?notice=closed".to_string())],
         )
             .into_response();
     }
@@ -245,7 +245,7 @@ pub async fn register(
         .send(
             &email,
             "Confirm your email",
-            &crate::email::verify_link(&verification_token.token),
+            &crate::email::verify_link(&crate::email::origin(&headers), &verification_token.token),
         )
         .await
     {
@@ -307,11 +307,25 @@ fn login_card(error: &str) -> String {
     crate::render::render("login_card.html", &context)
 }
 
-pub async fn login_form(headers: axum::http::HeaderMap) -> Html<String> {
+// story: jjhub-pdg — the closed-registration notice rides ?notice=closed;
+// only known keys map to text, so nothing user-supplied is reflected.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct LoginQuery {
+    pub notice: Option<String>,
+}
+
+pub async fn login_form(
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<LoginQuery>,
+) -> Html<String> {
+    let message = match query.notice.as_deref() {
+        Some("closed") => "registration is closed on this node",
+        _ => "",
+    };
     if htmx_fragment(&headers) {
-        Html(login_card(""))
+        Html(login_card(message))
     } else {
-        Html(login_page(""))
+        Html(login_page(message))
     }
 }
 
@@ -539,7 +553,11 @@ pub struct LoginForm {
     password: String,
 }
 
-pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -> Response {
+pub async fn login(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Form(form): Form<LoginForm>,
+) -> Response {
     let email = domain::normalize_email(&form.email);
     // story: e29s01 — a suspended account answers exactly like a
     // missing one: same refusal, no state disclosed.
@@ -571,7 +589,7 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
                 .ok()
                 .flatten();
         if verified.is_none() {
-            login_resend_verification(&state, &email).await;
+            login_resend_verification(&state, &email, &crate::email::origin(&headers)).await;
             return login_page_for(&state, "confirm your email address to finish signing in");
         }
     }
@@ -587,7 +605,7 @@ fn login_page_for(_state: &AppState, message: &str) -> Response {
 
 // story: e23s01 — resend on login: only for accounts still waiting
 // for the click; false when there is nothing to resend.
-async fn login_resend_verification(state: &AppState, email: &str) -> bool {
+async fn login_resend_verification(state: &AppState, email: &str, origin: &str) -> bool {
     let user: Option<(uuid::Uuid,)> =
         sqlx::query_as("SELECT id FROM users WHERE email = $1 AND email_verified_at IS NULL")
             .bind(email)
@@ -604,7 +622,7 @@ async fn login_resend_verification(state: &AppState, email: &str) -> bool {
         .send(
             email,
             "Confirm your email",
-            &crate::email::verify_link(&token.token),
+            &crate::email::verify_link(origin, &token.token),
         )
         .await
         .is_ok()
@@ -625,12 +643,30 @@ pub async fn verify_email_link(
 }
 
 // story: e23s01 — the mail-sent page: plain English, one action.
-pub async fn verify_sent() -> Response {
+// story: jjhub-2zb — the resend lands back on the sent page with a flag
+// the page turns into a confirmation; every resend answers the same way,
+// known address or not (no enumeration).
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct VerifySentQuery {
+    resent: Option<String>,
+}
+
+pub async fn verify_sent(
+    axum::extract::Query(query): axum::extract::Query<VerifySentQuery>,
+) -> Response {
     // story: e34s01 — the sent page carries the resend affordance; e36s02
     // keeps a (falsy) error slot so the template's branch always resolves.
     let context = page_context(None, "");
     let mut context = context;
     context.insert("resend_error", "");
+    context.insert(
+        "resend_notice",
+        if query.resent.is_some() {
+            "if that address has an account, a fresh confirmation link is on its way"
+        } else {
+            ""
+        },
+    );
     (
         StatusCode::OK,
         Html(crate::render::render("verify_sent.html", &context)),
@@ -659,6 +695,7 @@ pub struct ResendForm {
 pub async fn verify_resend(
     State(state): State<AppState>,
     ip: crate::rate_limit::OptionalPeerIp,
+    headers: axum::http::HeaderMap,
     Form(form): Form<ResendForm>,
 ) -> Response {
     // WHY: reuse the login bucket — pre-auth address triggering shares the
@@ -695,7 +732,10 @@ pub async fn verify_resend(
                     "Confirm your jjhub address",
                     &format!(
                         "Open {} once to confirm your address. It expires in 24 hours.",
-                        crate::email::verify_link(&verification.token)
+                        crate::email::verify_link(
+                            &crate::email::origin(&headers),
+                            &verification.token
+                        )
                     ),
                 )
                 .await
@@ -718,7 +758,7 @@ pub async fn verify_resend(
     }
     (
         StatusCode::SEE_OTHER,
-        [(header::LOCATION, "/verify-sent".to_string())],
+        [(header::LOCATION, "/verify-sent?resent=1".to_string())],
     )
         .into_response()
 }
