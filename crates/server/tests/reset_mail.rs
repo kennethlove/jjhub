@@ -13,9 +13,12 @@ use tower::util::ServiceExt;
 
 // --- recorded-mailer scaffold (shape copied from email_confirmation.rs) ---
 
+/// (to, subject, text arm, html arm) — what every send records.
+type MailRecord = (String, String, String, String);
+
 #[derive(Clone)]
 struct Recorded {
-    mails: Arc<Mutex<Vec<(String, String, String)>>>,
+    mails: Arc<Mutex<Vec<MailRecord>>>,
 }
 
 impl Recorded {
@@ -25,7 +28,7 @@ impl Recorded {
         }
     }
 
-    fn last(&self) -> (String, String, String) {
+    fn last(&self) -> (String, String, String, String) {
         self.mails.lock().unwrap().last().cloned().unwrap()
     }
 
@@ -42,13 +45,15 @@ impl server::email::Mailer for RecordingMailer {
         &self,
         to: &str,
         subject: &str,
-        body: &str,
+        text: &str,
+        html: &str,
     ) -> Result<(), server::email::MailError> {
-        self.0
-            .mails
-            .lock()
-            .unwrap()
-            .push((to.to_string(), subject.to_string(), body.to_string()));
+        self.0.mails.lock().unwrap().push((
+            to.to_string(),
+            subject.to_string(),
+            text.to_string(),
+            html.to_string(),
+        ));
         Ok(())
     }
 }
@@ -161,7 +166,7 @@ async fn known_address_gets_a_path_reset_link_delivery(pool: sqlx::PgPool) {
         response.status()
     );
     assert_eq!(recorded.count(), 1, "exactly one delivery recorded");
-    let (to, subject, body) = recorded.last();
+    let (to, subject, body, _) = recorded.last();
     assert_eq!(to, "known@example.test");
     assert!(
         subject.to_lowercase().contains("password"),

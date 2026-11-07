@@ -18,6 +18,15 @@ pub fn render(name: &str, context: &Context) -> String {
     })
 }
 
+/// The mail pair: one context, both arms (story e37s01). Panics like
+/// `render` — a mail missing an arm is a bug, not a fallback case.
+pub fn mail_pair(name: &str, context: &Context) -> Result<(String, String), tera::Error> {
+    let engine = engine();
+    let text = engine.render(&format!("mail/{name}.txt"), context)?;
+    let html = engine.render(&format!("mail/{name}.html"), context)?;
+    Ok((text, html))
+}
+
 fn engine() -> &'static Tera {
     static ENGINE: OnceLock<Tera> = OnceLock::new();
     ENGINE.get_or_init(|| {
@@ -32,9 +41,30 @@ fn engine() -> &'static Tera {
                 "verify_sent.html",
                 include_str!("../templates/verify_sent.html"),
             ),
+            // story: e37s01 — every mail carries BOTH arms from one context
             (
-                "moderation_notice.html",
-                include_str!("../templates/moderation_notice.html"),
+                "mail/verify.txt",
+                include_str!("../templates/mail/verify.txt"),
+            ),
+            (
+                "mail/verify.html",
+                include_str!("../templates/mail/verify.html"),
+            ),
+            (
+                "mail/reset.txt",
+                include_str!("../templates/mail/reset.txt"),
+            ),
+            (
+                "mail/reset.html",
+                include_str!("../templates/mail/reset.html"),
+            ),
+            (
+                "mail/moderation.txt",
+                include_str!("../templates/mail/moderation.txt"),
+            ),
+            (
+                "mail/moderation.html",
+                include_str!("../templates/mail/moderation.html"),
             ),
             (
                 "login_card.html",

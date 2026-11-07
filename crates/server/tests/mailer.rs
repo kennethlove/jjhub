@@ -8,11 +8,16 @@ fn resend_payload_shape() {
         "new@example.com",
         "Confirm your email",
         "Click /verify?token=abc",
+        "<p>Click <a href=\"https://mail.test/verify?token=abc\">the link</a></p>",
     );
     assert_eq!(payload["from"], "jjhub@example.com");
     assert_eq!(payload["to"], serde_json::json!(["new@example.com"]));
     assert_eq!(payload["subject"], "Confirm your email");
     assert_eq!(payload["text"], "Click /verify?token=abc");
+    assert!(
+        payload["html"].as_str().unwrap().contains("<a href="),
+        "second arm rides html"
+    );
 }
 
 #[test]
@@ -22,6 +27,7 @@ fn messagepit_payload_shape() {
         "new@example.com",
         "Confirm your email",
         "Click /verify?token=abc",
+        "<p>Click <a href=\"https://mail.test/verify?token=abc\">the link</a></p>",
     );
     assert_eq!(
         payload["personalizations"][0]["to"][0]["email"],
@@ -31,6 +37,11 @@ fn messagepit_payload_shape() {
     assert_eq!(payload["subject"], "Confirm your email");
     assert_eq!(payload["content"][0]["type"], "text/plain");
     assert_eq!(payload["content"][0]["value"], "Click /verify?token=abc");
+    assert_eq!(payload["content"][1]["type"], "text/html");
+    assert!(payload["content"][1]["value"]
+        .as_str()
+        .unwrap()
+        .contains("<a href="));
 }
 
 // story: SMTP TLS mode — 465 is SMTPS (lettre relay() = Tls::Wrapper),

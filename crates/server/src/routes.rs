@@ -240,13 +240,17 @@ pub async fn register(
         return session_response(&state, user_id, "/token-details");
     }
     let verification_token = crate::email::send_verification(&state.pool, user_id).await;
+    // story: e37s01 — one context renders both arms; the link carries the
+    // request origin (BUG-003).
+    let mut mail_context = tera::Context::new();
+    mail_context.insert(
+        "link",
+        &crate::email::verify_link(&crate::email::origin(&headers), &verification_token.token),
+    );
+    let (text, html) = crate::render::mail_pair("verify", &mail_context).expect("verify mail pair");
     if let Err(err) = state
         .mailer
-        .send(
-            &email,
-            "Confirm your email",
-            &crate::email::verify_link(&crate::email::origin(&headers), &verification_token.token),
-        )
+        .send(&email, "Confirm your email", &text, &html)
         .await
     {
         // story: e36s02 — a failed send rolls the account back (no
@@ -405,16 +409,15 @@ pub async fn request_reset(
                     .and_then(|v| v.to_str().ok())
                     .unwrap_or("localhost:3000");
                 let link = format!("http://{host}/reset/{plaintext}");
+                // story: e37s01 — both arms from one context; reset stays
+                // neutral and in path form (e34s02).
+                let mut mail_context = tera::Context::new();
+                mail_context.insert("link", &link);
+                let (text, html) =
+                    crate::render::mail_pair("reset", &mail_context).expect("reset mail pair");
                 if let Err(err) = state
                     .mailer
-                    .send(
-                        &form.email,
-                        "Reset your password",
-                        &format!(
-                            "Someone asked to reset the password for this address.\n\
-                             The link works once and expires in 1 hour.\n\n{link}"
-                        ),
-                    )
+                    .send(&form.email, "Reset your password", &text, &html)
                     .await
                 {
                     eprintln!("jjhub: send reset link: {}", err.reason);
@@ -617,13 +620,15 @@ async fn login_resend_verification(state: &AppState, email: &str, origin: &str) 
         return false;
     };
     let token = crate::email::send_verification(&state.pool, user_id).await;
+    // story: e37s01 — both arms from one context.
+    let mut mail_context = tera::Context::new();
+    mail_context.insert("link", &crate::email::verify_link(origin, &token.token));
+    let Ok((text, html)) = crate::render::mail_pair("verify", &mail_context) else {
+        return false;
+    };
     state
         .mailer
-        .send(
-            email,
-            "Confirm your email",
-            &crate::email::verify_link(origin, &token.token),
-        )
+        .send(email, "Confirm your email", &text, &html)
         .await
         .is_ok()
 }
@@ -725,19 +730,18 @@ pub async fn verify_resend(
         .unwrap_or(false);
         if !fresh {
             let verification = crate::email::send_verification(&state.pool, user_id).await;
+            // story: e37s01 — both arms from one context; the link carries the
+            // request origin (BUG-003).
+            let mut mail_context = tera::Context::new();
+            mail_context.insert(
+                "link",
+                &crate::email::verify_link(&crate::email::origin(&headers), &verification.token),
+            );
+            let (text, html) =
+                crate::render::mail_pair("verify", &mail_context).expect("verify mail pair");
             if let Err(err) = state
                 .mailer
-                .send(
-                    &form.email,
-                    "Confirm your jjhub address",
-                    &format!(
-                        "Open {} once to confirm your address. It expires in 24 hours.",
-                        crate::email::verify_link(
-                            &crate::email::origin(&headers),
-                            &verification.token
-                        )
-                    ),
-                )
+                .send(&form.email, "Confirm your jjhub address", &text, &html)
                 .await
             {
                 // story: e36s02 — a failed resend answers with the retry,
@@ -2933,12 +2937,15 @@ async fn moderation_notice(state: &AppState, target: uuid::Uuid, action: &str, r
         "restore" => "Your repository is available again",
         _ => "Your jjhub status changed",
     };
-    let mut context = page_context(None, "");
-    context.insert("headline", headline);
-    context.insert("action", action);
-    context.insert("reason", reason);
-    let body = crate::render::render("moderation_notice.html", &context);
-    if let Err(err) = state.mailer.send(&email, headline, &body).await {
+    // story: e37s01 — the mail renders from its own context (mail pair);
+    // the operator's reason is quoted verbatim in both arms (MAIL-LATEST
+    // Bodies), and Tera escapes the HTML arm.
+    let mut mail_context = tera::Context::new();
+    mail_context.insert("headline", headline);
+    mail_context.insert("reason", reason);
+    let (text, html) =
+        crate::render::mail_pair("moderation", &mail_context).expect("moderation mail pair");
+    if let Err(err) = state.mailer.send(&email, headline, &text, &html).await {
         eprintln!("jjhub: moderation notice: {}", err.reason);
     }
 }

@@ -5,10 +5,12 @@
 //! (https://github.com/coreydaley/messagepit, POST /v3/mail/send).
 //! The fallback is LogMailer so tests never need a network.
 
-/// The provider contract — one method, one outcome.
+/// The provider contract — one call, both bodies, one outcome. The HTML
+/// and plain-text arms come from one context (`render::mail_pair`) so
+/// wording, links, and neutral wording match by construction.
 #[async_trait::async_trait]
 pub trait Mailer: Send + Sync {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError>;
+    async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError>;
 }
 
 #[derive(Debug)]
@@ -25,8 +27,8 @@ pub struct LogMailer;
 
 #[async_trait::async_trait]
 impl Mailer for LogMailer {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
-        tracing::info!(%to, %subject, %body, "email (log)");
+    async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError> {
+        tracing::info!(%to, %subject, %text, %html, "email (log)");
         Ok(())
     }
 }
@@ -39,12 +41,12 @@ pub struct ResendMailer {
 
 #[async_trait::async_trait]
 impl Mailer for ResendMailer {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+    async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError> {
         let client = reqwest::Client::new();
         let response = client
             .post("https://api.resend.com/emails")
             .bearer_auth(&self.api_key)
-            .json(&build_resend_payload(&self.from, to, subject, body))
+            .json(&build_resend_payload(&self.from, to, subject, text, html))
             .send()
             .await
             .map_err(|e| mail_error(e.to_string()))?;
@@ -65,14 +67,16 @@ pub struct SendGridMailer {
 
 #[async_trait::async_trait]
 impl Mailer for SendGridMailer {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+    async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError> {
         let client = reqwest::Client::new();
         let mut request = client
             .post(format!(
                 "{}/v3/mail/send",
                 self.base_url.trim_end_matches('/')
             ))
-            .json(&build_messagepit_payload(&self.from, to, subject, body));
+            .json(&build_messagepit_payload(
+                &self.from, to, subject, text, html,
+            ));
         if !self.api_key.is_empty() {
             request = request.bearer_auth(&self.api_key);
         }
@@ -95,12 +99,20 @@ struct LoggedMailer(Box<dyn Mailer>);
 
 #[async_trait::async_trait]
 impl Mailer for LoggedMailer {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+    // WHY: `_html` unlogged — mail_log rows carry recipient, subject,
+    // outcome, reason only (bodies hold tokens; arms share wording).
+    async fn send(
+        &self,
+        to: &str,
+        subject: &str,
+        text: &str,
+        _html: &str,
+    ) -> Result<(), MailError> {
         // story: e36s01 — the outcome rides the same line, recorded at the
         // single write point AFTER the send returns: the readout is the
         // fact, not the intention. Recipient and subject only, never the
         // body (bodies carry verification and reset tokens).
-        let result = self.0.send(to, subject, body).await;
+        let result = self.0.send(to, subject, text, _html).await;
         let mut fields = serde_json::Map::new();
         fields.insert("to".into(), to.into());
         fields.insert("subject".into(), subject.into());
@@ -202,7 +214,7 @@ pub fn smtp_transport(
 
 #[async_trait::async_trait]
 impl Mailer for SmtpMailer {
-    async fn send(&self, to: &str, subject: &str, body: &str) -> Result<(), MailError> {
+    async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError> {
         use lettre::AsyncTransport;
 
         let relay = smtp_transport(&self.host, self.port, &self.username, &self.password)?;
@@ -220,7 +232,20 @@ impl Mailer for SmtpMailer {
                     reason: format!("smtp to: {err}"),
                 })?)
             .subject(subject)
-            .body(body.to_string())
+            // WHY: multipart carries BOTH arms — `body()` takes one part.
+            .multipart(
+                lettre::message::MultiPart::alternative()
+                    .singlepart(
+                        lettre::message::SinglePart::builder()
+                            .content_type(lettre::message::header::ContentType::TEXT_PLAIN)
+                            .body(text.to_string()),
+                    )
+                    .singlepart(
+                        lettre::message::SinglePart::builder()
+                            .content_type(lettre::message::header::ContentType::TEXT_HTML)
+                            .body(html.to_string()),
+                    ),
+            )
             .map_err(|err| MailError {
                 reason: format!("smtp message: {err}"),
             })?;
@@ -231,13 +256,20 @@ impl Mailer for SmtpMailer {
     }
 }
 
-/// Resend's JSON shape.
-pub fn build_resend_payload(from: &str, to: &str, subject: &str, body: &str) -> serde_json::Value {
+/// Resend's JSON shape — both arms on one message.
+pub fn build_resend_payload(
+    from: &str,
+    to: &str,
+    subject: &str,
+    text: &str,
+    html: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "from": from,
         "to": [to],
         "subject": subject,
-        "text": body,
+        "text": text,
+        "html": html,
     })
 }
 
@@ -246,7 +278,8 @@ pub fn build_messagepit_payload(
     from: &str,
     to: &str,
     subject: &str,
-    body: &str,
+    text: &str,
+    html: &str,
 ) -> serde_json::Value {
     serde_json::Value::Object(serde_json::Map::from_iter(vec![
         (
@@ -257,7 +290,10 @@ pub fn build_messagepit_payload(
         ("subject".into(), serde_json::Value::String(subject.into())),
         (
             "content".into(),
-            serde_json::json!([{"type": "text/plain", "value": body}]),
+            serde_json::json!([
+                {"type": "text/plain", "value": text},
+                {"type": "text/html", "value": html},
+            ]),
         ),
     ]))
 }

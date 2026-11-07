@@ -52,9 +52,12 @@ impl Drop for EnvGuard {
 
 // --- recorded-mailer scaffold (shape copied from email_confirmation.rs) ---
 
+/// (to, subject, text arm, html arm) — what every send records.
+type MailRecord = (String, String, String, String);
+
 #[derive(Clone)]
 struct Recorded {
-    mails: Arc<Mutex<Vec<(String, String, String)>>>,
+    mails: Arc<Mutex<Vec<MailRecord>>>,
 }
 
 impl Recorded {
@@ -69,7 +72,7 @@ impl Recorded {
         self.mails.lock().unwrap().clear();
     }
 
-    fn all(&self) -> Vec<(String, String, String)> {
+    fn all(&self) -> Vec<(String, String, String, String)> {
         self.mails.lock().unwrap().clone()
     }
 }
@@ -82,13 +85,15 @@ impl server::email::Mailer for RecordingMailer {
         &self,
         to: &str,
         subject: &str,
-        body: &str,
+        text: &str,
+        html: &str,
     ) -> Result<(), server::email::MailError> {
-        self.0
-            .mails
-            .lock()
-            .unwrap()
-            .push((to.to_string(), subject.to_string(), body.to_string()));
+        self.0.mails.lock().unwrap().push((
+            to.to_string(),
+            subject.to_string(),
+            text.to_string(),
+            html.to_string(),
+        ));
         Ok(())
     }
 }
@@ -293,13 +298,13 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(pool: sqlx::
     assert_eq!(r4.status(), http::StatusCode::SEE_OTHER, "restore");
 
     let all = recorded.all();
-    let to_bob: Vec<&(String, String, String)> = all
+    let to_bob: Vec<&(String, String, String, String)> = all
         .iter()
-        .filter(|(to, _, _)| to == "bob@example.test")
+        .filter(|(to, ..)| to == "bob@example.test")
         .collect();
     let to_alice = all
         .iter()
-        .filter(|(to, _, _)| to == "alice@example.test")
+        .filter(|(to, ..)| to == "alice@example.test")
         .count();
 
     assert_eq!(
@@ -308,14 +313,14 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(pool: sqlx::
         "exactly one notice per action to the affected user, got {:?}",
         to_bob
             .iter()
-            .map(|(_, s, _)| s.as_str())
+            .map(|(_, s, ..)| s.as_str())
             .collect::<Vec<_>>()
     );
     assert_eq!(to_alice, 0, "the operator must not be notified");
 
     // Four distinct action templates, each quoting the reason as TEXT, never
     // as live markup.
-    for (_, _, body) in &to_bob {
+    for (_, _, _, body) in &to_bob {
         assert!(
             // Tera escapes `/` too: `&lt;&#x2F;b&gt;` decodes to `</b>`.
             body.contains("&lt;b&gt;loud&lt;&#x2F;b&gt; &amp; clear"),
@@ -326,7 +331,7 @@ async fn each_action_notices_affected_user_once_with_escaped_reason(pool: sqlx::
             "raw markup leaked into the notice: {body}"
         );
     }
-    let mut bodies: Vec<&str> = to_bob.iter().map(|(_, _, b)| b.as_str()).collect();
+    let mut bodies: Vec<&str> = to_bob.iter().map(|(_, _, _, b)| b.as_str()).collect();
     bodies.sort_unstable();
     bodies.dedup();
     assert_eq!(bodies.len(), 4, "each action must carry its own template");
@@ -338,7 +343,7 @@ async fn smtp_arm_is_selected_only_by_explicit_env(_pool: sqlx::PgPool) {
     {
         let _guard = EnvGuard::set(&[]);
         let outcome = server::email::from_env()
-            .send("someone@example.test", "probe", "probe")
+            .send("someone@example.test", "probe", "probe", "")
             .await;
         assert!(outcome.is_ok(), "unset provider must stay in-box");
     }
@@ -347,7 +352,7 @@ async fn smtp_arm_is_selected_only_by_explicit_env(_pool: sqlx::PgPool) {
     {
         let _guard = EnvGuard::set(&[("JJHUB_EMAIL_PROVIDER", "purple-smoke")]);
         let outcome = server::email::from_env()
-            .send("someone@example.test", "probe", "probe")
+            .send("someone@example.test", "probe", "probe", "")
             .await;
         assert!(outcome.is_ok(), "unknown provider must fall back in-box");
     }
@@ -361,7 +366,7 @@ async fn smtp_arm_is_selected_only_by_explicit_env(_pool: sqlx::PgPool) {
             ("JJHUB_SMTP_PORT", "1"),
         ]);
         let outcome = server::email::from_env()
-            .send("someone@example.test", "probe", "probe")
+            .send("someone@example.test", "probe", "probe", "")
             .await;
         assert!(
             outcome.is_err(),
@@ -451,7 +456,7 @@ async fn a_dead_relay_never_fails_the_action_or_its_row(pool: sqlx::PgPool) {
 async fn unset_provider_keeps_every_notice_in_box(_pool: sqlx::PgPool) {
     let _guard = EnvGuard::set(&[]);
     let outcome = server::email::from_env()
-        .send("someone@example.test", "probe", "probe")
+        .send("someone@example.test", "probe", "probe", "")
         .await;
     assert!(
         outcome.is_ok(),

@@ -174,9 +174,12 @@ impl server::email::Mailer for EnvMailer {
         &self,
         to: &str,
         subject: &str,
-        body: &str,
+        text: &str,
+        html: &str,
     ) -> Result<(), server::email::MailError> {
-        server::email::from_env().send(to, subject, body).await
+        server::email::from_env()
+            .send(to, subject, text, html)
+            .await
     }
 }
 

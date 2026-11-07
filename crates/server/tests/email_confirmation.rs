@@ -9,13 +9,16 @@ mod email_confirmation {
 
     const SECRET: &str = "email-confirm-suite-secret";
 
+    /// (to, subject, text arm, html arm) — what every send records.
+    type MailRecord = (String, String, String, String);
+
     #[derive(Clone, Default)]
     struct Recorded {
-        mails: Arc<Mutex<Vec<(String, String, String)>>>, // (to, subject, body)
+        mails: Arc<Mutex<Vec<MailRecord>>>,
     }
 
     impl Recorded {
-        fn last(&self) -> (String, String, String) {
+        fn last(&self) -> (String, String, String, String) {
             self.mails.lock().unwrap().last().cloned().expect("a mail")
         }
         fn count(&self) -> usize {
@@ -31,12 +34,14 @@ mod email_confirmation {
             &self,
             to: &str,
             subject: &str,
-            body: &str,
+            text: &str,
+            html: &str,
         ) -> Result<(), server::email::MailError> {
             self.0.mails.lock().unwrap().push((
                 to.to_string(),
                 subject.to_string(),
-                body.to_string(),
+                text.to_string(),
+                html.to_string(),
             ));
             Ok(())
         }
@@ -88,7 +93,7 @@ mod email_confirmation {
             })
     }
 
-    fn token_from(mail: &(String, String, String)) -> String {
+    fn token_from(mail: &(String, String, String, String)) -> String {
         // story: e34s01 — mails carry the path form; /verify?token= still
         // verifies when hand-built.
         let start = mail.2.find("/verify/").expect("link in mail") + "/verify/".len();
@@ -143,7 +148,7 @@ mod email_confirmation {
             "no session before the click"
         );
 
-        let (to, subject, body) = recorded.last();
+        let (to, subject, body, _) = recorded.last();
         assert_eq!(to, "bob@example.com");
         assert!(subject.to_lowercase().contains("confirm"));
         assert!(body.contains("/verify/"), "the path-form link");
@@ -325,7 +330,7 @@ mod email_confirmation {
         )
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
-        let (_, _, body) = recorded.last();
+        let (_, _, body, _) = recorded.last();
         assert!(
             body.contains("http://localhost:3000/verify/vfy_"),
             "recipient gets a clickable link: {body}"
@@ -348,7 +353,7 @@ mod email_confirmation {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
-        let (_, _, body) = recorded.last();
+        let (_, _, body, _) = recorded.last();
         assert!(
             body.contains("https://mail.test/verify/vfy_"),
             "scheme and host come from the request: {body}"
@@ -372,7 +377,7 @@ mod email_confirmation {
         .await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(recorded.count(), 2, "login resent a fresh link");
-        let (_, _, body) = recorded.last();
+        let (_, _, body, _) = recorded.last();
         assert!(
             body.contains("http://localhost:3000/verify/vfy_"),
             "login resend is clickable: {body}"
@@ -392,7 +397,7 @@ mod email_confirmation {
         .await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert_eq!(recorded.count(), 3, "the resend sent a fresh link");
-        let (_, _, body) = recorded.last();
+        let (_, _, body, _) = recorded.last();
         assert!(
             body.contains("Open http://localhost:3000/verify/vfy_"),
             "resend page link is clickable: {body}"

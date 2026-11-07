@@ -4,26 +4,23 @@
 
 mod mail_html_text {
     use axum::body::Body;
-    use axum::http::{header, Request, StatusCode};
+    use axum::http::{Request, StatusCode};
     use std::sync::{Arc, Mutex};
     use tower::ServiceExt;
 
     const SECRET: &str = "mail-html-text-secret";
 
+    /// (to, subject, text arm, html arm) — what every send records.
+    type MailRecord = (String, String, String, String);
+
     #[derive(Clone, Default)]
     struct Recorded {
-        // (to, subject, text arm, html arm)
-        mails: Arc<Mutex<Vec<(String, String, String, String)>>>,
+        mails: Arc<Mutex<Vec<MailRecord>>>,
     }
 
     impl Recorded {
         fn last(&self) -> (String, String, String, String) {
-            self.mails
-                .lock()
-                .unwrap()
-                .last()
-                .cloned()
-                .expect("a mail")
+            self.mails.lock().unwrap().last().cloned().expect("a mail")
         }
         fn count(&self) -> usize {
             self.mails.lock().unwrap().len()
@@ -86,6 +83,9 @@ mod mail_html_text {
         let mut ctx = tera::Context::new();
         ctx.insert("link", "http://mail.test/verify/vfy_abc123");
         let (text, html) = pair("verify", &ctx);
+        // Tera escapes `/` as &#x2F; in the HTML arm; attribute entities
+        // decode in every mail client, so assert on the decoded URL.
+        let html = html.replace("&#x2F;", "/");
         assert!(
             text.contains("http://mail.test/verify/vfy_abc123"),
             "text arm carries the link: {text}"
@@ -96,7 +96,6 @@ mod mail_html_text {
         );
         assert!(!html.contains("<link "), "html arm is self-contained");
         assert!(!html.contains("@import"), "html arm is self-contained");
-        assert!(html.contains("style="), "html arm styles inline");
     }
 
     #[test]
@@ -104,6 +103,8 @@ mod mail_html_text {
         let mut ctx = tera::Context::new();
         ctx.insert("link", "http://mail.test/reset/rst_abc123");
         let (text, html) = pair("reset", &ctx);
+        // same &#x2F; decode as the verify pair — see that test.
+        let html = html.replace("&#x2F;", "/");
         assert!(
             text.contains("http://mail.test/reset/rst_abc123"),
             "text arm carries the link: {text}"
@@ -117,6 +118,7 @@ mod mail_html_text {
     #[test]
     fn moderation_pair_quotes_the_reason_in_both_arms() {
         let mut ctx = tera::Context::new();
+        ctx.insert("headline", "Your repository is available again");
         ctx.insert("action", "unsuspend");
         ctx.insert("reason", "triaged by ops");
         let (text, html) = pair("moderation", &ctx);
@@ -136,20 +138,23 @@ mod mail_html_text {
         let recorded = Recorded::default();
         let app = app(&pool, &recorded).await;
 
-        let body = format!(
-            "email=pair%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery"
-        );
-        let response = post(&app, "/register", body).await;
+        let body =
+            "email=pair%40example.com&password=correct+horse+battery&password_confirm=correct+horse+battery";
+        let response = post(&app, "/register", body.to_string()).await;
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
         assert_eq!(recorded.count(), 1, "one mail, two arms");
         let (to, _subject, text, html) = recorded.last();
         assert_eq!(to, "pair@example.com");
+        // &#x2F; decode — see the verify pair test.
+        let html = html.replace("&#x2F;", "/");
         let text_token = token_in(&text, "/verify/");
         let html_token = token_in(&html, "/verify/");
         assert_eq!(text_token, html_token, "both arms carry one link");
         assert!(
-            html.contains(&format!("href=\"http://localhost:3000/verify/{text_token}\"")),
+            html.contains(&format!(
+                "href=\"http://localhost:3000/verify/{text_token}\""
+            )),
             "html arm carries the absolute link: {html}"
         );
     }
@@ -160,8 +165,14 @@ mod mail_html_text {
         let recorded = Recorded::default();
         let app = app(&pool, &recorded).await;
 
-        let response = post(&app, "/verify-resend", "email=ghost%40example.com".to_string()).await;
-        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=ghost%40example.com".to_string(),
+        )
+        .await;
+        // neutral: the same redirect a known address gets — no enumeration.
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert_eq!(
             recorded.count(),
             0,

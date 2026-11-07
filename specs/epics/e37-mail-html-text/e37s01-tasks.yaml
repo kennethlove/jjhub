@@ -1,5 +1,5 @@
 spec: e37s01-mail-pair.md
-status: failing
+status: passing
 tasks:
   - id: e37s01t1
     description: >-
@@ -9,7 +9,7 @@ tasks:
       arms with identical neutral wording. Fails to compile against
       the old send signature.
     verify: "cargo test -p server --test mail_html_text"
-    status: failing
+    status: passing
   - id: e37s01t2
     description: >-
       GREEN: widen Mailer::send to (text, html), add Tera mail
@@ -18,7 +18,7 @@ tasks:
       (Resend html field, SendGrid html part, SMTP
       multipart/alternative, Log/Recording).
     verify: "cargo test -p server --test mail_html_text"
-    status: failing
+    status: passing
   - id: e37s01t3
     description: >-
       Gates: fmt, clippy -D warnings, full test suite, build; mail
@@ -29,4 +29,4 @@ tasks:
       cargo fmt --all -- --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
       && cargo build
-    status: failing
+    status: passing
