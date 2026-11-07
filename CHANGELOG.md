@@ -2,6 +2,49 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] - 2026-11-07
+
+The v0.8.0 build: mail you can read in either format and trust from
+the inbox. Every message ships a plain-text arm and an HTML arm
+rendered from one context, verification links are absolute and
+clickable, `/admin` shows the outcome of every send, and a failed
+signup says so and rolls back. Shipped as PRs #99–#116.
+
+### Added
+
+- **Delivery readout** (#101): `/admin` gains Recent deliveries —
+  every send with its provider, duration, and recorded outcome from
+  the mailer's single write point, so a staging run can prove which
+  messages actually went out
+- **Clear retry on failed signup and resend** (#102): a signup whose
+  confirmation never sends rolls the account back and answers with
+  the retry instead of a dead form; a failed resend says the last
+  send didn't go through instead of redirecting like it worked
+- **HTML + plain-text pair per mail** (#116): every mail renders both
+  arms from one Tera context (`mail/{verify,reset,moderation}.{txt,
+  html}`); Resend carries an `html` field, SendGrid a second content
+  part, SMTP a `multipart/alternative`, and the moderation reason
+  stays verbatim in the text arm while the HTML arm escapes it
+
+### Changed
+
+- A resend or login-triggered confirmation now lands on the sent page
+  with a visible neutral confirmation for every address — the flow
+  never reveals whether the address exists (#113)
+- Closed registration sends the signup to `/login` with the reason
+  instead of a dead-end 403 on the form (#113)
+
+### Fixed
+
+- **Absolute verification links** (#113): verification mails carried
+  a bare `/verify/<token>` path that mail clients turned into a dead
+  link; links now build from the request origin, honoring
+  `X-Forwarded-Proto` behind a proxy
+- **SMTP TLS picked by port** (#109): 465 speaks SMTPS, every other
+  port STARTTLS
+- Compose forwards the mail env vars under the names the code reads
+  (#110)
+
 ## [0.7.0] - 2026-11-05
 
 The v0.7.0 build: jjhub sends mail. Verification and reset links

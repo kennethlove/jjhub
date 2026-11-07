@@ -5,7 +5,7 @@
 # v0.7.0 epics (e34-e35) shipped; their capsules remain in specs/epics/.
 
 version: "0.8.0"
-status: planning
+status: ready
 workflow_mode: solo-git
 bump_hint: minor
 
