@@ -163,16 +163,19 @@ mod registration_gate {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn closed_registration_refuses_signup_and_creates_no_row(pool: sqlx::PgPool) {
+    async fn closed_registration_redirects_to_login_and_creates_no_row(pool: sqlx::PgPool) {
         close_registration(&pool).await;
         let response = try_register(&pool, "latecomer").await;
-        assert_eq!(response.status(), StatusCode::FORBIDDEN);
-        let body = body_of(response).await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(location(&response).await, "/login?notice=closed");
+        assert_eq!(user_count(&pool, "latecomer").await, 0);
+
+        // the message lands where the signup did
+        let body = body_of(get(&pool, "/login?notice=closed", None).await).await;
         assert!(
             body.to_lowercase().contains("closed"),
-            "refusal names the closed state: {body}"
+            "login names the closed state: {body}"
         );
-        assert_eq!(user_count(&pool, "latecomer").await, 0);
     }
 
     #[sqlx::test(migrations = "./migrations")]
@@ -193,7 +196,7 @@ mod registration_gate {
         assert_eq!(close_rows(&pool).await, 1);
         assert_eq!(
             try_register(&pool, "latecomer").await.status(),
-            StatusCode::FORBIDDEN
+            StatusCode::SEE_OTHER
         );
 
         let body = format!("action=open&_csrf={}", csrf(&operator));
