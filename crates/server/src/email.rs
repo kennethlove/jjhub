@@ -337,8 +337,10 @@ pub async fn verify_email(pool: &sqlx::PgPool, token: &str) -> Option<uuid::Uuid
 
 /// The link body the mail carries.
 /// story: e34s01 — path form; the e23 query route keeps accepting ?token=.
-pub fn verify_link(token: &str) -> String {
-    format!("/verify/{token}")
+/// WHY: origin comes from the sending request (see `origin`) — recipients
+/// click from an inbox, where a relative path resolves to the mail host.
+pub fn verify_link(origin: &str, token: &str) -> String {
+    format!("{origin}/verify/{token}")
 }
 
 /// The origin (scheme://host) mail links must carry: a recipient clicks

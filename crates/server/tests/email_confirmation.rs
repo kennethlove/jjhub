@@ -379,12 +379,10 @@ mod email_confirmation {
         );
 
         // age the cooldown so the explicit resend actually fires
-        sqlx::query(
-            "UPDATE email_verifications SET created_at = now() - interval '2 minutes'",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+        sqlx::query("UPDATE email_verifications SET created_at = now() - interval '2 minutes'")
+            .execute(&pool)
+            .await
+            .unwrap();
         let response = post(
             &app,
             "/verify-resend",

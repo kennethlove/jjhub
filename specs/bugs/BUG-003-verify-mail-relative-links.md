@@ -1,6 +1,6 @@
 ---
 bug_id: BUG-003
-status: open
+status: fixed
 severity: medium
 scope: mail
 title: Verification mail carries a relative /verify path — recipient cannot click through

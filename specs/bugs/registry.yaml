@@ -25,5 +25,5 @@ bugs:
       cannot click through
     scope: mail
     severity: medium
-    status: open
+    status: fixed
     file: "specs/bugs/BUG-003-verify-mail-relative-links.md"

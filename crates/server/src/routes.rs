@@ -246,11 +246,7 @@ pub async fn register(
         .send(
             &email,
             "Confirm your email",
-            &format!(
-                "{}/verify/{}",
-                crate::email::origin(&headers),
-                verification_token.token
-            ),
+            &crate::email::verify_link(&crate::email::origin(&headers), &verification_token.token),
         )
         .await
     {
@@ -544,7 +540,11 @@ pub struct LoginForm {
     password: String,
 }
 
-pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -> Response {
+pub async fn login(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Form(form): Form<LoginForm>,
+) -> Response {
     let email = domain::normalize_email(&form.email);
     // story: e29s01 — a suspended account answers exactly like a
     // missing one: same refusal, no state disclosed.
@@ -576,7 +576,7 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<LoginForm>) -
                 .ok()
                 .flatten();
         if verified.is_none() {
-            login_resend_verification(&state, &email).await;
+            login_resend_verification(&state, &email, &crate::email::origin(&headers)).await;
             return login_page_for(&state, "confirm your email address to finish signing in");
         }
     }
@@ -592,7 +592,7 @@ fn login_page_for(_state: &AppState, message: &str) -> Response {
 
 // story: e23s01 — resend on login: only for accounts still waiting
 // for the click; false when there is nothing to resend.
-async fn login_resend_verification(state: &AppState, email: &str) -> bool {
+async fn login_resend_verification(state: &AppState, email: &str, origin: &str) -> bool {
     let user: Option<(uuid::Uuid,)> =
         sqlx::query_as("SELECT id FROM users WHERE email = $1 AND email_verified_at IS NULL")
             .bind(email)
@@ -609,7 +609,7 @@ async fn login_resend_verification(state: &AppState, email: &str) -> bool {
         .send(
             email,
             "Confirm your email",
-            &crate::email::verify_link(&token.token),
+            &crate::email::verify_link(origin, &token.token),
         )
         .await
         .is_ok()
@@ -664,6 +664,7 @@ pub struct ResendForm {
 pub async fn verify_resend(
     State(state): State<AppState>,
     ip: crate::rate_limit::OptionalPeerIp,
+    headers: axum::http::HeaderMap,
     Form(form): Form<ResendForm>,
 ) -> Response {
     // WHY: reuse the login bucket — pre-auth address triggering shares the
@@ -700,7 +701,10 @@ pub async fn verify_resend(
                     "Confirm your jjhub address",
                     &format!(
                         "Open {} once to confirm your address. It expires in 24 hours.",
-                        crate::email::verify_link(&verification.token)
+                        crate::email::verify_link(
+                            &crate::email::origin(&headers),
+                            &verification.token
+                        )
                     ),
                 )
                 .await
