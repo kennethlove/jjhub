@@ -398,4 +398,75 @@ mod email_confirmation {
             "resend page link is clickable: {body}"
         );
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn resend_confirmation_is_visible_and_neutral(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+        register_form(&app, "iris").await;
+        sqlx::query("UPDATE email_verifications SET created_at = now() - interval '2 minutes'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=iris%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let location = response
+            .headers()
+            .get(header::LOCATION)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(location, "/verify-sent?resent=1", "lands with the notice");
+        assert_eq!(recorded.count(), 2, "the resend sent a fresh link");
+
+        let notice = "fresh confirmation link is on its way";
+        let response = get(&app, "/verify-sent?resent=1").await;
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes).contains(notice),
+            "the resend leaves a visible confirmation"
+        );
+
+        // an unknown address answers identically — no enumeration
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=ghost%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::LOCATION)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/verify-sent?resent=1",
+            "unknown address gets the same answer"
+        );
+        assert_eq!(recorded.count(), 2, "no mail for an unknown address");
+
+        // the plain signup landing carries no notice
+        let response = get(&app, "/verify-sent").await;
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            !String::from_utf8_lossy(&bytes).contains(notice),
+            "no resend notice without the flag"
+        );
+    }
 }
