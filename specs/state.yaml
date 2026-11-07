@@ -15,15 +15,20 @@ session:
 handoff:
   next_skill: survey-context
   notes: |
-    QA FIX BATCH (draft PR): BUG-003 absolute mail links via
+    v0.8.0 CLOSEOUT: e36 all passing (staging evidence recorded,
+    PRs #113/#114 merged). e37 (mail HTML+text pair) now in the
+    cycle — release-plan stays planning until it lands; cut v0.8.0
+    after (releases are MANUAL — no semantic-release workflow
+    exists; gh release create v0.8.0 --target trunk), then
+    scope-work the next cycle.
+    QA FIX BATCH (merged, #113): BUG-003 absolute mail links via
     email::origin/verify_link (HeaderMap on register, login_resend,
     verify_resend), resend visible neutral notice at /verify-sent?resent=1
     (.alert-notice, tokens only), closed registration redirects to
     /login?notice=closed. TDD RED/GREEN pairs each commit; RED gates
     passed verify-tdd-red-commit (email_confirmation + registration_gate);
     preflight = fmt, clippy -D warnings, 131 suites ok, build;
-    ux_audit passed on app.css. Staging t2 evidence (three /admin ok
-    lines) still pending from the operator run.
+    ux_audit passed on app.css.
     v0.7.0 SHIPPED: mail operations — e34s01 mailer default, path
     verify links, neutral resend (#94), e34s02 reset through the
     mailer with path links (#95), e34s03 moderation notices plus the
@@ -32,9 +37,7 @@ handoff:
     128 suites.
     Verify: cargo test -p server --test mail_core / reset_mail /
     mail_notices / jsonl_retention.
-    NEXT: scope-work for v0.8.0 — live-mail phase gate (staging send
-    and a delivery readout) is the standing candidate; confirm scope
-    with the user. Requirements: specs/requirements/MAIL-LATEST.md.
+    Requirements: specs/requirements/MAIL-LATEST.md.
     Test DB = container jjhub-pg:5432 jjhub_test; shared
     CARGO_TARGET_DIR = ../jjhub/target.
     Lessons carried: jj working copy is one mutable change —
