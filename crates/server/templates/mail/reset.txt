@@ -1,0 +1,4 @@
+Someone asked to reset the password for this address.
+The link works once and expires in 1 hour.
+
+{{ link }}

@@ -186,3 +186,7 @@ epics:
       e36s01: passing
       e36s02: passing
       e36s03: passing
+  e37-mail-html-text:
+    status: passing
+    stories:
+      e37s01: passing

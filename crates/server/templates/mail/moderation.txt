@@ -1,0 +1,7 @@
+{{ headline }}
+
+jjhub recorded this change against your account.
+
+Reason: {{ reason }}
+
+Questions or an appeal? Contact the site operator.

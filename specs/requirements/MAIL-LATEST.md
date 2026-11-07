@@ -59,8 +59,8 @@ signup/reset flows still succeed in-page.
 ## Templates
 
 Tera, HTML + plain-text pair per mail, one context per trigger. Tokens in
-the link path (`/verify/<token>`), never the query string — the current
-`email.rs` `verify_link` builds `?token=` and must switch to path form.
+the link path (`/verify/<token>`), never the query string —
+`email::verify_link` builds path form from the request origin.
 Plain language; suspension/takedown mails quote the operator's reason
 verbatim.
 

@@ -1889,6 +1889,12 @@ ledger, unscoped for the operator console */
   margin-bottom: var(--space-md);
 }
 
+/* story: e37s01 — mail-pair links: one anchor class in both arms so
+   a client that strips styles still lands on the same URL. */
+.mail-pair {
+  color: var(--color-primary);
+}
+
 /* WHY: a full RFC 3339 stamp cannot sit in a 4-column table on a
 390px phone without breaking every few characters; the time stays on
 desktop and in the CSV export */

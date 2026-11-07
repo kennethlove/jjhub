@@ -1,0 +1,1 @@
+Open {{ link }} once to confirm your address. It expires in 24 hours.

@@ -128,14 +128,14 @@ mod mail_core {
         let _env = MailEnv::disarm();
         let mailer = server::email::from_env();
         mailer
-            .send("someone@example.test", "subject", "body")
+            .send("someone@example.test", "subject", "body", "<p>body</p>")
             .await
             .expect("the default arm never fails and never dials out");
 
         std::env::set_var("JJHUB_EMAIL_PROVIDER", "purple-smoke");
         let mailer = server::email::from_env();
         mailer
-            .send("someone@example.test", "subject", "body")
+            .send("someone@example.test", "subject", "body", "<p>body</p>")
             .await
             .expect("an unknown provider falls back to the log arm");
     }
