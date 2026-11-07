@@ -59,6 +59,19 @@ epics:
       that lets a live relay be configured later. Three stories:
       delivery readout (8), signup/resend clear retry (6), staging
       proof (2).
+  - id: e37
+    slug: mail-html-text
+    title: "Mail bodies — HTML + plain-text pair per mail"
+    wsjf: 6.5
+    bcp_total: 8
+    delta: ADDED
+    note: >
+      (6 + 3 + 4) / (8 / 4) = 6.5. Turns MAIL-LATEST's Templates
+      requirement into shipped shape: every mail renders one
+      context into an HTML and a plain-text arm before the single
+      Mailer::send write point, neutral wording and path-form links
+      unchanged. One story: the pair end to end (verify, reset,
+      moderation) across all mailer arms.
 
 bugs:
   total: 2

@@ -1,0 +1,32 @@
+spec: e37s01-mail-pair.md
+status: failing
+tasks:
+  - id: e37s01t1
+    description: >-
+      RED: mail pair contract — renderer yields text+html from one
+      context for verify/reset/moderation, both arms carry link or
+      verbatim reason, HTML self-contained, signup records both
+      arms with identical neutral wording. Fails to compile against
+      the old send signature.
+    verify: "cargo test -p server --test mail_html_text"
+    status: failing
+  - id: e37s01t2
+    description: >-
+      GREEN: widen Mailer::send to (text, html), add Tera mail
+      templates + mail_pair helper, convert 5 call sites to one
+      context per trigger, carry both arms through all impls
+      (Resend html field, SendGrid html part, SMTP
+      multipart/alternative, Log/Recording).
+    verify: "cargo test -p server --test mail_html_text"
+    status: failing
+  - id: e37s01t3
+    description: >-
+      Gates: fmt, clippy -D warnings, full test suite, build; mail
+      suites (mail_core, reset_mail, mail_notices,
+      email_confirmation, send_retry, delivery_readout, auth_reset)
+      green after the signature change.
+    verify: >-
+      cargo fmt --all -- --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+      && cargo build
+    status: failing
