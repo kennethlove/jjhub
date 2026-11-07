@@ -354,4 +354,50 @@ mod email_confirmation {
             "scheme and host come from the request: {body}"
         );
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn resend_and_login_send_absolute_links(pool: sqlx::PgPool) {
+        std::env::set_var("SESSION_SECRET", SECRET);
+        let recorded = Recorded::default();
+        let app = app(&pool, &recorded).await;
+        register_form(&app, "gina").await;
+
+        // unverified login resends a clickable link
+        let response = post(
+            &app,
+            "/login",
+            "email=gina%40example.com&password=correct+horse+battery".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(recorded.count(), 2, "login resent a fresh link");
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("http://localhost:3000/verify/vfy_"),
+            "login resend is clickable: {body}"
+        );
+
+        // age the cooldown so the explicit resend actually fires
+        sqlx::query(
+            "UPDATE email_verifications SET created_at = now() - interval '2 minutes'",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let response = post(
+            &app,
+            "/verify-resend",
+            "email=gina%40example.com".to_string(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(recorded.count(), 3, "the resend sent a fresh link");
+        let (_, _, body) = recorded.last();
+        assert!(
+            body.contains("Open http://localhost:3000/verify/vfy_"),
+            "resend page link is clickable: {body}"
+        );
+    }
 }
