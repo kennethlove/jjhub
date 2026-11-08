@@ -190,3 +190,14 @@ epics:
     status: passing
     stories:
       e37s01: passing
+  e38-product-home:
+    status: todo
+    stories:
+      e38s01: failing
+      e38s02: failing
+      e38s03: failing
+  e39-kata-theme:
+    status: passing
+    stories:
+      e39s01: passing
+      e39s02: passing

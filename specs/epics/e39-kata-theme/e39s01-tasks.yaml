@@ -1,0 +1,38 @@
+spec: e39s01-theme-injection.md
+status: passing
+tasks:
+  - id: e39s01t1
+    description: >-
+      Probe: run the stack, fetch the pinned bundle's HTML and CSS
+      through the proxy seam, inventory its theming surface (CSS
+      custom properties, palette, font stack, key chrome
+      selectors) and paste it into the story Evidence. Inventory
+      is the input to the theme stylesheet.
+    verify: >-
+      verify-script: docker compose up, GET /r/ probe through
+      the app origin, curl the bundle CSS, paste the
+      variable/selector inventory into e39s01 Evidence
+    status: passing
+  - id: e39s01t2
+    description: >-
+      RED: origin_spa suite asserts proxied HTML responses carry
+      an injected theme stylesheet link, and API/asset
+      pass-through responses stay byte-identical (no injection on
+      non-HTML). Fails today — no injection exists.
+    verify: "cargo test -p server --test origin_spa"
+    status: passing
+    evidence: >-
+      RED confirmed 2026-09-27: only proxied_html_carries_theme_link
+      failed (no injection existed); pass-through guards passed.
+  - id: e39s01t3
+    description: >-
+      GREEN: spa_route injects the theme link into text/html
+      responses only; a kata-theme.css route serves the stylesheet
+      built from DESIGN.md tokens plus the probe's selector
+      overrides; router registration keeps the route ahead of the
+      /assets/{*rest} wildcard.
+    verify: "cargo test -p server --test origin_spa"
+    status: passing
+    evidence: >-
+      GREEN confirmed 2026-09-27: origin_spa 7/7 pass;
+      preflight 460 tests pass.

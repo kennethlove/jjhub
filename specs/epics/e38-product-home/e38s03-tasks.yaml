@@ -1,0 +1,23 @@
+spec: e38s03-gate-pass.md
+status: failing
+tasks:
+  - id: e38s03t1
+    description: >-
+      ux_audit strict pass on the page stylesheet plus a 390px
+      viewport check with no horizontal scroll; evidence recorded
+      in the story before handoff.
+    verify: >-
+      verify-script: ux_audit on crates/server/assets/app.css
+      (strict); keystone_render or capture at 390px and confirm
+      no horizontal scroll; paste both results into e38s03
+      story Evidence
+    status: failing
+  - id: e38s03t2
+    description: >-
+      Full preflight green after the landing rewrite: fmt,
+      clippy -D warnings, full suite, build.
+    verify: >-
+      cargo fmt --all -- --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+      && cargo build
+    status: failing

@@ -1,0 +1,19 @@
+spec: e38s02-auth-surface.md
+status: failing
+tasks:
+  - id: e38s02t1
+    description: >-
+      RED: auth-surface assertions — the product page carries
+      exactly one auth affordance (footer link to /login) and
+      zero signup/register/push/account CTAs anywhere (no href
+      to /register, no signup button text). Fails against the
+      current landing.
+    verify: "cargo test -p server --test product_home"
+    status: failing
+  - id: e38s02t2
+    description: >-
+      GREEN: template carries only the footer /login link as the
+      auth affordance; every account CTA removed from the
+      logged-out branch.
+    verify: "cargo test -p server --test product_home"
+    status: failing

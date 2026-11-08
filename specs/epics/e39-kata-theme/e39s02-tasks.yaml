@@ -1,0 +1,42 @@
+spec: e39s02-gate-pass.md
+status: passing
+tasks:
+  - id: e39s01t1
+    description: >-
+      ux_audit strict on the kata-theme stylesheet; any fail keeps
+      the theme in draft until fixed and re-audited.
+    verify: >-
+      verify-script: ux_audit (strict) on
+      crates/server/assets/kata-theme.css; paste the full
+      result into e39s02 Evidence
+    status: passing
+    evidence: >-
+      ux_audit PASSED 28/28 pairs (all four gates);
+      full result in e39s02-gate-pass.md Evidence.
+  - id: e39s02t2
+    description: >-
+      Capture the themed review page at desktop and 390px; confirm
+      jjhub palette/type render, no horizontal scroll, no broken
+      chrome; paste both captures into Evidence.
+    verify: >-
+      verify-script: capture /r/ themed page at 1440 and 390;
+      confirm palette/type and no horizontal scroll; paste
+      results into e39s02 Evidence
+    status: passing
+    evidence: >-
+      scrollWidth == innerWidth at 1440 and 390; captures in
+      specs/epics/e39-kata-theme/captures/; summary in
+      e39s02-gate-pass.md Evidence.
+  - id: e39s02t3
+    description: >-
+      Full preflight green after the proxy change: fmt, clippy -D
+      warnings, full suite, build.
+    verify: >-
+      cargo fmt --all -- --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test --workspace
+      && cargo build
+    status: passing
+    evidence: >-
+      Preflight green 2026-09-27: fmt clean (one wrap fixed in
+      origin_spa.rs), clippy no issues, 460 tests passed
+      (132 suites), build finished.

@@ -1,0 +1,16 @@
+id: e38
+slug: product-home
+title: "Product home — logged-out landing becomes a self-hoster page"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: MODIFIED
+status: planning
+stories:
+  - id: e38s01
+    name: product-page
+    business_value_cps: 6
+  - id: e38s02
+    name: auth-surface
+    business_value_cps: 2
+  - id: e38s03
+    name: gate-pass
+    business_value_cps: 2

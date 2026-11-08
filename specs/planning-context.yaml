@@ -1,28 +1,22 @@
 # specs/planning-context.yaml — elaborate-spec output; consumed by scope-work
-# v0.6.0 shipped (moderation follow-through, PRs #85–#91). Refreshed for the
-# v0.7.0 scope-work pass below; elaborate-spec will overwrite this
-# when the cycle's spec is written.
-feature_name: "jjhub v0.7.0 — mail operations"
+# and slice-tasks. Refreshed for the v0.9.0 product-home cycle
+# (2026-11-07); elaborate-spec will overwrite this when the next
+# cycle's spec is written.
+feature_name: "jjhub v0.9.0 — product home"
 problem_statement: >
-  v0.6.0 shipped every moderation surface, but jjhub still never sends
-  an email. There is no address-verification link, no password-reset
-  link, and no way to tell a suspended user what happened. The
-  requirements are drafted in specs/requirements/MAIL-LATEST.md: every
-  operator action that touches a user must email that user, delivery
-  must fail closed before anything ships, and no secret may reach a log
-  line.
+  The logged-out `/` landing pitches the jj workflow to developers,
+  but the MVP audience is solo self-hosters evaluating whether to
+  run jjhub themselves. They need to see what the product is, what
+  already ships (mail that delivers, moderation, rate limits,
+  delivery readout), and where the deploy instructions live —
+  without any account or signup friction on the page.
 constraints:
-  - "Rust / axum / htmx / Tera / Tailwind, sqlx + Postgres — unchanged"
-  - >-
-    One Mailer interface; SMTP is the primary transport, no provider
-    enum in code
-  - >-
-    Phase gate: no live send until confirmation links and a delivery
-    readout are proven in staging
-  - "Secrets live in one env family and never appear in a log line"
+  - "Rust / axum / htmx / Tera / Tailwind — unchanged"
+  - "DESIGN.md token system only; ux_audit strict is the blocking gate"
+  - "Agent drafts copy from shipped facts; user reviews before code"
+  - "Footer /login link is the only auth affordance on the page"
 out_of_scope:
-  - "Multi-tier roles — user decision: can wait"
-  - "Per-owner block lists and IP bans beyond the e20 rate budget"
-  - >-
-    Inbound mail, attachments, tracking pixels, notification
-    preferences, appeals automation
+  - "Separate /product route, static HTML, multi-page marketing site"
+  - "Signup/register/push CTAs on the product page"
+  - "Changes to /login, /register, nav auth, logged-in dashboard"
+  - "Copy beyond shipped facts; new backend features or page data"
