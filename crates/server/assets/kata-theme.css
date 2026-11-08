@@ -1,0 +1,175 @@
+/* jjhub theme for the pinned kata bundle — story: e39s01
+ *
+ * The bundle themes itself entirely through ~41 custom properties on
+ * :root (light) plus a second :root inside @media (prefers-color-scheme:
+ * dark) — see the t1 inventory in specs/epics/e39-kata-theme/
+ * e39s01-theme-injection.md. This sheet re-points those properties at
+ * DESIGN.md tokens and nothing else; it never chases the bundle's
+ * Svelte-scoped class hashes, which move whenever the pin moves.
+ *
+ * Hex lives only inside :root, mirroring app.css. Every value is a
+ * DESIGN.md token or a color-mix() derivation from two tokens — no
+ * invented colors. Loaded after the bundle's own stylesheet (the
+ * injected <link> lands before </head>), so equal specificity wins.
+ */
+
+:root {
+  /* jjhub DESIGN.md tokens — the single source this sheet mirrors */
+  --jj-primary: #16211C;
+  --jj-secondary: #4A574F;
+  --jj-tertiary: #106845;
+  --jj-tertiary-hover: #0D5739;
+  --jj-tertiary-pressed: #0A4730;
+  --jj-neutral: #F4F6F4;
+  --jj-surface: #FBFCFB;
+  --jj-surface-sunken: #ECEFEC;
+  --jj-surface-inverse: #1D2A24;
+  --jj-border: #DCE2DD;
+  --jj-on-accent: #F7FAF8;
+  --jj-on-inverse: #E7ECE8;
+  --jj-error: #A32218;
+  --jj-error-surface: #FBEDEC;
+  --jj-radius-md: 8px;
+  --jj-font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --jj-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* --- kata variables, light arm: page chrome --- */
+  --bg: var(--jj-surface);            /* surface — raised paper, inputs */
+  --bg-panel: var(--jj-neutral);      /* neutral — paper panels, header */
+  --bg-elevated: var(--jj-surface-sunken);
+  --border: var(--jj-border);
+  --border-muted: var(--jj-surface-sunken);
+  --text: var(--jj-primary);
+  --text-muted: var(--jj-secondary);
+  --text-faint: var(--jj-secondary);  /* no lighter token; secondary stays AA */
+  --link: var(--jj-tertiary-hover);   /* resting links clear AA on paper */
+  --link-bg: var(--jj-surface-sunken);
+  --on-accent: var(--jj-on-accent);
+
+  /* diff arms — green/red derivations of tertiary + error */
+  --add-bg: color-mix(in srgb, #106845 10%, #FBFCFB);
+  --add-bg-strong: color-mix(in srgb, #106845 18%, #FBFCFB);
+  --add-word-bg: color-mix(in srgb, #106845 26%, #FBFCFB);
+  --add-text: var(--jj-tertiary-hover);
+  --remove-bg: color-mix(in srgb, #A32218 5%, #FBFCFB);
+  --remove-bg-strong: color-mix(in srgb, #A32218 10%, #FBFCFB);
+  --remove-word-bg: color-mix(in srgb, #A32218 15%, #FBFCFB);
+  --remove-text: var(--jj-error);
+
+  /* status arms — one accent hue only; caution reads as ruled neutral */
+  --warn-bg: var(--jj-surface-sunken);
+  --warn-text: var(--jj-secondary);
+  --attention-bg: var(--jj-surface-sunken);
+  --attention-border: var(--jj-secondary);
+  --attention-text: var(--jj-secondary);
+  --error-bg: var(--jj-error-surface);
+  --error-border: var(--jj-error);
+  --error-text: var(--jj-error);
+  --success-bg: color-mix(in srgb, #106845 10%, #FBFCFB);
+  --success-text: var(--jj-tertiary-hover);
+  --question-bg: color-mix(in srgb, #106845 8%, #FBFCFB);
+  --question-text: var(--jj-tertiary-hover);
+  --selection-tint: color-mix(in srgb, #106845 22%, transparent);
+  --selection-rule: var(--jj-tertiary);
+
+  /* id chips — accent family, no second hue */
+  --change-id-color: var(--jj-tertiary-hover);
+  --change-id-bg: color-mix(in srgb, #106845 10%, #FBFCFB);
+  --commit-id-color: var(--jj-tertiary-hover);
+  --commit-id-bg: var(--jj-surface-sunken);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* inverse band arm: surface-inverse page, on-inverse ink */
+    --bg: var(--jj-surface-inverse);
+    --bg-panel: color-mix(in srgb, #F4F6F4 5%, #1D2A24);
+    --bg-elevated: color-mix(in srgb, #F4F6F4 8%, #1D2A24);
+    --border: color-mix(in srgb, #E7ECE8 20%, #1D2A24);
+    --border-muted: color-mix(in srgb, #E7ECE8 12%, #1D2A24);
+    --text: var(--jj-on-inverse);
+    --text-muted: color-mix(in srgb, #E7ECE8 93%, #1D2A24);
+    --text-faint: color-mix(in srgb, #E7ECE8 92%, #1D2A24);
+    --link: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --link-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+    --on-accent: var(--jj-on-accent);
+
+    --add-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+    --add-bg-strong: color-mix(in srgb, #106845 24%, #1D2A24);
+    --add-word-bg: color-mix(in srgb, #106845 34%, #1D2A24);
+    --add-text: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --remove-bg: color-mix(in srgb, #A32218 10%, #1D2A24);
+    --remove-bg-strong: color-mix(in srgb, #A32218 18%, #1D2A24);
+    --remove-word-bg: color-mix(in srgb, #A32218 26%, #1D2A24);
+    --remove-text: color-mix(in srgb, #A32218 20%, #F7FAF8);
+
+    --warn-bg: color-mix(in srgb, #F4F6F4 5%, #1D2A24);
+    --warn-text: color-mix(in srgb, #E7ECE8 90%, #1D2A24);
+    --attention-bg: color-mix(in srgb, #F4F6F4 5%, #1D2A24);
+    --attention-border: color-mix(in srgb, #E7ECE8 35%, #1D2A24);
+    --attention-text: color-mix(in srgb, #E7ECE8 90%, #1D2A24);
+    --error-bg: color-mix(in srgb, #A32218 11%, #1D2A24);
+    --error-border: color-mix(in srgb, #A32218 38%, #1D2A24);
+    --error-text: color-mix(in srgb, #A32218 20%, #F7FAF8);
+    --success-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+    --success-text: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --question-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+    --question-text: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --selection-tint: color-mix(in srgb, #106845 45%, transparent);
+    --selection-rule: color-mix(in srgb, #106845 50%, #E7ECE8);
+
+    --change-id-color: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --change-id-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+    --commit-id-color: color-mix(in srgb, #106845 15%, #E7ECE8);
+    --commit-id-bg: color-mix(in srgb, #106845 14%, #1D2A24);
+  }
+}
+
+/* --- type: DESIGN.md pairing on the document shell --- */
+:root {
+  font-family: var(--jj-font-sans);
+  --mono: var(--jj-font-mono);
+}
+
+/* The bundle hardcodes ui-monospace per component, so the mono family
+   needs a floor-level override to reach code, diffs, and revision IDs.
+   !important is the price of restyling a sheet we do not own. */
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--jj-font-mono) !important;
+}
+
+/* --- chrome: shapes and states from the component tokens --- */
+button {
+  border-radius: var(--jj-radius-md);
+}
+
+input,
+textarea {
+  border-radius: var(--jj-radius-md);
+}
+
+/* state contract: focus ring and disabled arm (DESIGN.md components) */
+:focus-visible {
+  outline: 2px solid var(--jj-tertiary);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+textarea:disabled {
+  background: var(--jj-surface-sunken);
+  color: var(--jj-secondary);
+}
+
+/* motion contract: the bundle ships transitions; honor reduce */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

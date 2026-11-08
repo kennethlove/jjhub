@@ -1,0 +1,13 @@
+id: e39
+slug: kata-theme
+title: "kata theme — proxy-injected stylesheet from DESIGN.md tokens"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: MODIFIED
+status: planning
+stories:
+  - id: e39s01
+    name: theme-injection
+    business_value_cps: 4
+  - id: e39s02
+    name: gate-pass
+    business_value_cps: 2

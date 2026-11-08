@@ -1,11 +1,11 @@
 # specs/release-plan.yaml — WSJF-ordered epic index for jjhub
 
-# v0.8.0 cycle. version is a non-authoritative mirror; semantic-release
+# v0.9.0 cycle. version is a non-authoritative mirror; semantic-release
 # decides the real tag at merge (gh release view wins).
-# v0.7.0 epics (e34-e35) shipped; their capsules remain in specs/epics/.
+# v0.8.0 epics (e34-e37) shipped; their capsules remain in specs/epics/.
 
-version: "0.8.0"
-status: ready
+version: "0.9.0"
+status: planning
 workflow_mode: solo-git
 bump_hint: minor
 
@@ -72,6 +72,35 @@ epics:
       Mailer::send write point, neutral wording and path-form links
       unchanged. One story: the pair end to end (verify, reset,
       moderation) across all mailer arms.
+  - id: e38
+    slug: product-home
+    title: "Product home — logged-out landing becomes a self-hoster page"
+    wsjf: 4.0
+    bcp_total: 9
+    delta: MODIFIED
+    note: >
+      (6 + 2 + 1) / (9 / 4) = 4.0. Replaces the logged-out `/`
+      landing with a product page for self-hosters — the MVP
+      audience VISION names — drafted from shipped facts and
+      reviewed before build. Three stories: product page with the
+      approved copy (5), auth surface = footer /login only, zero
+      account CTAs (2), gate pass (ux_audit strict + 390 viewport
+      + preflight) (2).
+  - id: e39
+    slug: kata-theme
+    title: "kata theme — proxy-injected stylesheet from DESIGN.md tokens"
+    wsjf: 4.0
+    bcp_total: 7
+    delta: MODIFIED
+    note: >
+      (4 + 2 + 1) / (7 / 4) = 4.0. Restyles the pinned kata
+      sidecar bundle at the proxy seam: inventory the bundle's
+      theming surface, inject a theme-stylesheet link into proxied
+      HTML only, serve a DESIGN.md-derived kata-theme.css. No
+      upstream PRs, no fork this cycle (user decision). Two
+      stories: probe + injection + theme stylesheet (5), gate
+      pass (2). Option 2 (header injection) and option 3 (iframe
+      shell) are named escalations, decided after this lands.
 
 bugs:
   total: 2

@@ -1,0 +1,19 @@
+spec: e38s01-product-page.md
+status: failing
+tasks:
+  - id: e38s01t1
+    description: >-
+      RED: product_home suite — logged-out GET / returns the
+      self-hoster product page (approved-copy markers present),
+      logged-in GET / still returns the dashboard, suite fails
+      against the current landing content.
+    verify: "cargo test -p server --test product_home"
+    status: failing
+  - id: e38s01t2
+    description: >-
+      GREEN: rewrite the logged-out branch of home.html from the
+      reviewed copy draft (self-host pitch, shipped-features
+      sections, deploy pointer, footer) — tokens/DESIGN.md only,
+      logged-in dashboard branch untouched.
+    verify: "cargo test -p server --test product_home"
+    status: failing
