@@ -343,6 +343,9 @@ fn app_from_state(state: AppState) -> Router {
         .route("/api/{*rest}", get(review_proxy::api_route))
         // story: e12s02 — the site stylesheet shadows the kata asset proxy
         .route("/assets/app.css", get(routes::app_css))
+        // story: e39s01 — theme sheet owns its path, registered ahead of
+        // the assets forwarder so the sidecar never sees it
+        .route("/assets/kata-theme.css", get(routes::kata_theme_css))
         .route("/assets/{*rest}", get(review_proxy::assets_route))
         .route("/favicon.svg", get(review_proxy::assets_route))
         .route(

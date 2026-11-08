@@ -362,7 +362,57 @@ pub async fn spa_route(
     request: Request,
 ) -> Response {
     // story: e14s01 — every embed response carries the frame policy
-    with_frame_policy(spa_route_inner(state, rest, headers, request).await)
+    let response = spa_route_inner(state, rest, headers, request).await;
+    // story: e39s01 — documents wear jjhub's theme; other types stream on
+    with_frame_policy(inject_theme_link(response).await)
+}
+
+/// story: e39s01 — insert the theme stylesheet link before `</head>` in
+/// `text/html` bodies only. Every other content type returns untouched, so
+/// API JSON and asset bytes stay byte-identical to upstream.
+async fn inject_theme_link(response: Response) -> Response {
+    let is_html = response
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|content_type| {
+            content_type
+                .split(';')
+                .next()
+                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("text/html"))
+        });
+    if !is_html {
+        return response;
+    }
+    let (parts, body) = response.into_parts();
+    // WHY: the sidecar is our own trusted service and the document shell is
+    // tiny; buffering only happens on this one path, streams stay streams.
+    let bytes = match axum::body::to_bytes(body, 4 * 1024 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            tracing::warn!(%err, "kata document body unreadable");
+            return (StatusCode::BAD_GATEWAY, "review service unavailable").into_response();
+        }
+    };
+    const THEME_LINK: &str = r#"<link rel="stylesheet" href="/assets/kata-theme.css">"#;
+    let insert_at = bytes
+        .windows(7)
+        .position(|window| window.eq_ignore_ascii_case(b"</head>"))
+        .map(|start| start + 7);
+    let Some(insert_at) = insert_at else {
+        let mut rebuilt = Response::new(axum::body::Body::from(bytes));
+        *rebuilt.status_mut() = parts.status;
+        *rebuilt.headers_mut() = parts.headers;
+        return rebuilt;
+    };
+    let mut injected = Vec::with_capacity(bytes.len() + THEME_LINK.len());
+    injected.extend_from_slice(&bytes[..insert_at]);
+    injected.extend_from_slice(THEME_LINK.as_bytes());
+    injected.extend_from_slice(&bytes[insert_at..]);
+    let mut response = Response::new(axum::body::Body::from(injected));
+    *response.status_mut() = parts.status;
+    *response.headers_mut() = parts.headers;
+    response
 }
 
 async fn spa_route_inner(

@@ -9,6 +9,16 @@ mod origin_spa {
     use tower::ServiceExt;
 
     async fn spawn_mock_kata() -> (String, Arc<Mutex<Option<(Vec<(String, String)>, String)>>>) {
+        spawn_mock_kata_reply("text/plain", b"kata-ok").await
+    }
+
+    // story: e39s01 — a mock that answers with a chosen content type and
+    // exact bytes, so HTML injection and non-HTML pass-through can be
+    // asserted against the same seam.
+    async fn spawn_mock_kata_reply(
+        content_type: &'static str,
+        body: &'static [u8],
+    ) -> (String, Arc<Mutex<Option<(Vec<(String, String)>, String)>>>) {
         let seen = Arc::new(Mutex::new(None));
         let seen2 = seen.clone();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -22,7 +32,12 @@ mod origin_spa {
                     .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                     .collect();
                 *seen.lock().unwrap() = Some((headers, req.uri().path().to_string()));
-                (StatusCode::OK, "kata-ok").into_response()
+                (
+                    StatusCode::OK,
+                    [(axum::http::header::CONTENT_TYPE, content_type)],
+                    body,
+                )
+                    .into_response()
             }
         });
         tokio::spawn(async move {
@@ -200,6 +215,92 @@ mod origin_spa {
         assert_eq!(response.status(), StatusCode::OK);
         let (_, path) = seen.lock().unwrap().clone().expect("upstream hit");
         assert_eq!(path, "/assets/index-ABC.js");
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn proxied_html_carries_theme_link(pool: sqlx::PgPool) {
+        // story: e39s01 — text/html documents from the sidecar wear the
+        // injected jjhub theme stylesheet link.
+        let root = tempfile::tempdir().unwrap();
+        const HTML: &str = r#"<!doctype html><html><head><title>Kata</title><link rel="stylesheet" href="/assets/index-DRn4R2rA.css"></head><body><div id="app"></div></body></html>"#;
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", HTML.as_bytes()).await;
+        let cookie = register(&pool, &root, "alice@example.com").await;
+        create_repo(
+            &pool,
+            &root,
+            &cookie,
+            "name=demo&visibility=public",
+            &upstream,
+        )
+        .await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/r/alice__demo/browse",
+            Some(&cookie),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            html.contains("/assets/kata-theme.css"),
+            "theme stylesheet link injected: {html}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn api_json_passes_through_byte_identical(pool: sqlx::PgPool) {
+        // story: e39s01 — API JSON is not HTML: no injection, bytes intact.
+        let root = tempfile::tempdir().unwrap();
+        const JSON: &[u8] = b"{\"who\":\"alice\",\"n\":42}";
+        let (upstream, _) = spawn_mock_kata_reply("application/json", JSON).await;
+        let cookie = register(&pool, &root, "alice@example.com").await;
+        create_repo(
+            &pool,
+            &root,
+            &cookie,
+            "name=demo&visibility=public",
+            &upstream,
+        )
+        .await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/api/repos/alice__demo/browse/log",
+            Some(&cookie),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(bytes.as_ref(), JSON, "JSON bytes untouched");
+        assert!(!bytes.windows(14).any(|w| w == b"kata-theme"));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn asset_bytes_pass_through_byte_identical(pool: sqlx::PgPool) {
+        // story: e39s01 — asset bytes (non-UTF8 payload) stay untouched.
+        let root = tempfile::tempdir().unwrap();
+        const ASSET: &[u8] = b"\x00\x01\xff\xfe export const x = \"\\u00e9\";\x80";
+        let (upstream, _) = spawn_mock_kata_reply("application/javascript", ASSET).await;
+
+        let response = get(&pool, &root, &upstream, "/assets/index-ABC.js", None, None).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(bytes.as_ref(), ASSET, "asset bytes untouched");
     }
 
     #[sqlx::test(migrations = "./migrations")]
