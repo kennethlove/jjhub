@@ -31,7 +31,9 @@ Zoom-out on the modules this touches:
   git endpoint; resolves (owner, name), authorizes, spawns
   http-backend. Callers: the /git/* routes. Contracts: 404 must
   still be returned for upload-pack on missing repos and for
-  foreign namespaces; authorize still runs before any subprocess.
+  foreign namespaces; anonymous ReceivePack on a missing repo
+  answers 401 + Basic challenge (jjhub-cxb); authorize still runs
+  before any subprocess.
 - **token_user / authorize** (transport.rs) — purpose: map the
   Authorization header to a TransportUser and make one admission
   decision. Contracts: unchanged signatures; create admission reads
@@ -56,9 +58,16 @@ Clone/fetch of a nonexistent repo is not a create; the missing-row
 branch falls through to 404 for UploadPack.
 
 #### ADDED: another user's namespace stays 404
-When the URL owner segment differs from the token user's handle
-(or no token is presented), the response is 404 — indistinguishable
-from a nonexistent repo (no probing, no squatting).
+When the URL owner segment differs from the token user's handle,
+the response is 404 — indistinguishable from a nonexistent repo
+(no probing, no squatting).
+
+#### AMENDED (jjhub-cxb): no token → 401 challenge on ReceivePack
+An anonymous ReceivePack probe on a missing repo answers 401 with
+`WWW-Authenticate: Basic realm="jjhub"` instead of 404: git only
+discovers URL credentials after a 401, so 404 made push-to-create
+unbootstrapable over HTTP. Anonymous UploadPack on a missing repo
+stays 404. No row is created by either probe.
 
 ## 7. Actors
 
@@ -93,7 +102,9 @@ None — transport behavior only.
 ## 13. API contracts
 
 /git/* smart-HTTP surface unchanged except the guarded create;
-404 semantics preserved everywhere else.
+404 semantics preserved everywhere else; the one exception is the
+jjhub-cxb challenge (anonymous missing-repo ReceivePack → 401 +
+`WWW-Authenticate: Basic realm="jjhub"`).
 
 ## 14. Data model
 
@@ -139,6 +150,12 @@ Scenario: foreign namespace stays closed
   Given alice's token
   When alice pushes to "bob/squat.git" (no repo)
   Then the response is 404 and no row is created
+
+Scenario: anonymous first push bootstraps credentials (jjhub-cxb)
+  Given the same server
+  When anyone probes "alice/newproj.git" for receive (no repo, no token)
+  Then the response is 401 with a Basic challenge and no row is created
+  And a git push with URL-embedded credentials then creates the repo
 ```
 
 ## 19. Verification script (manual)
