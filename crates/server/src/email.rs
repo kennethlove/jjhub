@@ -28,7 +28,12 @@ pub struct LogMailer;
 #[async_trait::async_trait]
 impl Mailer for LogMailer {
     async fn send(&self, to: &str, subject: &str, text: &str, html: &str) -> Result<(), MailError> {
-        tracing::info!(%to, %subject, %text, %html, "email (log)");
+        // jjhub-6js — this is the DEFAULT fallback, so with the
+        // subscriber now live the body would land in default info logs:
+        // reset links and tokens are in there. Envelope at info, bodies
+        // behind RUST_LOG=debug (dev intent, no secret at default level).
+        tracing::info!(%to, %subject, "email (log)");
+        tracing::debug!(%text, %html, "email body");
         Ok(())
     }
 }

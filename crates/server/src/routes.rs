@@ -275,7 +275,7 @@ pub async fn register(
         // half-finished row survives) and answers with the retry; the
         // readout already recorded the failure (e36s01). Every FK off
         // users cascades, so one DELETE clears the signup's rows.
-        eprintln!("jjhub: signup verification send failed: {}", err.reason);
+        tracing::warn!(reason = %err.reason, "signup: verification email send failed");
         sqlx::query("DELETE FROM users WHERE id = $1")
             .bind(user_id)
             .execute(&state.pool)
@@ -438,10 +438,10 @@ pub async fn request_reset(
                     .send(&form.email, "Reset your password", &text, &html)
                     .await
                 {
-                    eprintln!("jjhub: send reset link: {}", err.reason);
+                    tracing::warn!(reason = %err.reason, "reset: email send failed");
                 }
             }
-            Err(err) => eprintln!("jjhub: store reset token: {err}"),
+            Err(err) => tracing::error!(%err, "reset: store token failed"),
         }
     }
 
@@ -558,7 +558,7 @@ async fn complete_reset(state: &AppState, token: &str, form: &ResetPasswordForm)
         .execute(&state.pool)
         .await
     {
-        eprintln!("jjhub: store new password: {err}");
+        tracing::error!(%err, "password change: store failed");
     }
 
     (
@@ -764,7 +764,7 @@ pub async fn verify_resend(
             {
                 // story: e36s02 — a failed resend answers with the retry,
                 // never a redirect that pretends the mail went out.
-                eprintln!("jjhub: resend verification send failed: {}", err.reason);
+                tracing::warn!(reason = %err.reason, "resend verification: email send failed");
                 let mut context = page_context(None, "");
                 context.insert(
                     "resend_error",
@@ -2964,7 +2964,7 @@ async fn moderation_notice(state: &AppState, target: uuid::Uuid, action: &str, r
     let (text, html) =
         crate::render::mail_pair("moderation", &mail_context).expect("moderation mail pair");
     if let Err(err) = state.mailer.send(&email, headline, &text, &html).await {
-        eprintln!("jjhub: moderation notice: {}", err.reason);
+        tracing::warn!(reason = %err.reason, "moderation: notice email send failed");
     }
 }
 

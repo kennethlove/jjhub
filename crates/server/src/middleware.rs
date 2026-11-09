@@ -114,3 +114,20 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
             .fold(0u8, |acc, (x, y)| acc | (x ^ y))
             == 0
 }
+
+/// jjhub-6js — one structured line per HTTP request: method, path,
+/// status, elapsed. healthz is liveness polling, not traffic: debug.
+pub async fn request_log(request: Request, next: Next) -> Response {
+    let start = std::time::Instant::now();
+    let method = request.method().clone();
+    let path = request.uri().path().to_string();
+    let response = next.run(request).await;
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let status = response.status().as_u16();
+    if path == "/healthz" {
+        tracing::debug!(%method, %path, status, elapsed_ms, "request");
+    } else {
+        tracing::info!(%method, %path, status, elapsed_ms, "request");
+    }
+    response
+}

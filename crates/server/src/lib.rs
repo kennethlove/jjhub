@@ -391,6 +391,7 @@ fn app_from_state(state: AppState) -> Router {
                 )),
         )
         .merge(transport_routes(state.clone()))
+        .layer(axum::middleware::from_fn(middleware::request_log))
         .with_state(state)
 }
 
@@ -424,4 +425,22 @@ fn transport_routes(state: AppState) -> Router<AppState> {
 pub fn ensure_storage_layout(storage_root: &str) -> Result<(), String> {
     let root = std::path::Path::new(storage_root);
     std::fs::create_dir_all(root.join(".meta")).map_err(|e| e.to_string())
+}
+
+/// jjhub-6js — attach the tracing subscriber once at boot (HTTP server
+/// and pre-receive hook both call it) so the events already written
+/// across the codebase actually emit. Human-readable lines by default,
+/// RUST_LOG-filtered (default "info"); JJHUB_LOG_FORMAT=json switches to
+/// JSON lines for log shippers.
+pub fn init_logging() {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    if matches!(std::env::var("JJHUB_LOG_FORMAT").as_deref(), Ok("json")) {
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .json()
+            .init();
+    } else {
+        tracing_subscriber::fmt().with_env_filter(filter).init();
+    }
 }
