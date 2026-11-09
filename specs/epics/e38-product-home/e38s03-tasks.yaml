@@ -1,5 +1,5 @@
 spec: e38s03-gate-pass.md
-status: failing
+status: passing
 tasks:
   - id: e38s03t1
     description: >-
@@ -11,7 +11,12 @@ tasks:
       (strict); keystone_render or capture at 390px and confirm
       no horizontal scroll; paste both results into e38s03
       story Evidence
-    status: failing
+    status: passing
+    evidence: >-
+      2026-11-09: ux_audit PASSED (12/12 pairs, Tokens, States,
+      Slop tells); keystone_render 1440+390 scrollWidth ==
+      innerWidth, screenshots in captures/. Full result +
+      screenshot checks pasted to e38s03-gate-pass.md Evidence.
   - id: e38s03t2
     description: >-
       Full preflight green after the landing rewrite: fmt,
@@ -20,4 +25,8 @@ tasks:
       cargo fmt --all -- --check && cargo clippy --workspace
       --all-targets -- -D warnings && cargo test --workspace
       && cargo build
-    status: failing
+    status: passing
+    evidence: >-
+      2026-11-09 final tree: FMT=0 CLIPPY=0 TEST=0 BUILD=0,
+      134 ok suites, 0 FAILED (explicit rc per gate); recorded
+      in e38s03-gate-pass.md Evidence.
