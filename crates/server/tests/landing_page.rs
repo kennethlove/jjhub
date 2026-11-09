@@ -1,6 +1,6 @@
-// story: e23s01 — the approved landing design renders for logged-out
-// visitors: hero claim, MR ledger, why rows, stack band, self-hosting,
-// status/roadmap, footer; visitor links (/register, /login) survive.
+// story: e38s01 — the logged-out home is the self-hoster product page:
+// hero claim, what-ships rows, deploy pointer, footer; visitor links
+// (/register, /login) survive and no create form appears.
 mod landing_page {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -23,49 +23,49 @@ mod landing_page {
         let root = tempfile::tempdir().unwrap();
         let html = get(pool, &root).await;
 
-        // hero
+        // hero (e38s01 copy draft)
         assert!(
-            html.contains("A forge built around Jujutsu."),
+            html.contains("Run your own forge, built around Jujutsu."),
             "hero: {html}"
         );
-        assert!(html.contains("change-id"), "hero sub: {html}");
+        assert!(html.contains("change-ids"), "hero sub: {html}");
 
-        // ledger signature — mono change-ids in ruled rows
-        assert!(html.contains("kqvryyuz"), "ledger change-id: {html}");
+        // what ships today — the shipped-facts rows
+        assert!(html.contains("What ships today"), "shipped section: {html}");
         assert!(
-            html.contains("rewrite-diff-viewer"),
-            "ledger branch: {html}"
+            html.contains("Change-anchored merge reviews"),
+            "shipped: merge reviews: {html}"
+        );
+        assert!(html.contains("Mail that delivers"), "shipped: mail: {html}");
+        assert!(
+            html.contains("Moderation built in"),
+            "shipped: moderation: {html}"
         );
 
-        // why rows
-        assert!(
-            html.contains("Change-anchored merge requests"),
-            "why rows: {html}"
-        );
-        assert!(html.contains("Edit-in-place review"), "why rows: {html}");
-
-        // inverse stack band
-        assert!(html.contains("Merge the bottom"), "stack band: {html}");
-        assert!(html.contains("server-rebase"), "stack band: {html}");
-
-        // self-hosting
+        // deploy pointer
+        assert!(html.contains("One docker compose up"), "deploy: {html}");
+        assert!(html.contains("SMTP"), "deploy config: {html}");
         assert!(
             html.contains("docker compose up -d"),
-            "self-hosting: {html}"
-        );
-        assert!(
-            html.contains("SESSION_SECRET"),
-            "self-hosting secrets: {html}"
+            "deploy command: {html}"
         );
 
-        // status + roadmap + footer
-        assert!(html.contains("Early development"), "status badge: {html}");
-        assert!(html.contains("Live-mail delivery gate"), "roadmap: {html}");
+        // footer
         assert!(html.contains("Apache License 2.0"), "footer: {html}");
 
-        // visitor paths survive
-        assert!(html.contains("/register"), "register link: {html}");
+        // old e23s01 landing is gone
+        assert!(
+            !html.contains("A forge built around Jujutsu."),
+            "old hero gone: {html}"
+        );
+        assert!(
+            !html.contains("Early development"),
+            "old status band gone: {html}"
+        );
+
+        // visitor paths survive — one quiet way in, nothing to join
         assert!(html.contains("/login"), "login link: {html}");
+        assert!(!html.contains("/register"), "no register link: {html}");
         assert!(
             !html.contains("action=\"/repos\""),
             "no create form: {html}"

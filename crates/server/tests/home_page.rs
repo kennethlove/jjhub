@@ -58,11 +58,11 @@ mod home_page {
     }
 
     #[sqlx::test(migrations = "./migrations")]
-    async fn logged_out_landing_offers_register_and_login(pool: sqlx::PgPool) {
+    async fn logged_out_landing_offers_login_only(pool: sqlx::PgPool) {
         let root = tempfile::tempdir().unwrap();
         let html = get(pool, &root, "/", None).await;
-        assert!(html.contains("/register"), "register link: {html}");
         assert!(html.contains("/login"), "login link: {html}");
+        assert!(!html.contains("/register"), "register link absent: {html}");
         // no create form for visitors
         assert!(
             !html.contains("action=\"/repos\""),
