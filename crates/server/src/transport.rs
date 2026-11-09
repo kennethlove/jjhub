@@ -232,6 +232,20 @@ pub async fn smart_http(
         }
     };
     let Some((repo_id, repo_owner, visibility, taken_down)) = repo else {
+        // story: jjhub-cxb — an anonymous ReceivePack probe on a missing
+        // repo must carry the Basic challenge: git only discovers the URL
+        // credentials after a 401, so a 404 here permanently breaks
+        // push-to-create (the client never re-probes authenticated).
+        // UploadPack stays 404 — anonymous clone of nothing reveals nothing.
+        if op == GitOp::ReceivePack && transport_user.is_none() {
+            let mut response = (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+            for (name, value) in challenge() {
+                if let Ok(value) = header::HeaderValue::from_str(value) {
+                    response.headers_mut().insert(name, value);
+                }
+            }
+            return response;
+        }
         return StatusCode::NOT_FOUND.into_response();
     };
 

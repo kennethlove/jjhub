@@ -91,17 +91,18 @@ mod smart_http_create {
             axum::serve(listener, router).await.unwrap();
         });
 
-        use base64::Engine;
-        let auth = base64::engine::general_purpose::STANDARD
-            .encode(format!("x-access-token:{}", token.plaintext));
         let seed_path = seed.path().to_path_buf();
+        // jjhub-cxb — credentials live in the URL, NOT an extraHeader: git's
+        // first probe goes out anonymous, so this only passes when the
+        // missing repo's 401 challenge bootstraps the URL credentials.
         let out = tokio::task::spawn_blocking(move || {
             std::process::Command::new("git")
                 .args([
-                    "-c",
-                    &format!("http.extraHeader=Authorization: Basic {auth}"),
                     "push",
-                    &format!("http://{addr}/git/alice/newproj.git"),
+                    &format!(
+                        "http://x-access-token:{}@{addr}/git/alice/newproj.git",
+                        token.plaintext
+                    ),
                     "trunk",
                 ])
                 .env("GIT_CONFIG_GLOBAL", "/dev/null")
@@ -203,8 +204,10 @@ mod smart_http_create {
             .unwrap();
         assert_eq!(rows, 0, "neither probe may create a row");
 
-        // No token at all: same 404, still no create.
-        let response = app(pool, &root)
+        // jjhub-cxb — no token at all: anonymous RECEIVE answers the 401
+        // challenge so git retries with credentials (a 404 here breaks
+        // push-to-create: git never re-probes with creds).
+        let response = app(pool.clone(), &root)
             .oneshot(
                 Request::get("/git/alice/nothing.git/info/refs?service=git-receive-pack")
                     .body(Body::empty())
@@ -212,6 +215,30 @@ mod smart_http_create {
             )
             .await
             .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            response
+                .headers()
+                .get("www-authenticate")
+                .and_then(|v| v.to_str().ok()),
+            Some("Basic realm=\"jjhub\"")
+        );
+
+        // Anonymous UPLOAD of nothing stays indistinguishable: 404.
+        let response = app(pool.clone(), &root)
+            .oneshot(
+                Request::get("/git/alice/nothing.git/info/refs?service=git-upload-pack")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM repositories")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(rows, 0, "no probe may create a row");
     }
 }
