@@ -1,5 +1,5 @@
 spec: e38s02-auth-surface.md
-status: failing
+status: passing
 tasks:
   - id: e38s02t1
     description: >-
@@ -9,11 +9,24 @@ tasks:
       to /register, no signup button text). Fails against the
       current landing.
     verify: "cargo test -p server --test product_home"
-    status: failing
+    status: passing
+    evidence: >-
+      RED confirmed 2026-11-09: panicked on no-register-href —
+      shared nav carried /register + "Get started".
   - id: e38s02t2
     description: >-
       GREEN: template carries only the footer /login link as the
       auth affordance; every account CTA removed from the
       logged-out branch.
     verify: "cargo test -p server --test product_home"
-    status: failing
+    status: passing
+    evidence: >-
+      GREEN 2026-11-09: home.html sets nav_product before the nav
+      include; nav.html suppresses logged-out auth CTAs when the
+      flag is set (default false, other pages untouched) and its
+      dead landing anchors repointed to live #ships/#deploy;
+      footer gains a logged-out-only /login link (dashboard
+      footer unchanged). product_home 2/2, landing_page 1/1,
+      home_page 3/3 (visitor test updated: login-only), -p
+      server sweep clean. Live stack: exactly one href=/login,
+      zero href=/register on / (curl, rebuilt container).

@@ -191,11 +191,11 @@ epics:
     stories:
       e37s01: passing
   e38-product-home:
-    status: todo
+    status: passing
     stories:
-      e38s01: failing
-      e38s02: failing
-      e38s03: failing
+      e38s01: passing
+      e38s02: passing
+      e38s03: passing
   e39-kata-theme:
     status: passing
     stories:

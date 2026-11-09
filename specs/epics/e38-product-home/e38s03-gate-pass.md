@@ -69,3 +69,40 @@ Evidence section — unrecorded gates are not gates.
 - The stylesheet is shared: an audit fail may implicate an
   existing rule — fix in the same draft loop, re-run the audit,
   never waive it.
+
+## Evidence
+
+### t1 — ux_audit strict on `crates/server/assets/app.css` (2026-11-09)
+
+Full result: **UX AUDIT PASSED** — Contrast (APCA) all 12 auto-extracted pairs pass
+(Lc -93.46 to +87.91, every pair |Lc| >= 75; WCAG sidecar 10.05:1 to 14.79:1,
+min 4.5), Tokens pass, States pass, Slop tells pass. No edits were needed:
+the product page uses only existing `.hero/.section/.ruled-list/.step-row/.btn`
+rules, all token-driven.
+
+### t1 — 390px + 1440px render of logged-out `/` (2026-11-09)
+
+`keystone_render url=http://localhost:3000/ viewports [1440, 390]` against the
+rebuilt stack (jjhub-app-1, health 200):
+
+- 1440: scrollWidth 1440 == innerWidth 1440 — no horizontal scroll.
+- 390: scrollWidth 390 == innerWidth 390 — no horizontal scroll.
+- Screenshots: `captures/screenshot-1440.png`, `captures/screenshot-390.png`.
+- 1440 screenshot check: nav (wordmark + What ships + Deploy, no auth CTAs),
+  hero headline + both CTAs, what-ships ruled rows — hierarchy clean, no
+  cut-off text. 390 check: wordmark + hero fully visible, no horizontal
+  overflow. `.site-nav` text links hidden <=640 is pre-existing app.css
+  (`.site-nav .nav-link { display: none; }`), not a regression; the footer
+  `/login` stacks into the small-screen footer.
+
+### t2 — full preflight (2026-11-09, final tree after `cargo fmt`)
+
+```
+FMT=0 CLIPPY=0 TEST=0 BUILD=0
+134 test result: ok suites, 0 FAILED
+clippy: No issues found
+```
+
+(`cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo test --workspace` with `DATABASE_URL=...jjhub_test`, `cargo build` —
+explicit exit codes captured per run.)

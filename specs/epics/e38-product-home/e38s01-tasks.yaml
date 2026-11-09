@@ -1,5 +1,5 @@
 spec: e38s01-product-page.md
-status: failing
+status: passing
 tasks:
   - id: e38s01t1
     description: >-
@@ -8,7 +8,11 @@ tasks:
       logged-in GET / still returns the dashboard, suite fails
       against the current landing content.
     verify: "cargo test -p server --test product_home"
-    status: failing
+    status: passing
+    evidence: >-
+      RED confirmed 2026-11-09: 1 passed (dashboard), 1 failed —
+      old landing lacks the copy markers (hero assert panicked).
+      After t2: 2/2 pass.
   - id: e38s01t2
     description: >-
       GREEN: rewrite the logged-out branch of home.html from the
@@ -16,4 +20,12 @@ tasks:
       sections, deploy pointer, footer) — tokens/DESIGN.md only,
       logged-in dashboard branch untouched.
     verify: "cargo test -p server --test product_home"
-    status: failing
+    status: passing
+    evidence: >-
+      GREEN 2026-11-09: home.html logged-out branch rewritten from
+      the copy draft (hero, what ships today, deploy); dashboard
+      branch byte-identical; landing_page.rs updated in the same
+      change (old hero/status asserts swapped for new markers).
+      product_home 2/2, landing_page 1/1, home_page 3/3; whole
+      workspace 134 ok suites, TEST_RC=0; fmt, clippy -D warnings,
+      build all clean; ux_audit strict on app.css PASSED.
