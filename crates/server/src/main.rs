@@ -3,6 +3,10 @@
 
 #[tokio::main]
 async fn main() {
+    // jjhub-6js — subscriber first: every later log line (boot, hooks,
+    // transport decisions, one per request) lands on stdout for docker logs.
+    server::init_logging();
+
     // story: e03s01 — `server pre-receive` runs as the bare repo's
     // pre-receive hook (cwd = the git dir). stdin: `<old> <new> <ref>`
     // lines; exit 1 with reasons refuses the push before any ref moves.
@@ -59,9 +63,11 @@ async fn main() {
         .unwrap_or_else(|e| panic!("failed to bind 0.0.0.0:{port}: {e}"));
     // story: e20s01 — connect_info so the login rate limiter can key
     // on the client IP.
+    // jjhub-6js — boot line: which port, which storage root.
+    tracing::info!(%port, storage = %storage_root, "jjhub listening");
     axum::serve(
         listener,
-        server::app_production(pool, storage_root, limiter)
+        server::app_production(pool, storage_root.clone(), limiter)
             .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .await

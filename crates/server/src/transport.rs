@@ -9,7 +9,7 @@ use crate::token;
 use crate::AppState;
 
 /// story: e02s02 — which git operation a transport request performs.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GitOp {
     UploadPack,
     ReceivePack,
@@ -109,6 +109,7 @@ pub async fn admit_create(
         return Ok(None);
     };
     if owner != handle {
+        tracing::info!(%owner, %name, user = %user_id, "create denied: outside own namespace");
         return Ok(None);
     }
     // story: e20s02 — push-to-create charges BOTH rows: the push row
@@ -124,7 +125,10 @@ pub async fn admit_create(
         }
     }
     match crate::creation::create_repository(pool, storage_root, user_id, name, "private").await {
-        Ok(created) => Ok(Some((created.id, user_id, "private".to_string()))),
+        Ok(created) => {
+            tracing::info!(%owner, %name, repo_id = %created.id, "repository created on push");
+            Ok(Some((created.id, user_id, "private".to_string())))
+        }
         // story: e19s02 — race loser: the winner's row is the admission.
         Err(crate::creation::CreateError::Duplicate) => {
             let row: Option<(Uuid, Uuid, String)> = sqlx::query_as(
@@ -142,9 +146,12 @@ pub async fn admit_create(
         Err(crate::creation::CreateError::InvalidName)
         | Err(crate::creation::CreateError::InvalidVisibility) => Ok(None),
         Err(crate::creation::CreateError::Storage(_))
-        | Err(crate::creation::CreateError::Db(_)) => Err(Box::new(
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error").into_response(),
-        )),
+        | Err(crate::creation::CreateError::Db(_)) => {
+            tracing::error!(%owner, %name, "repository create failed");
+            Err(Box::new(
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error").into_response(),
+            ))
+        }
     }
 }
 
@@ -238,6 +245,7 @@ pub async fn smart_http(
         // push-to-create (the client never re-probes authenticated).
         // UploadPack stays 404 — anonymous clone of nothing reveals nothing.
         if op == GitOp::ReceivePack && transport_user.is_none() {
+            tracing::info!(%owner, %name, "receive on missing repo: 401 challenge sent");
             let mut response = (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
             for (name, value) in challenge() {
                 if let Ok(value) = header::HeaderValue::from_str(value) {
@@ -261,6 +269,7 @@ pub async fn smart_http(
     )
     .await
     {
+        tracing::warn!(%owner, %name, ?op, status = %status.as_u16(), "authorize denied");
         let mut response = (status, "forbidden").into_response();
         for (name, value) in extra_headers {
             if let Ok(value) = header::HeaderValue::from_str(value) {
@@ -396,10 +405,10 @@ async fn upsert_mrs_after_push(
             continue;
         };
         if !output.status.success() {
-            eprintln!(
-                "HOOK: cat-file failed for {}: {}",
-                update.new,
-                String::from_utf8_lossy(&output.stderr)
+            tracing::error!(
+                commit = %update.new,
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "post-push: cat-file failed"
             );
             continue;
         }
@@ -414,9 +423,9 @@ async fn upsert_mrs_after_push(
             author_email: identity.author_email,
         });
     }
-    eprintln!(
-        "HOOK: parsed {} ref updates from pkt-line body",
-        crate::receive_guard::parse_push_commands(pkt_bytes).len()
+    tracing::debug!(
+        count = crate::receive_guard::parse_push_commands(pkt_bytes).len(),
+        "post-push: parsed ref updates from pkt-line body"
     );
     if pushed.is_empty() {
         return;
@@ -649,9 +658,15 @@ async fn token_user(
         .and_then(|bytes| String::from_utf8(bytes).ok())?;
     let (username, token_value) = credentials.split_once(':')?;
     if username != "x-access-token" {
+        // jjhub-6js — credentials present but wrong shape: say so.
+        tracing::warn!(%username, "transport auth: unexpected username");
         return None;
     }
-    token::authenticate(&state.pool, token_value, client_ip).await
+    let auth = token::authenticate(&state.pool, token_value, client_ip).await;
+    if auth.is_none() {
+        tracing::warn!(?client_ip, "transport auth: token rejected");
+    }
+    auth
 }
 fn parse_cgi_response(raw: &[u8]) -> Option<Response> {
     use axum::body::Body;

@@ -229,6 +229,15 @@ impl RateLimiter {
             }
             Ok(())
         } else {
+            // jjhub-6js — every 429 across both transports lands here
+            // with full context (HTTP + SSH callers share this seam).
+            tracing::warn!(
+                action = ?action,
+                user = %user_key,
+                ip = %ip_key,
+                retry_s = wait.as_secs().max(1),
+                "rate limited"
+            );
             Err(wait)
         }
     }
