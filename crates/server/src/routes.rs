@@ -1466,6 +1466,9 @@ pub async fn repo_page(
         .map(|c| c.value().to_string())
         .unwrap_or_else(|| "<TOKEN>".to_string());
     let generate = viewer.is_some();
+    // jjhub task — the visibility toggle is owner-only; the page shows
+    // the form only to the owner.
+    let is_owner = viewer.as_deref() == Some(owner.as_str());
 
     // story: e17s02 — ssh:// rides the clone block only when the SSH
     // listener is enabled; host keeps the hostname, port is the SSH port.
@@ -1488,6 +1491,7 @@ pub async fn repo_page(
     context.insert("host", &host);
     context.insert("clone_token", &clone_token);
     context.insert("generate", &generate);
+    context.insert("is_owner", &is_owner);
     context.insert("ssh_enabled", &state.ssh.enabled);
     context.insert("ssh_host", &ssh_host);
     context.insert("ssh_port", &state.ssh.bind.port());

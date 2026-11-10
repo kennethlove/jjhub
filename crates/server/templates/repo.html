@@ -16,6 +16,13 @@
         <p class="visibility-def">
           {% if visibility == "public" %}Everyone can view.{% else %}Only collaborators can view.{% endif %}
         </p>
+        {% if is_owner %}
+        <form method="post" action="/{{ owner }}/{{ name }}/settings" class="visibility-flip">
+          <input type="hidden" name="_csrf" value="{{ csrf }}">
+          <input type="hidden" name="visibility" value="{% if visibility == 'private' %}public{% else %}private{% endif %}">
+          <button type="submit" class="btn btn-secondary btn-sm">{% if visibility == 'private' %}Make public{% else %}Make private{% endif %}</button>
+        </form>
+        {% endif %}
       </div>
       <a class="clone-link" href="/git/{{ owner }}/{{ name }}.git">jj git clone</a>
     </div>

@@ -6,10 +6,17 @@
 mod private_repo_visibility {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
+    use http_body_util::BodyExt;
     use tower::ServiceExt;
 
     fn app(pool: sqlx::PgPool, root: &tempfile::TempDir) -> axum::Router {
         server::app_with_storage(pool, root.path().to_str().unwrap().to_string())
+    }
+
+    fn csrf(cookie: &str) -> String {
+        let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "private-vis-suite".into());
+        let value = cookie.strip_prefix("session=").unwrap_or(cookie);
+        server::session::csrf_token(secret.as_bytes(), value)
     }
 
     async fn register(pool: &sqlx::PgPool, root: &tempfile::TempDir, email: &str) -> String {
@@ -79,7 +86,49 @@ mod private_repo_visibility {
         cookie: &str,
         path: &str,
     ) -> StatusCode {
+        as_user_body(pool, root, cookie, path).await.0
+    }
+
+    async fn as_user_body(
+        pool: sqlx::PgPool,
+        root: &tempfile::TempDir,
+        cookie: &str,
+        path: &str,
+    ) -> (StatusCode, String) {
         let mut request = Request::get(path).body(Body::empty()).unwrap();
+        request
+            .headers_mut()
+            .insert("cookie", cookie.parse().unwrap());
+        let response = app(pool, root).oneshot(request).await.unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, String::from_utf8_lossy(&body).into_owned())
+    }
+
+    async fn anon_body(
+        pool: sqlx::PgPool,
+        root: &tempfile::TempDir,
+        path: &str,
+    ) -> (StatusCode, String) {
+        let request = Request::get(path).body(Body::empty()).unwrap();
+        let response = app(pool, root).oneshot(request).await.unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, String::from_utf8_lossy(&body).into_owned())
+    }
+
+    /// POST a form as the session user; returns the status.
+    async fn post_as_user(
+        pool: sqlx::PgPool,
+        root: &tempfile::TempDir,
+        cookie: &str,
+        path: &str,
+        body: String,
+    ) -> StatusCode {
+        let mut request = Request::post(path)
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(Body::from(body))
+            .unwrap();
         request
             .headers_mut()
             .insert("cookie", cookie.parse().unwrap());
@@ -207,6 +256,86 @@ mod private_repo_visibility {
         assert_eq!(
             anon(pool.clone(), &root, "/nobody/nope").await,
             StatusCode::NOT_FOUND
+        );
+    }
+
+    // The visibility toggle must exist IN THE UI (owner-only form) and
+    // the round trip private -> public -> private must move stranger
+    // access with it.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn owner_sees_flip_form_and_round_trip_moves_stranger_access(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let (alice, _bob) = setup(&pool, &root).await;
+
+        let (status, page) = as_user_body(pool.clone(), &root, &alice, "/alice/demo").await;
+        assert_eq!(status, StatusCode::OK, "owner views the private repo page");
+        assert!(
+            page.contains("action=\"/alice/demo/settings\""),
+            "owner gets the visibility form: {page}"
+        );
+        assert!(
+            page.contains("Make public"),
+            "the action names the direction it will take: {page}"
+        );
+
+        let flip = |to: &str| format!("visibility={to}&_csrf={}", csrf(&alice));
+        assert_eq!(
+            post_as_user(
+                pool.clone(),
+                &root,
+                &alice,
+                "/alice/demo/settings",
+                flip("public")
+            )
+            .await,
+            StatusCode::SEE_OTHER,
+            "private -> public"
+        );
+        assert_eq!(
+            anon(pool.clone(), &root, "/alice/demo").await,
+            StatusCode::OK,
+            "public repos are open to strangers"
+        );
+        assert_eq!(
+            post_as_user(
+                pool.clone(),
+                &root,
+                &alice,
+                "/alice/demo/settings",
+                flip("private")
+            )
+            .await,
+            StatusCode::SEE_OTHER,
+            "public -> private"
+        );
+        assert_eq!(
+            anon(pool.clone(), &root, "/alice/demo").await,
+            StatusCode::NOT_FOUND,
+            "stranger access goes back behind the wall"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn non_owners_never_see_the_flip_form(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let (_alice, bob) = setup(&pool, &root).await;
+
+        let (status, page) = anon_body(pool.clone(), &root, "/alice/open").await;
+        assert_eq!(status, StatusCode::OK, "public repo reads anonymously");
+        assert!(
+            !page.contains("/alice/open/settings"),
+            "a stranger never sees the owner form: {page}"
+        );
+
+        let (status, page) = as_user_body(pool.clone(), &root, &bob, "/alice/demo").await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "collaborator reads the private repo"
+        );
+        assert!(
+            !page.contains("/alice/demo/settings"),
+            "a collaborator never sees the owner form: {page}"
         );
     }
 }
