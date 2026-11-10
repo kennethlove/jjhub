@@ -1,0 +1,11 @@
+epic: e40-kata-chrome
+sha: 2e5762c81b9824ca04110327f37f2af044bf9bb6
+coverage: cargo test --workspace
+cmd: cargo test --workspace
+observed: "2026-11-10T21:01:59Z"
+result: baseline-green (RC=0, 135 suites ok, cargo test --workspace)
+notes: |
+  Workspace /tmp/jjhub-e40 (temp, no spaces) on trunk 2e5762c8.
+  Shared CARGO_TARGET_DIR with primary checkout; DATABASE_URL to
+  local jjhub-pg test DB. Baseline first: a red baseline stops the
+  build (first green run = baseline).

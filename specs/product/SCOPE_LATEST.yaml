@@ -61,6 +61,26 @@ in_scope:
     Epic e39s02 — theme verification: ux_audit strict passes on
     the theme stylesheet, a capture of the themed review page
     shows the jjhub palette and type, and preflight stays green.
+  - >
+    Epic e40s01 — fork and pin: a public fork (kennethlove/kata,
+    Apache-2.0) becomes the kata source via the existing KATA_REPO
+    build arg; the single-literal KATA_COMMIT pin, pin script, and
+    CI test stay authoritative (user decision, session 2026-11-09).
+  - >
+    Epic e40s02 — chrome slot: the fork's outer-top offsets read
+    var(--jj-chrome-h, 0px) (sticky header, panel calcs, overlay
+    tops), the pin moves to the fork-owned patch, and default-0
+    behavior stays pixel-identical with origin_spa green.
+  - >
+    Epic e40s03 — chrome injection: /r/* text/html carries the
+    rendered site nav (user_handle + csrf) before kata's #app and a
+    dedicated kata-chrome.css link; API/asset pass-through stays
+    byte-identical; no session still 303 /login; scope = /r/* only
+    (user decision, session 2026-11-09).
+  - >
+    Epic e40s04 — gate: ux_audit strict on kata-chrome.css,
+    1440/390 captures prove the nav renders with a correct sticky
+    stack and no horizontal scroll, full preflight green.
 out_of_scope:
   - >
     A separate /product route: user chose to replace the logged-out
@@ -92,19 +112,21 @@ out_of_scope:
     presentational — nothing new to query or mutate (not valuable —
     YAGNI).
   - >
-    Upstream PRs to martint/kata: user decision — no upstream
-    contribution path; if a source change ever proves necessary,
-    fork the repo and pin the fork instead (deferred — injection
-    covers this cycle's need).
+    The iframe shell (option 3): rejected — two apps forever
+    stitched; the fork (e40) owns chrome geometry instead (user
+    decision, session 2026-11-09; supersedes the 2026-11-07
+    deferral).
   - >
-    Header injection (option 2) and the iframe shell (option 3):
-    escalations to decide AFTER the theme layer lands (user
-    decision, session 2026-11-07).
+    Chrome-injection without a fork (option 2 alone): superseded —
+    offsets belong in layout source, not blind CSS in a JS-built
+    DOM (user decision, session 2026-11-09).
   - >
-    Forking kata or changing its source in this cycle: the theme
-    rides entirely on the proxy seam and a stylesheet — no fork
-    exists yet (deferred — not needed until overrides prove
-    insufficient).
+    Upstream PRs to martint/kata: still no contribution path; the
+    source change e40 needs lands in our own fork instead (session
+    2026-11-09).
+  - >
+    kata content outside /r/*: /api/, /assets/, and the /review/*
+    stub are untouched by e40 (scope, user decision 2026-11-09).
 constraints:
   - >
     Stack unchanged: Rust / axum / Tera / Tailwind; the page is
@@ -121,10 +143,11 @@ constraints:
     No account CTAs on the product page — footer /login link is
     the only auth affordance that ships.
   - >
-    kata theme rides the existing proxy seam only: DESIGN.md
-    tokens for every value, no source changes to the pinned
-    bundle, no fork in this cycle; the pin is the DOM-stability
-    assumption — a bump re-runs the selector inventory.
+    kata chrome follows the e40 fork: the site-header slot and
+    every outer-top offset live in the pinned fork's source behind
+    var(--jj-chrome-h, 0px); the proxy only injects markup + vars
+    at the known seam; DESIGN.md tokens still own every injected
+    value; /api//assets//review/* stay byte-identical pass-through.
 success_criteria:
   - >
     A logged-out GET `/` returns the product page: self-host pitch,

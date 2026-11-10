@@ -31,8 +31,8 @@ async fn authenticate(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uui
     transport_user(state, headers).await
 }
 
-fn session_user(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uuid> {
-    let cookie = headers
+fn session_cookie(headers: &HeaderMap) -> Option<String> {
+    headers
         .get(axum::http::header::COOKIE)?
         .to_str()
         .ok()?
@@ -41,8 +41,11 @@ fn session_user(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uuid> {
         .find_map(|pair| {
             pair.strip_prefix(&format!("{}=", crate::session::SESSION_COOKIE))
                 .map(str::to_string)
-        })?;
-    crate::session::verify(&state.session_secret, &cookie)
+        })
+}
+
+fn session_user(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uuid> {
+    crate::session::verify(&state.session_secret, &session_cookie(headers)?)
 }
 
 async fn transport_user(state: &AppState, headers: &HeaderMap) -> Option<uuid::Uuid> {
@@ -362,15 +365,17 @@ pub async fn spa_route(
     request: Request,
 ) -> Response {
     // story: e14s01 — every embed response carries the frame policy
-    let response = spa_route_inner(state, rest, headers, request).await;
-    // story: e39s01 — documents wear jjhub's theme; other types stream on
-    with_frame_policy(inject_theme_link(response).await)
+    let response = spa_route_inner(state.clone(), rest, headers.clone(), request).await;
+    // story: e39s01 + e40s03 — documents wear jjhub's theme and the
+    // rendered site nav above kata; other types stream on untouched
+    with_frame_policy(inject_chrome(&state, &headers, response).await)
 }
 
-/// story: e39s01 — insert the theme stylesheet link before `</head>` in
-/// `text/html` bodies only. Every other content type returns untouched, so
-/// API JSON and asset bytes stay byte-identical to upstream.
-async fn inject_theme_link(response: Response) -> Response {
+/// story: e40s03 — one text/html transform: the theme + chrome stylesheet
+/// links land before `</head>` and the rendered site nav before kata's
+/// `#app` (fallback `</body>`). Every other content type returns
+/// untouched, so API JSON and asset bytes stay byte-identical to upstream.
+async fn inject_chrome(state: &AppState, headers: &HeaderMap, response: Response) -> Response {
     let is_html = response
         .headers()
         .get(axum::http::header::CONTENT_TYPE)
@@ -394,25 +399,68 @@ async fn inject_theme_link(response: Response) -> Response {
             return (StatusCode::BAD_GATEWAY, "review service unavailable").into_response();
         }
     };
-    const THEME_LINK: &str = r#"<link rel="stylesheet" href="/assets/kata-theme.css">"#;
-    let insert_at = bytes
-        .windows(7)
-        .position(|window| window.eq_ignore_ascii_case(b"</head>"))
-        .map(|start| start + 7);
-    let Some(insert_at) = insert_at else {
-        let mut rebuilt = Response::new(axum::body::Body::from(bytes));
-        *rebuilt.status_mut() = parts.status;
-        *rebuilt.headers_mut() = parts.headers;
-        return rebuilt;
-    };
-    let mut injected = Vec::with_capacity(bytes.len() + THEME_LINK.len());
-    injected.extend_from_slice(&bytes[..insert_at]);
-    injected.extend_from_slice(THEME_LINK.as_bytes());
-    injected.extend_from_slice(&bytes[insert_at..]);
-    let mut response = Response::new(axum::body::Body::from(injected));
+    const LINKS: &str = concat!(
+        r#"<link rel="stylesheet" href="/assets/kata-theme.css">"#,
+        r#"<link rel="stylesheet" href="/assets/kata-chrome.css">"#
+    );
+    let nav = site_nav(state, headers).await;
+    let mut insertions: Vec<(usize, &str)> = Vec::with_capacity(2);
+    if let Some(at) = find_ascii_case_insensitive(&bytes, b"</head>").map(|at| at + 7) {
+        insertions.push((at, LINKS));
+    }
+    let app_anchor = find_ascii_case_insensitive(&bytes, b"<div id=\"app\"")
+        .or_else(|| find_ascii_case_insensitive(&bytes, b"</body>"));
+    if let Some(at) = app_anchor {
+        insertions.push((at, nav.as_str()));
+    }
+    if insertions.is_empty() {
+        let mut untouched = Response::new(axum::body::Body::from(bytes));
+        *untouched.status_mut() = parts.status;
+        *untouched.headers_mut() = parts.headers;
+        return untouched;
+    }
+    // insert back to front so earlier offsets stay valid
+    insertions.sort_by_key(|(at, _)| *at);
+    let mut document = bytes.to_vec();
+    for (at, fragment) in insertions.iter().rev() {
+        document.splice(*at..*at, fragment.bytes());
+    }
+    let mut response = Response::new(axum::body::Body::from(document));
     *response.status_mut() = parts.status;
     *response.headers_mut() = parts.headers;
     response
+}
+
+/// story: e40s03 — byte-wise case-insensitive substring search: kata's
+/// shell is authored by Svelte and the anchors must not depend on case.
+fn find_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window.eq_ignore_ascii_case(needle))
+}
+
+/// story: e40s03 — the same nav the server pages render (one
+/// `routes::nav_html` seam keeps the logout CSRF markup identical),
+/// built from this request's session.
+async fn site_nav(state: &AppState, headers: &HeaderMap) -> String {
+    let value = session_cookie(headers);
+    let user = value
+        .as_deref()
+        .and_then(|cookie| crate::session::verify(&state.session_secret, cookie));
+    let handle = match user {
+        Some(id) => sqlx::query_scalar::<_, String>("SELECT handle FROM users WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten(),
+        None => None,
+    };
+    let csrf = value
+        .as_deref()
+        .map(|cookie| crate::session::csrf_token(&state.session_secret, cookie))
+        .unwrap_or_default();
+    crate::routes::nav_html(handle.as_deref(), &csrf)
 }
 
 async fn spa_route_inner(

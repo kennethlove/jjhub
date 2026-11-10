@@ -1,0 +1,29 @@
+spec: e40s02-chrome-slot.md
+status: passing
+tasks:
+  - id: e40s02t1
+    description: >-
+      Patch the kata fork: all outer-top offsets read
+      var(--jj-chrome-h, 0px) (header.app sticky top, panel height
+      calcs, overlay tops); push to fork main; move KATA_COMMIT in
+      Dockerfile.kata to the fork SHA (single literal).
+    verify: >-
+      git ls-remote https://github.com/kennethlove/kata.git main
+      | rg '^[0-9a-f]{40}' && ! git ls-remote
+      https://github.com/kennethlove/kata.git main | rg
+      '^9c7903dd458160a7b91eb1e43d2a35e11731ccf8' && bash
+      scripts/check-kata-pin.sh
+    risk: P2
+    status: passing
+  - id: e40s02t2
+    description: >-
+      Rebuild the stack at the patched pin and prove default-0 is
+      unchanged: healthz 200 and the origin_spa suite (theme
+      injection + byte-identical guards) stays green.
+    verify: >-
+      docker compose up -d --build && sleep 10 && curl -s -o
+      /dev/null -w '%{http_code}\n' http://localhost:3000/healthz
+      && DATABASE_URL=postgres://postgres:jjhub@localhost:5432/jjhub_test
+      cargo test -p server --test origin_spa
+    risk: P3
+    status: passing

@@ -101,6 +101,21 @@ epics:
       stories: probe + injection + theme stylesheet (5), gate
       pass (2). Option 2 (header injection) and option 3 (iframe
       shell) are named escalations, decided after this lands.
+  - id: e40
+    slug: kata-chrome
+    title: "kata in site chrome — forked layout slot + proxy-injected site nav"
+    wsjf: 4.0
+    bcp_total: 8
+    delta: MODIFIED
+    note: >
+      (4 + 2 + 1) / (8 / 4) = 4.0. User decision 2026-11-09:
+      fork martint/kata (Apache-2.0) and own the chrome layout;
+      iframe rejected; scope = /r/* only. KATA_REPO was already an
+      ARG, so s01 flips the source with the single-literal pin
+      intact; s02 adds var(--jj-chrome-h, 0px) to the fork's
+      outer-top offsets (default 0 = pixel-identical); s03
+      extends the e39 injection seam to prepend the rendered site
+      nav plus a dedicated kata-chrome.css; s04 gates.
 
 bugs:
   total: 2

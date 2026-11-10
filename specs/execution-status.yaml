@@ -201,3 +201,10 @@ epics:
     stories:
       e39s01: passing
       e39s02: passing
+  e40-kata-chrome:
+    status: passing
+    stories:
+      e40s01: passing
+      e40s02: passing
+      e40s03: passing
+      e40s04: passing

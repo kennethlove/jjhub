@@ -13,9 +13,29 @@ session:
   active_epic_id: ""
   active_story_id: ""
 handoff:
-  next_skill: survey-context
+  next_skill: kickoff-branch
   notes: |
-    v0.8.0 CLOSEOUT: e36 all passing (staging evidence recorded,
+    e40 KICKOFF READY (2026-11-09): kata-chrome spec written to
+    specs/epics/e40-kata-chrome/ (epic + s01..s04 md + tasks, all
+    failing), indexes updated (execution-status, release-plan,
+    SCOPE in_scope + superseded out_of_scope/constraint), manual
+    consistency PASS (skill helper scripts absent in this repo —
+    manual check stands in). Design: FORK (kennethlove/kata,
+    Apache-2.0) > iframe > blind injection; KATA_REPO build-arg
+    already exists; single-literal KATA_COMMIT pin is the
+    invariant; chrome offset = var(--jj-chrome-h, 0px) default 0;
+    /r/* text/html injection = nav.html (user_handle + csrf) +
+    /assets/kata-chrome.css; scope /r/* only. Stack lessons:
+    DATABASE_URL for tests; jj split -m opens nvim (use jj commit
+    filesets); gh pr create --body-file; explicit gate rcs;
+    open beads: jjhub-3ek (manual QA), jjhub-vt7 (Jujubee rename,
+    awaiting go).
+    v0.9.0 PENDING RELEASE TAG: user created GitHub Release v0.9.0
+    (target: old trunk 622ed65e) but no v0.9.0 tags exist yet —
+    after the next trunk merge push the tag (gh release view
+    v0.9.0 --json tagName,target) so CI can cut a fresh artifact.
+    PRIOR HANDOFF (retained): v0.8.0 CLOSEOUT: e36 all passing
+    (staging evidence recorded,
     PRs #113/#114 merged). e37 (mail HTML+text pair) now in the
     cycle — release-plan stays planning until it lands; cut v0.8.0
     after (releases are MANUAL — no semantic-release workflow

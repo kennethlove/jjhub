@@ -346,6 +346,8 @@ fn app_from_state(state: AppState) -> Router {
         // story: e39s01 — theme sheet owns its path, registered ahead of
         // the assets forwarder so the sidecar never sees it
         .route("/assets/kata-theme.css", get(routes::kata_theme_css))
+        // story: e40s03 — chrome sheet owns its path, ahead of the forwarder
+        .route("/assets/kata-chrome.css", get(routes::kata_chrome_css))
         .route("/assets/{*rest}", get(review_proxy::assets_route))
         .route("/favicon.svg", get(review_proxy::assets_route))
         .route(

@@ -30,6 +30,12 @@ pub async fn kata_theme_css(headers: axum::http::HeaderMap) -> axum::response::R
     embedded_css(headers, source, ETAG.get_or_init(|| etag_for(source)))
 }
 
+pub async fn kata_chrome_css(headers: axum::http::HeaderMap) -> axum::response::Response {
+    static ETAG: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let source = include_str!("../assets/kata-chrome.css");
+    embedded_css(headers, source, ETAG.get_or_init(|| etag_for(source)))
+}
+
 fn etag_for(source: &str) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

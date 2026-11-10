@@ -256,6 +256,62 @@ mod origin_spa {
     }
 
     #[sqlx::test(migrations = "./migrations")]
+    async fn proxied_html_carries_site_chrome(pool: sqlx::PgPool) {
+        // story: e40s03 — session HTML wears the chrome stylesheet link and
+        // the rendered site nav right before kata's `#app`; the e39 theme
+        // link, the byte-identical guards and the no-session redirect all
+        // stay as they were (same suite).
+        let root = tempfile::tempdir().unwrap();
+        const HTML: &str = r#"<!doctype html><html><head><title>Kata</title><link rel="stylesheet" href="/assets/index-DRn4R2rA.css"></head><body><div id="app"></div></body></html>"#;
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", HTML.as_bytes()).await;
+        let cookie = register(&pool, &root, "alice@example.com").await;
+        create_repo(
+            &pool,
+            &root,
+            &cookie,
+            "name=demo&visibility=public",
+            &upstream,
+        )
+        .await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/r/alice__demo/browse",
+            Some(&cookie),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let html = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            html.contains("/assets/kata-theme.css"),
+            "e39 theme link still injected: {html}"
+        );
+        assert!(
+            html.contains("/assets/kata-chrome.css"),
+            "chrome stylesheet link injected: {html}"
+        );
+        assert_eq!(
+            html.matches("site-header").count(),
+            1,
+            "site nav injected exactly once: {html}"
+        );
+        let app_at = html.find("<div id=\"app\"").expect("#app present");
+        let nav_at = html.find("site-header").expect("nav injected");
+        assert!(nav_at < app_at, "site nav precedes kata's #app");
+        assert!(
+            html.contains("action=\"/logout\"") && html.matches("name=\"_csrf\"").count() == 1,
+            "nav renders the csrf logout form: {html}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
     async fn api_json_passes_through_byte_identical(pool: sqlx::PgPool) {
         // story: e39s01 — API JSON is not HTML: no injection, bytes intact.
         let root = tempfile::tempdir().unwrap();
