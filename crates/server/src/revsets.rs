@@ -149,7 +149,7 @@ pub async fn search_page(
     Html(crate::render::render("search.html", &context)).into_response()
 }
 
-async fn is_visible_to(
+pub(crate) async fn is_visible_to(
     state: &AppState,
     repo_id: uuid::Uuid,
     repo_owner_id: uuid::Uuid,
@@ -199,30 +199,4 @@ pub(crate) async fn takedown_denies(
         .unwrap_or(false);
     // fail closed: an error on the operator lookup counts as "denied".
     !operator
-}
-
-// story: e30s01 — the takedown wall for filesystem-first browse
-// resolvers (tree/blob): resolve owner + taken-down by handle/name and
-// refuse strangers when taken. A repo with no database row falls
-// through to the filesystem's own existence check, exactly as before.
-pub(crate) async fn wall_taken_down(
-    state: &AppState,
-    owner: &str,
-    name: &str,
-    jar: &CookieJar,
-) -> bool {
-    let row: Option<(uuid::Uuid, bool)> = sqlx::query_as(
-        "SELECT r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r \
-         JOIN users u ON u.id = r.owner_id WHERE u.handle = $1 AND r.name = $2",
-    )
-    .bind(owner)
-    .bind(name)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
-    let Some((owner_id, taken)) = row else {
-        return false;
-    };
-    taken && takedown_denies(state, owner_id, jar).await
 }

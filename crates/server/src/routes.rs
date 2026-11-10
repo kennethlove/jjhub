@@ -1365,6 +1365,13 @@ pub async fn repo_page(
     if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
+    // jjhub-m9e — e11s01's rule at the landing surface: a private repo
+    // is indistinguishable from a missing one to strangers.
+    if visibility == "private"
+        && !crate::revsets::is_visible_to(&state, repo_id, owner_id, &jar).await
+    {
+        return (StatusCode::NOT_FOUND, "repository not found").into_response();
+    }
 
     // story: e10s02 — the settings listing shares the push gate's resolver;
     // display and enforcement can never diverge
@@ -1839,23 +1846,12 @@ pub async fn merge_requests_page(
     axum::extract::Path((owner, name)): axum::extract::Path<(String, String)>,
     jar: CookieJar,
 ) -> Response {
-    let repo: Option<(uuid::Uuid, uuid::Uuid, bool)> = sqlx::query_as(
-        "SELECT r.id, r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id \
-         WHERE u.handle = $1 AND r.name = $2",
-    )
-    .bind(&owner)
-    .bind(&name)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
-    let Some((repo_id, owner_id, taken)) = repo else {
+    // jjhub-m9e + e30s01 — one resolver answers takedown and private
+    // visibility before this surface does any work of its own.
+    let Some((repo_id, _trunk)) = crate::revsets::visible_repo(&state, &owner, &name, &jar).await
+    else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
-    // story: e30s01 — takedown wall at this surface's own resolver.
-    if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
-        return (StatusCode::NOT_FOUND, "repository not found").into_response();
-    }
 
     let mrs = match crate::stack::open_mrs(&state.pool, repo_id).await {
         Ok(mrs) => mrs,
@@ -1939,23 +1935,13 @@ pub async fn mr_detail_page(
     if !change_id.chars().all(|c| c.is_ascii_alphabetic()) {
         return (StatusCode::NOT_FOUND, "merge request not found").into_response();
     }
-    let repo: Option<(uuid::Uuid, uuid::Uuid, bool)> = sqlx::query_as(
-        "SELECT r.id, r.owner_id, (r.taken_down_at IS NOT NULL) FROM repositories r JOIN users u ON u.id = r.owner_id \
-         WHERE u.handle = $1 AND r.name = $2",
-    )
-    .bind(&owner)
-    .bind(&name)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
-    let Some((repo_id, owner_id, taken)) = repo else {
+    // jjhub-m9e + e30s01 — one resolver answers takedown and private
+    // visibility before this surface does any work of its own.
+    let Some((repo_id, _trunk)) = crate::revsets::visible_repo(&state, &owner, &name, &jar).await
+    else {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     };
-    // story: e30s01 — takedown wall at this surface's own resolver.
-    if taken && crate::revsets::takedown_denies(&state, owner_id, &jar).await {
-        return (StatusCode::NOT_FOUND, "repository not found").into_response();
-    }
+
     let mr: Option<(uuid::Uuid, String)> = sqlx::query_as(
         "SELECT id, state FROM merge_requests WHERE repo_id = $1 AND change_id = $2",
     )
@@ -2599,9 +2585,12 @@ async fn render_tree(
     path: String,
     jar: CookieJar,
 ) -> Response {
-    // story: e30s01 — takedown wall: this resolver checks the filesystem
-    // first, so the database wall must run before it.
-    if crate::revsets::wall_taken_down(&state, &owner, &name, &jar).await {
+    // jjhub-m9e — one resolver answers takedown AND private visibility
+    // before the filesystem is touched; strangers get the missing-repo 404.
+    if crate::revsets::visible_repo(&state, &owner, &name, &jar)
+        .await
+        .is_none()
+    {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
@@ -2708,8 +2697,12 @@ pub async fn blob_page(
     )>,
     jar: CookieJar,
 ) -> Response {
-    // story: e30s01 — takedown wall before the filesystem resolver.
-    if crate::revsets::wall_taken_down(&state, &owner, &name, &jar).await {
+    // jjhub-m9e — one resolver answers takedown AND private visibility
+    // before the filesystem is touched; strangers get the missing-repo 404.
+    if crate::revsets::visible_repo(&state, &owner, &name, &jar)
+        .await
+        .is_none()
+    {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
     let bare = domain::storage_path(&state.storage_root, &owner, &name);
