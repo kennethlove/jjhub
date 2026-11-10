@@ -256,6 +256,37 @@ mod origin_spa {
     }
 
     #[sqlx::test(migrations = "./migrations")]
+    async fn chrome_stylesheet_carries_header_wrap(pool: sqlx::PgPool) {
+        // user report (2026-11-10): the injected header renders
+        // `.wrap header-inner`, but app.css's `.wrap` never reaches the
+        // review surface, so the chrome lost its inline padding and sat
+        // flush to the viewport. The chrome sheet must ship the rule.
+        let root = tempfile::tempdir().unwrap();
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", b"<html></html>").await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/assets/kata-chrome.css",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let css = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(css.contains(".wrap"), "header wrap rule shipped: {css}");
+        assert!(
+            css.contains("--space-lg"),
+            "wrap padding token defined: {css}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
     async fn proxied_html_carries_site_chrome(pool: sqlx::PgPool) {
         // story: e40s03 — session HTML wears the chrome stylesheet link and
         // the rendered site nav right before kata's `#app`; the e39 theme

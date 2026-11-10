@@ -31,6 +31,7 @@
   --space-sm: 16px;
   --space-xs: 8px;
   --space-md: 24px;
+  --space-lg: 32px;
   --text-body-lg: 20px;
   --text-body-md: 16px;
   --text-label-md: 14px;
@@ -43,6 +44,17 @@
   z-index: 10;
   background-color: var(--color-neutral);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* WHY: app.css pads every header line through `.wrap`, the injected nav
+ * renders `.wrap header-inner`, and kata has no `.wrap` of its own —
+ * without this rule the chrome sat flush to the viewport (user report
+ * 2026-11-10). Values copied from app.css as-is. */
+.wrap {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
 }
 
 .header-inner {
