@@ -1,0 +1,34 @@
+spec: e40s04-gate-pass.md
+status: passing
+tasks:
+  - id: e40s04t1
+    description: >-
+      ux_audit strict on crates/server/assets/kata-chrome.css
+      (complete sheet).
+    verify: >-
+      ux_audit path=crates/server/assets/kata-chrome.css with
+      hand-picked pairs -> all gates pass (paste tool output into
+      evidence)
+    risk: P3
+    status: passing
+  - id: e40s04t2
+    description: >-
+      keystone_render captures of logged-in /r/ browse at 1440 and
+      390; nav visible above kata header, no horizontal scroll;
+      screenshots + viewports.json under
+      specs/epics/e40-kata-chrome/captures/.
+    verify: >-
+      test -f specs/epics/e40-kata-chrome/captures/screenshot-1440.png
+      && test -f specs/epics/e40-kata-chrome/captures/screenshot-390.png
+      && echo PASS
+    risk: P3
+    status: passing
+  - id: e40s04t3
+    description: >-
+      Full preflight with explicit return codes (fmt, clippy -D
+      warnings, test, build); record rc per gate in evidence.
+    verify: >-
+      cargo fmt --all -- --check && cargo clippy --workspace
+      --all-targets -- -D warnings && cargo test && cargo build
+    risk: P2
+    status: passing

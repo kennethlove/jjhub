@@ -1,0 +1,36 @@
+spec: e40s03-chrome-injection.md
+status: passing
+tasks:
+  - id: e40s03t1
+    description: >-
+      RED: extend origin_spa with a session HTML test asserting the
+      injected site-header nav, --jj-chrome-h, one logout _csrf,
+      unchanged byte-identical API/asset guards, and no-session 303.
+    verify: >-
+      DATABASE_URL=postgres://postgres:jjhub@localhost:5432/jjhub_test
+      cargo test -p server --test origin_spa 2>&1 | tail -1 | rg '1 failed'
+    risk: P1
+    status: passing
+  - id: e40s03t2
+    description: >-
+      GREEN: single-buffer spa_route transform prepends rendered
+      nav.html (user_handle + csrf from cookies) before #app and adds
+      the kata-chrome.css head link; /assets/kata-chrome.css route
+      (OnceLock + etag, ahead of the assets forwarder) serves
+      :root{--jj-chrome-h} plus the extracted .site-header block.
+    verify: >-
+      DATABASE_URL=postgres://postgres:jjhub@localhost:5432/jjhub_test
+      cargo test -p server --test origin_spa 2>&1 | tail -1 | rg '8 passed'
+    risk: P1
+    status: passing
+  - id: e40s03t3
+    description: >-
+      Stack acceptance: rebuild; logged-in /r/... HTML carries
+      site-header + --jj-chrome-h + kata-chrome.css exactly once;
+      API/assets byte-identical; no-session redirect intact.
+    verify: >-
+      docker compose -p jjhub up -d --build && sleep 10 && curl -s
+      http://localhost:3000/r/capture__accept6js/browse -b
+      /tmp/capture.cookies | rg -c 'site-header|--jj-chrome-h'
+    risk: P2
+    status: passing

@@ -1,0 +1,19 @@
+id: e40
+slug: kata-chrome
+title: "kata in site chrome — forked layout slot + proxy-injected site nav"
+scope_ref: specs/product/SCOPE_LATEST.yaml
+delta: MODIFIED
+status: planning
+stories:
+  - id: e40s01
+    name: fork-and-pin
+    business_value_cps: 1
+  - id: e40s02
+    name: chrome-slot
+    business_value_cps: 2
+  - id: e40s03
+    name: chrome-injection
+    business_value_cps: 4
+  - id: e40s04
+    name: gate-pass
+    business_value_cps: 1
