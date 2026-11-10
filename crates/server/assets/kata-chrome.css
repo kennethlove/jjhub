@@ -1,0 +1,201 @@
+/* story: e40s02 — the chrome slot. The fork's sticky/overlay offsets read
+ * var(--jj-chrome-h, 0px); this is the pin. WHY: a literal in one place
+ * keeps scripts/check-kata-pin.sh's single-source rule intact — change the
+ * number here and every kata header/overlay moves together. */
+:root {
+  --jj-chrome-h: 48px;
+}
+
+/* story: e40s03 — the .site-header block from app.css, landed as-is.
+ * WHY a separate sheet instead of linking app.css: app.css carries element
+ * selectors that would bleed onto kata's markup; only this block belongs on
+ * the review surface. Token aliases resolve against kata's runtime vars,
+ * which kata-theme.css re-points per light/dark arm, so the header flips
+ * with them for free. */
+:root {
+  --color-neutral: var(--bg-panel, var(--bg));
+  --color-border: var(--border);
+  --color-primary: var(--text);
+  --color-secondary: var(--text-muted);
+  --color-tertiary-hover: var(--link);
+  /* constant brand fill + on-accent text: self-consistent in both arms
+   * (WHY: --jj-* aliases never re-point; the pair itself passes) */
+  --color-tertiary: var(--jj-tertiary);
+  --color-tertiary-pressed: var(--link);
+  --color-on-accent: var(--jj-on-accent);
+  /* hover/disabled surface follows kata's elevated panel so dark flips */
+  --color-surface-sunken: var(--bg-elevated);
+  --radius-md: var(--jj-radius-md);
+  --font-mono: var(--jj-font-mono, monospace);
+  --space-half: 4px;
+  --space-sm: 16px;
+  --space-xs: 8px;
+  --space-md: 24px;
+  --text-body-lg: 20px;
+  --text-body-md: 16px;
+  --text-label-md: 14px;
+  --text-data-sm: 12px;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--color-neutral);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 64px;
+}
+
+.wordmark {
+  font-size: var(--text-body-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.wordmark:hover {
+  color: var(--color-tertiary-hover);
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.site-nav .nav-link {
+  font-size: var(--text-label-md);
+  font-weight: 500;
+  color: var(--color-secondary);
+  text-decoration: none;
+}
+
+.site-nav .nav-link:hover {
+  color: var(--color-primary);
+}
+
+.site-nav .viewer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-data-sm);
+  color: var(--color-secondary);
+}
+
+.site-nav form {
+  display: inline;
+}
+
+/* the logged-in nav links are bare <a>; scoped copy of app.css's global
+ * a/a:hover/a:active (wordmark sits outside .site-nav, unaffected) */
+.site-nav a {
+  color: var(--color-tertiary-hover);
+  text-decoration: none;
+  transition: color 120ms ease-out;
+}
+
+.site-nav a:hover {
+  color: var(--color-tertiary-pressed);
+}
+
+.site-nav a:active {
+  color: var(--color-primary);
+}
+
+/* buttons (anchors styled like the global button role) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 40px;
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-body-md);
+  font-weight: 500;
+  line-height: 1.25;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.btn-sm {
+  min-height: 32px;
+  padding: var(--space-half) var(--space-sm);
+  font-size: var(--text-label-md);
+}
+
+.btn-primary {
+  color: var(--color-on-accent);
+  background-color: var(--color-tertiary);
+}
+
+.btn-primary:hover {
+  color: var(--color-on-accent);
+  background-color: var(--color-tertiary-hover);
+}
+
+.btn-primary:active {
+  color: var(--color-on-accent);
+  background-color: var(--color-tertiary-pressed);
+}
+
+.btn-secondary {
+  color: var(--color-primary);
+  background-color: transparent;
+  border-color: var(--color-border);
+}
+
+.btn-secondary:hover {
+  color: var(--color-primary);
+  background-color: var(--color-surface-sunken);
+}
+
+.btn-secondary:active {
+  background-color: var(--color-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav a,
+  .btn {
+    transition: none;
+  }
+}
+
+/* dark arm: --link brightens to #C7D8D0 while --jj-on-accent stays
+ * near-white — light-on-light on hover. Keep the brand fill there. */
+@media (prefers-color-scheme: dark) {
+  .btn-primary:hover,
+  .btn-primary:active {
+    background-color: var(--color-tertiary);
+  }
+}
+
+.site-nav a:focus-visible,
+.site-nav button:focus-visible {
+  outline: 2px solid var(--color-tertiary-hover);
+  outline-offset: 2px;
+}
+
+.site-nav button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .site-nav .nav-link {
+    display: none;
+  }
+
+  .site-nav .viewer {
+    display: none;
+  }
+}

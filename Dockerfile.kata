@@ -1,15 +1,16 @@
-# story: e05s02
+# story: e05s02 + e40s01
 #
 # Builds the kata review sidecar at a pinned commit. The published
 # ghcr.io/martint/kata image rejects anonymous pulls from here, so we build
-# from upstream source — the commit hash pins the exact code.
+# from source — OUR FORK (e40s01: chrome patch lands there; public so
+# anonymous clone works) — and the commit hash pins the exact code.
 #
 # Mirrors kata's own Dockerfile: a bun stage builds the real web bundle,
 # the rust stage embeds it (KATA_SKIP_WEB_BUILD skips a SECOND bun run in
 # build.rs; the prebuilt dist is what ships). `serve` never needs the jj
 # CLI, so the runtime stage stays slim.
 FROM debian:bookworm-slim AS source
-ARG KATA_REPO=https://github.com/martint/kata.git
+ARG KATA_REPO=https://github.com/kennethlove/kata.git
 ARG KATA_COMMIT
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -20,7 +21,7 @@ RUN apt-get update \
 # extracts it from this line — scripts/check-kata-pin.sh keeps it the
 # only copy.
 RUN git clone --quiet "${KATA_REPO}" /src \
- && git -C /src checkout --quiet "${KATA_COMMIT:-9c7903dd458160a7b91eb1e43d2a35e11731ccf8}"
+ && git -C /src checkout --quiet "${KATA_COMMIT:-10b15bd75752a190b71db9881b5eb38628a23c53}"
 
 # ---- web bundle (the review UI the /review links point at) ----
 FROM oven/bun:1.3 AS frontend

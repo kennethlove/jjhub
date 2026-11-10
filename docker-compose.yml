@@ -74,6 +74,9 @@ services:
         # The pin lives in Dockerfile.kata (shell default at checkout);
         # this entry only forwards an explicit KATA_COMMIT override.
         KATA_COMMIT: ${KATA_COMMIT:-}
+        # story: e40s01 — build from our fork (the chrome patch lands
+        # there); pin mechanism untouched, same SHA as upstream at s01.
+        KATA_REPO: ${KATA_REPO:-https://github.com/kennethlove/kata.git}
     depends_on:
       db:
         condition: service_healthy
