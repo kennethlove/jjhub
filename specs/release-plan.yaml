@@ -1,11 +1,11 @@
 # specs/release-plan.yaml — WSJF-ordered epic index for jjhub
 
-# v0.9.0 cycle. version is a non-authoritative mirror; semantic-release
+# v0.10.0 cycle. version is a non-authoritative mirror; semantic-release
 # decides the real tag at merge (gh release view wins).
-# v0.8.0 epics (e34-e37) shipped; their capsules remain in specs/epics/.
+# v0.9.0 epics (e38-e40) shipped; their capsules remain in specs/epics/.
 
 version: "0.9.0"
-status: planning
+status: ready
 workflow_mode: solo-git
 bump_hint: minor
 

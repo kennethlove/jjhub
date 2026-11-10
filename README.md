@@ -28,11 +28,15 @@ registration that closes from the same console, and a filterable
 moderation log with CSV export), and mail operations (path-form
 verification and password-reset links plus a neutral resend from one
 mailer, moderation notices, an env-selected SMTP arm, and month-named
-JSONL rollups that keep secrets out of every line).
+JSONL rollups that keep secrets out of every line). Since then: the
+self-hoster product page, the jjhub theme and navigation over the
+review surface, private repositories gated on every ungated web route
+with an owner visibility flip, push-to-create over HTTPS behind a 401
+challenge, and structured request and transport logs.
 
-Next up (v0.8.0, to be scoped): live mail — proving delivery against
-the phase gate with a staging send and a delivery readout before any
-SMTP default could ship.
+Next up (v0.10.0, to be scoped): proving the deploy — a smoke check
+against the live URL after each release — and the reviewer workflow's
+first real-world pass.
 
 ## Development
 

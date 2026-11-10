@@ -2,6 +2,46 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-11-09
+
+The v0.9.0 build: the public face and the privacy hole, in one cut.
+The logged-out home now says what jjhub is and how to run it,
+private repositories answer 404 to anyone outside the repo while
+owners flip visibility from the repo page, the review surface wears
+the jjhub theme and navigation over kata, a push can create the
+repo in one command over HTTPS, and the app finally logs every
+request and transport decision. Shipped as PRs #118–#124.
+
+### Added
+
+- **Kata theme on the review surface** (#118): the proxy injects
+  `/assets/kata-theme.css` — a token mirror of the site palette over
+  kata's `:root` variables — after kata's own sheet, so the review
+  surface reads light or dark like the rest of jjhub
+- **Kata chrome** (#124): the logged-in site nav renders above the
+  kata iframe with `/assets/kata-chrome.css` scoped to the site-nav
+  block, and the kata pin moved to the fork commit that carries the
+  chrome-height slot
+- **Product home** (#121): the logged-out `/` is the self-hoster
+  page — what ships today, one `docker compose up`, login only, and
+  no register path
+- **Visibility flip from the repo page** (#123): owners switch a
+  repository public or private where they already read its metadata
+- **Structured application logs** (#120): one INFO line per request
+  with method, path, status and duration; token, transport,
+  rate-limit and authorize decisions log as events;
+  `JJHUB_LOG_FORMAT=json` turns them into machine lines
+
+### Fixed
+
+- **Private repositories were readable on ungated web routes** (#122):
+  repo, tree, blob, revset, operations and merge-request pages answer
+  404 without visibility or collaborator standing — only the smart
+  HTTP transport gate had been checking
+- **Push-to-create over HTTPS** (#119): a missing repository answers
+  the 401 challenge to anonymous receive instead of 404, so real git
+  clients send credentials and land the first push
+
 ## [0.8.0] - 2026-11-07
 
 The v0.8.0 build: mail you can read in either format and trust from
