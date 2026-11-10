@@ -120,7 +120,12 @@ jobs:
           bash scripts/check-kata-pin.sh
           PIN='s/.*KATA_COMMIT:-\([0-9a-f]\{40\}\).*/\1/p'
           KATA_COMMIT=$(sed -n "$PIN" Dockerfile.kata)
-          git clone --quiet https://github.com/martint/kata.git \
+          # WHY: the pin moved to our fork (e40s01); KATA_REPO lives next
+          # to the pin in Dockerfile.kata — clone the same repo the image
+          # builds from, or fork-only objects fail checkout.
+          REPO='s/.*ARG KATA_REPO=\([^ ]*\).*/\1/p'
+          KATA_REPO=$(sed -n "$REPO" Dockerfile.kata)
+          git clone --quiet "$KATA_REPO" \
             "$RUNNER_TEMP/kata"
           git -C "$RUNNER_TEMP/kata" checkout --quiet "$KATA_COMMIT"
       - uses: Swatinem/rust-cache@v2
