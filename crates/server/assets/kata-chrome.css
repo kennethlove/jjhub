@@ -64,6 +64,36 @@
   padding-right: var(--space-lg);
 }
 
+/* WHY: kata zeroes `main.browse-main` so its two panes butt against
+ * the viewport edges — its own deliberate choice for a bare IDE feel.
+ * On the jjhub site the browse surface still needs the site's side
+ * gutter so the page breathes and lines up under the injected nav's
+ * `.wrap` (user report 2026-11-11). Horizontal only: `.browse-root`
+ * derives its height from a viewport calc, and kata's prose (`main`)
+ * and review (`main.wide`) mains keep their own padding. --space-lg
+ * is px, so kata's 14px root font cannot shift this gutter. */
+main.browse-main {
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+}
+
+/* WHY: app.css's `.status` is a 20px status BADGE (inline-block,
+ * width: 20px) and kata also tags whole paragraphs `class="muted
+ * status"` — "This commit changed no files.", "Loading diff..." — so
+ * they squeezed into a word-per-line column (found while verifying
+ * the side padding, 2026-11-11; upstream collision, reproducible in
+ * any kata build). Paragraphs go back to normal flow; badge spans
+ * (p-only selector) keep their 20px chip. */
+main.browse-main p.status {
+  display: block;
+  width: auto;
+  text-align: left;
+  font-weight: inherit;
+  font-size: inherit;
+  border-radius: 0;
+  padding: 12px;
+}
+
 .header-inner {
   display: flex;
   align-items: center;
