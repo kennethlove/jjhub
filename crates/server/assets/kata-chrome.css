@@ -96,6 +96,19 @@ main.browse-main .log-pane {
   background: var(--bg);
 }
 
+/* WHY: the revset placeholder ("trunk() | bookmarks() | @ |
+ * latest(@-.. | ..@, 50)") is ~331px of text at 12px mono, but the
+ * input only gets ~232px at the default 340px log pane (search-bar
+ * padding + Go button + help badge), and the pane width is kata's
+ * inline drag state — ours to frame, not to widen. The cut showed as
+ * a hard mid-word clip (user report, 2026-11-11: "log truncation").
+ * text-overflow makes the clip read as a deliberate ellipsis, the
+ * standard single-line field treatment. No layout or font changes;
+ * kata sets no text-overflow here, so no specificity contest. */
+.search-bar input {
+  text-overflow: ellipsis;
+}
+
 /* WHY: app.css's `.status` is a 20px status BADGE (inline-block,
  * width: 20px) and kata also tags whole paragraphs `class="muted
  * status"` — "This commit changed no files.", "Loading diff..." — so

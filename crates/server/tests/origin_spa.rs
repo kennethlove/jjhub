@@ -399,6 +399,45 @@ mod origin_spa {
         );
     }
 
+    /// user report (2026-11-11, shipped #130): the log pane's revset
+    /// placeholder ("trunk() | bookmarks() | @ | latest(@-.. | ..@,
+    /// 50)") is ~331px of text but the input only gets ~232px at the
+    /// default 340px pane (search-bar padding + Go button + help
+    /// badge), so it cut mid-word with a hard clip ("...@ | la"). The
+    /// pane width is kata's inline drag state — not ours to widen —
+    /// so the placeholder gets the standard single-line field
+    /// treatment: text-overflow ellipsis makes the cut read as a
+    /// deliberate "more fits" marker instead of a rendering bug.
+    #[sqlx::test(migrations = "./migrations")]
+    async fn chrome_sheet_ellipsizes_log_input_placeholder(pool: sqlx::PgPool) {
+        let root = tempfile::tempdir().unwrap();
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", b"<html></html>").await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/assets/kata-chrome.css",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let css = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            css.contains(".search-bar input {"),
+            "revset input rule shipped: {css}"
+        );
+        assert!(
+            css.contains("text-overflow: ellipsis;"),
+            "placeholder truncates with an ellipsis instead of a hard clip: {css}"
+        );
+    }
+
     #[sqlx::test(migrations = "./migrations")]
     async fn chrome_sheet_unpins_status_paragraphs(pool: sqlx::PgPool) {
         // found while verifying the side padding (user report cycle
