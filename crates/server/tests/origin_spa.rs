@@ -339,6 +339,83 @@ mod origin_spa {
     }
 
     #[sqlx::test(migrations = "./migrations")]
+    async fn chrome_sheet_pads_browse_surface_sides(pool: sqlx::PgPool) {
+        // user report (2026-11-11): the kata browse surface runs
+        // edge-to-edge — kata deliberately zeroes `main.browse-main`
+        // so the two panes butt against the viewport. On the jjhub
+        // site the surface must still breathe: horizontal inset only
+        // (browse-root's height calc owns the vertical), at the site
+        // gutter token so the content aligns with the injected nav.
+        let root = tempfile::tempdir().unwrap();
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", b"<html></html>").await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/assets/kata-chrome.css",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let css = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            css.contains("main.browse-main {"),
+            "browse surface rule shipped: {css}"
+        );
+        assert!(
+            css.contains("padding-left: var(--space-lg);"),
+            "left inset at the site gutter token: {css}"
+        );
+        assert!(
+            css.contains("padding-right: var(--space-lg);"),
+            "right inset at the site gutter token: {css}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn chrome_sheet_unpins_status_paragraphs(pool: sqlx::PgPool) {
+        // found while verifying the side padding (user report cycle
+        // 2026-11-11): app.css's `.status` is a 20px status BADGE
+        // (inline-block, width: 20px), but kata also tags whole
+        // paragraphs `class="muted status"` — "This commit changed no
+        // files.", "Loading diff..." — which then squeezed into a
+        // word-per-line column. The chrome sheet unpins p.status on
+        // the browse surface only; badge spans keep their width.
+        let root = tempfile::tempdir().unwrap();
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", b"<html></html>").await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/assets/kata-chrome.css",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let css = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            css.contains("main.browse-main p.status {"),
+            "paragraph unpin shipped: {css}"
+        );
+        assert!(
+            css.contains("width: auto;"),
+            "badge width released for paragraphs: {css}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
     async fn proxied_html_carries_site_chrome(pool: sqlx::PgPool) {
         // story: e40s03 — session HTML wears the chrome stylesheet link and
         // the rendered site nav right before kata's `#app`; the e39 theme
