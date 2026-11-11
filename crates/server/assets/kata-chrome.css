@@ -49,9 +49,16 @@
 /* WHY: app.css pads every header line through `.wrap`, the injected nav
  * renders `.wrap header-inner`, and kata has no `.wrap` of its own —
  * without this rule the chrome sat flush to the viewport (user report
- * 2026-11-10). Values copied from app.css as-is. */
+ * 2026-11-10). px + scoped border-box instead of app.css's verbatim
+ * 72rem: kata's :root is 14px (13px <=640) against the site's 16px, so
+ * rem resolved to 1008px here, and kata ships no global border-box, so
+ * content-box grew the cap by 64px — header insets then differed in
+ * and out of kata (user report 2026-11-11). 1152px = app.css's 72rem
+ * at the site root; box-sizing matches app.css's `*` rule, scoped to
+ * this one class so kata's own layout is untouched. */
 .wrap {
-  max-width: 72rem;
+  box-sizing: border-box;
+  max-width: 1152px;
   margin: 0 auto;
   padding-left: var(--space-lg);
   padding-right: var(--space-lg);
@@ -103,6 +110,34 @@
 
 .site-nav form {
   display: inline;
+}
+
+/* WHY: app.css styles the nav's classless Log out button through its
+ * element `button` block; element selectors must not ship to kata
+ * (they would restyle kata's own toolbars), so the same declarations
+ * are copied under `.site-nav` — identical fill/hover/active/disabled
+ * on site pages and the review surface (user report 2026-11-11). */
+.site-nav button {
+  font-family: var(--font-sans);
+  font-size: var(--text-label-md);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-on-accent);
+  background-color: var(--color-tertiary);
+  border: 0;
+  border-radius: var(--radius-md);
+  min-height: 40px;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+
+.site-nav button:hover {
+  background-color: var(--color-tertiary-hover);
+}
+
+.site-nav button:active {
+  background-color: var(--color-tertiary-pressed);
 }
 
 /* the logged-in nav links are bare <a>; scoped copy of app.css's global
@@ -197,8 +232,11 @@
   outline-offset: 2px;
 }
 
+/* disabled follows app.css's declarations (bg + color + cursor) so both
+ * surfaces read the same; the old opacity-only copy is gone */
 .site-nav button:disabled {
-  opacity: 0.6;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-secondary);
   cursor: not-allowed;
 }
 
