@@ -68,7 +68,7 @@ full preflight proves no regression.
 
 - HTTP-API provider profiles (deferred escape hatch), notices
   for registration flips (node-wide, not user-targeted),
-  in-app notification centre, mail templates beyond the four
+  in-app notification center, mail templates beyond the four
   notices + verification/reset.
 
 ## Risks

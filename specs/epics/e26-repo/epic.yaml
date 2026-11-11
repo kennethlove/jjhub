@@ -6,6 +6,6 @@ delta: ADDED
 stories:
   - id: e26s01
     title: "repo landing shell per specs/designs/repo.html with
-      pinned behaviours preserved"
+      pinned behaviors preserved"
     bcps: 3
     delta: ADDED

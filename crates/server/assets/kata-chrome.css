@@ -71,10 +71,29 @@
  * `.wrap` (user report 2026-11-11). Horizontal only: `.browse-root`
  * derives its height from a viewport calc, and kata's prose (`main`)
  * and review (`main.wide`) mains keep their own padding. --space-lg
- * is px, so kata's 14px root font cannot shift this gutter. */
+ * is px, so kata's 14px root font cannot shift this gutter.
+ *
+ * Frame color (follow-up report 2026-11-11: "still off on the
+ * sides, UI seems to cut off weirdly"): the panes paint two
+ * backgrounds — the log pane is transparent over body `--bg`, the
+ * detail pane is `--bg-panel` — so a body-colored gutter merged
+ * with the log pane on the left and read as a bright cut band on
+ * the right. `--bg-elevated` sits between the two, keeps both
+ * kernel pane colors untouched, and follows kata's light/dark
+ * arms through the theme aliases. */
 main.browse-main {
   padding-left: var(--space-lg);
   padding-right: var(--space-lg);
+  background: var(--bg-elevated);
+}
+
+/* WHY: with the frame painted, the transparent log column inherited
+ * it and the left gutter merged flat again (same "off on the sides"
+ * report, other edge). Re-anchor the column to `--bg` — kata's
+ * original body color under the log pane — so both edges now show a
+ * real step: frame, log, divider, detail, frame. */
+main.browse-main .log-pane {
+  background: var(--bg);
 }
 
 /* WHY: app.css's `.status` is a 20px status BADGE (inline-block,

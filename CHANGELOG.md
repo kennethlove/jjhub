@@ -294,7 +294,7 @@ stories across eight epics, plus the LICENSE, shipped as stacked PRs #38–#52.
 ### Added
 
 - **Design system** (#39, #45, #48): repo-root `DESIGN.md` as the single source
-  of design tokens (colour, type, spacing, radius, elevation); tokenised `app.css`
+  of design tokens (color, type, spacing, radius, elevation); tokenized `app.css`
   replacing ad-hoc values; an audit gate that blocks UI handoff until token
   coverage, APCA contrast, interaction states, and reduced-motion fallback pass
 - **Server-rendered Tera templates** (#39, #41, #42): page HTML moved out of Rust

@@ -10,7 +10,7 @@ affordance so the account-level path is the default.
 ## 2. Business value
 
 Closes the token-model epic: rotation is the answer to a leaked
-credential, and demoting the repo-page form fixes the mis-signalling
+credential, and demoting the repo-page form fixes the mis-signaling
 that per-repo minting was the normal way to get a token. Route and
 tests stay — one template change, no authz surgery.
 
