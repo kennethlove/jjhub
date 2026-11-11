@@ -284,6 +284,58 @@ mod origin_spa {
             css.contains("--space-lg"),
             "wrap padding token defined: {css}"
         );
+        // user report (2026-11-11): header insets differed in and out of
+        // kata — kata's :root is 14px/13px (site is 16px), so `72rem`
+        // resolved to 1008px there, and kata ships no global border-box,
+        // so content-box added another 64px. Pin the rule to px + a
+        // scoped box-sizing: equivalent geometry on both sides.
+        assert!(
+            css.contains("max-width: 1152px"),
+            "wrap cap in px (kata :root font-size differs): {css}"
+        );
+        assert!(
+            css.contains("box-sizing: border-box"),
+            "wrap box-sizing scoped (kata has no global rule): {css}"
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn chrome_sheet_styles_classless_nav_buttons(pool: sqlx::PgPool) {
+        // user report (2026-11-11): the nav's Log out button wore the
+        // green fill on site pages but rendered as bare text on the
+        // review surface. app.css styles it through its element
+        // `button` block, which must NOT ship to kata — the chrome
+        // sheet needs the same declarations under `.site-nav button`.
+        let root = tempfile::tempdir().unwrap();
+        let (upstream, _) =
+            spawn_mock_kata_reply("text/html; charset=utf-8", b"<html></html>").await;
+
+        let response = get(
+            &pool,
+            &root,
+            &upstream,
+            "/assets/kata-chrome.css",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let css = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(
+            css.contains(".site-nav button {"),
+            "scoped button block shipped: {css}"
+        );
+        assert!(
+            css.contains(".site-nav button:hover {"),
+            "scoped button hover shipped: {css}"
+        );
+        assert!(
+            css.contains(".site-nav button:disabled {"),
+            "scoped button disabled shipped: {css}"
+        );
     }
 
     #[sqlx::test(migrations = "./migrations")]
