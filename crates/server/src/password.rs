@@ -5,7 +5,7 @@ use argon2::password_hash::{
 use argon2::Argon2;
 
 // WHY: opt-in cost cut so CI test runs are not dominated by hashing;
-// unset keeps the RFC 9106 defaults, so production behaviour is
+// unset keeps the RFC 9106 defaults, so production behavior is
 // unchanged unless an operator deliberately sets it. Params travel
 // inside each PHC hash, so verification honors them per hash either way.
 pub(crate) fn hasher() -> Argon2<'static> {

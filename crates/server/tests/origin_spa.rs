@@ -338,6 +338,15 @@ mod origin_spa {
         );
     }
 
+    /// side padding + frame color: the kata browse surface needs a
+    /// gutter (user report 2026-11-11, "runs edge-to-edge"), and the
+    /// gutter must read as padding on BOTH sides. The panes paint two
+    /// different backgrounds (log pane transparent over body --bg,
+    /// detail pane --bg-panel), so a body-colored gutter merged with
+    /// the log pane on the left and showed as a bright cut band on the
+    /// right (follow-up report "still off on the sides, UI seems to
+    /// cut off weirdly"). Framing with --bg-elevated keeps kata's own
+    /// pane colors and gives one visible, theme-following margin.
     #[sqlx::test(migrations = "./migrations")]
     async fn chrome_sheet_pads_browse_surface_sides(pool: sqlx::PgPool) {
         // user report (2026-11-11): the kata browse surface runs
@@ -375,6 +384,18 @@ mod origin_spa {
         assert!(
             css.contains("padding-right: var(--space-lg);"),
             "right inset at the site gutter token: {css}"
+        );
+        assert!(
+            css.contains("background: var(--bg-elevated);"),
+            "gutter framed in the pane family color so both sides read as padding, never as a bright cut band: {css}"
+        );
+        assert!(
+            css.contains("main.browse-main .log-pane {"),
+            "log column re-anchored so the left edge shows a step, not a flat merge: {css}"
+        );
+        assert!(
+            css.contains("background: var(--bg);"),
+            "log column keeps kata's original body color: {css}"
         );
     }
 

@@ -1,6 +1,6 @@
 //! story: e26s01 — the approved repo landing shell from
 //! specs/designs/repo.html renders with its header, tabs, and split
-//! grid; pinned behaviours (clone snippet, token form) live inside it.
+//! grid; pinned behaviors (clone snippet, token form) live inside it.
 
 #[cfg(test)]
 mod repo_design {
