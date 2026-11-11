@@ -2,6 +2,37 @@
 
 All notable changes to jjhub. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.5] - 2026-11-11
+
+The repair cut: five review-surface fixes, from missing margins to
+a hard-clipped placeholder. The kata surface now carries the site
+gutter on every side — header chrome padded, browse surface
+inset, and both edges framed in a visible pane-family color —
+site navigation and buttons render through a scoped chrome sheet,
+paragraphs no longer collapse into word-per-line columns, and the
+revset placeholder ends in a deliberate ellipsis instead of a
+cut-off word. Repo prose and comments now spell in American
+English. Shipped as PRs #126–#130.
+
+### Fixed
+
+- **Review-surface header padding** (#126): the injected nav's
+  `.wrap` class had no definition in the chrome sheet, so the
+  header sat flush against the viewport edges
+- **Header chrome parity** (#127): site header colors, type and
+  spacing on the review surface now match the site pages instead
+  of looking native to the page under it
+- **Browse-surface padding and status paragraphs** (#128): the
+  kata browse surface gets the site gutter, and status paragraphs
+  render as normal text again
+- **Gutter frame on both edges** (#129): the side padding read as
+  a bright cut band against the detail pane and vanished into the
+  log pane; both edges now step through a frame color, with the
+  log column re-anchored to its original surface — plus the
+  repo-wide American spelling pass
+- **Log input placeholder truncation** (#130): the revset
+  placeholder clip ends in an ellipsis instead of a mid-word cut
+
 ## [0.9.0] - 2026-11-09
 
 The v0.9.0 build: the public face and the privacy hole, in one cut.
