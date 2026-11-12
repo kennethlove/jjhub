@@ -3,8 +3,9 @@
 # v0.10.0 cycle. version is a non-authoritative mirror; semantic-release
 # decides the real tag at merge (gh release view wins).
 # v0.9.0 epics (e38-e40) shipped; their capsules remain in specs/epics/.
+# v0.9.5 patch cut = the #126-#130 review-surface repair arc.
 
-version: "0.9.0"
+version: "0.9.5"
 status: ready
 workflow_mode: solo-git
 bump_hint: minor
